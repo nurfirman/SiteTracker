@@ -4,6 +4,9 @@ import { Category, Finding, FindingStatus, Project, Role, User } from "../types"
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
 import { generateTicketCode, calculateDueDate } from "./utils";
+import { setSession, getSession, destroySession, requireAuth, SessionData } from "./auth";
+import { sanitizeText } from "./security";
+import { validateImagePayload } from "./storage";
 import { revalidatePath } from "next/cache";
 
 // In-memory fallback state for immediate demo execution without active Neon DB connection
@@ -31,6 +34,27 @@ export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode:
     return { isConnected: false, mode: "In-Memory Simulation (Fallback)" };
   }
 }
+
+export async function loginUser(userId: string): Promise<{ success: boolean; session?: SessionData; message?: string }> {
+  const users = await getUsers();
+  const targetUser = users.find((u) => u.id === userId);
+  if (!targetUser) {
+    return { success: false, message: "User tidak ditemukan." };
+  }
+
+  const session = await setSession(targetUser);
+  return { success: true, session };
+}
+
+export async function logoutUser(): Promise<{ success: boolean }> {
+  await destroySession();
+  return { success: true };
+}
+
+export async function getCurrentUserSession(): Promise<SessionData | null> {
+  return await getSession();
+}
+
 
 
 export async function getProjects(): Promise<Project[]> {
@@ -273,6 +297,23 @@ export async function createFinding(payload: {
   photoFindingUrl: string;
 }): Promise<{ success: boolean; finding?: Finding; message?: string }> {
   try {
+    // 1. Sanitize text inputs against XSS
+    const cleanLocation = sanitizeText(payload.locationDetail);
+    const cleanDescription = sanitizeText(payload.description);
+
+    if (!cleanLocation || cleanLocation.length < 2) {
+      return { success: false, message: "Lokasi spesifik temuan harus diisi (minimal 2 karakter)." };
+    }
+    if (!cleanDescription || cleanDescription.length < 5) {
+      return { success: false, message: "Deskripsi temuan harus diisi (minimal 5 karakter)." };
+    }
+
+    // 2. Validate image payload size and format
+    const imgValidation = validateImagePayload(payload.photoFindingUrl);
+    if (!imgValidation.isValid) {
+      return { success: false, message: imgValidation.error || "Format gambar tidak valid." };
+    }
+
     const existing = await getFindings();
     const ticketCode = generateTicketCode(existing.length);
     const now = new Date();
@@ -286,10 +327,10 @@ export async function createFinding(payload: {
             projectId: payload.projectId,
             picId: payload.picId,
             reporterId: payload.reporterId,
-            locationDetail: payload.locationDetail,
-            coordinates: payload.coordinates || null,
+            locationDetail: cleanLocation,
+            coordinates: payload.coordinates ? sanitizeText(payload.coordinates) : null,
             category: payload.category,
-            description: payload.description,
+            description: cleanDescription,
             photoFindingUrl: payload.photoFindingUrl,
             status: "OPEN",
             createdAt: now,
@@ -370,6 +411,16 @@ export async function resolveFinding(payload: {
   photoResolutionUrl: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
+    const cleanResponse = sanitizeText(payload.picResponse);
+    if (!cleanResponse || cleanResponse.length < 5) {
+      return { success: false, message: "Keterangan tindakan perbaikan wajib diisi (minimal 5 karakter)." };
+    }
+
+    const imgValidation = validateImagePayload(payload.photoResolutionUrl);
+    if (!imgValidation.isValid) {
+      return { success: false, message: imgValidation.error || "Foto bukti perbaikan tidak valid." };
+    }
+
     const now = new Date();
     if (hasValidDatabaseUrl()) {
       try {
@@ -377,7 +428,7 @@ export async function resolveFinding(payload: {
           where: { id: payload.findingId },
           data: {
             status: "RESOLVED",
-            picResponse: payload.picResponse,
+            picResponse: cleanResponse,
             photoResolutionUrl: payload.photoResolutionUrl,
             resolvedAt: now,
             rejectionNote: null,
@@ -399,7 +450,7 @@ export async function resolveFinding(payload: {
       inMemoryFindings[index] = {
         ...inMemoryFindings[index],
         status: "RESOLVED",
-        picResponse: payload.picResponse,
+        picResponse: cleanResponse,
         photoResolutionUrl: payload.photoResolutionUrl,
         resolvedAt: now.toISOString(),
         rejectionNote: null,
@@ -422,6 +473,7 @@ export async function validateFinding(payload: {
   rejectionNote?: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
+    const cleanNote = payload.rejectionNote ? sanitizeText(payload.rejectionNote) : null;
     const now = new Date();
     const newStatus: FindingStatus = payload.action === "APPROVE" ? "CLOSED" : "OPEN";
 
@@ -434,8 +486,7 @@ export async function validateFinding(payload: {
             closedAt: payload.action === "APPROVE" ? now : null,
             rejectionNote:
               payload.action === "REJECT"
-                ? payload.rejectionNote ||
-                  "Perbaikan ditolak oleh PM. Mohon lakukan perbaikan ulang."
+                ? cleanNote || "Perbaikan ditolak oleh PM. Mohon lakukan perbaikan ulang."
                 : null,
           },
         });
@@ -458,7 +509,7 @@ export async function validateFinding(payload: {
         closedAt: payload.action === "APPROVE" ? now.toISOString() : null,
         rejectionNote:
           payload.action === "REJECT"
-            ? payload.rejectionNote || "Perbaikan ditolak oleh PM. Mohon perbaiki ulang."
+            ? cleanNote || "Perbaikan ditolak oleh PM. Mohon perbaiki ulang."
             : null,
       };
     }

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, Role } from "../types";
 import { MOCK_USERS } from "../lib/mockData";
+import { loginUser, getCurrentUserSession } from "../lib/actions";
 
 interface RoleContextType {
   currentUser: User;
@@ -16,18 +17,40 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User>(MOCK_USERS[0]);
 
-  // Load from localStorage if present
+  // Load from session or localStorage on mount
   useEffect(() => {
-    const savedUserId = localStorage.getItem("sitetracker_active_user_id");
-    if (savedUserId) {
-      const found = MOCK_USERS.find((u) => u.id === savedUserId);
-      if (found) setCurrentUser(found);
+    async function syncSession() {
+      try {
+        const session = await getCurrentUserSession();
+        if (session) {
+          const found = MOCK_USERS.find((u) => u.id === session.userId);
+          if (found) {
+            setCurrentUser(found);
+            return;
+          }
+        }
+        const savedUserId = localStorage.getItem("sitetracker_active_user_id");
+        if (savedUserId) {
+          const found = MOCK_USERS.find((u) => u.id === savedUserId);
+          if (found) {
+            setCurrentUser(found);
+            loginUser(found.id);
+          }
+        } else {
+          // Initialize default session
+          loginUser(MOCK_USERS[0].id);
+        }
+      } catch (err) {
+        console.warn("Session sync warning:", err);
+      }
     }
+    syncSession();
   }, []);
 
   const handleSetCurrentUser = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem("sitetracker_active_user_id", user.id);
+    loginUser(user.id).catch((e) => console.warn("Failed to set session cookie:", e));
   };
 
   const setRoleByEnum = (role: Role) => {

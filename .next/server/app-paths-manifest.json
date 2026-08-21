@@ -1,8 +1,3 @@
 {
-  "/page": "app/page.js",
-  "/findings/new/page": "app/findings/new/page.js",
-  "/pic/tasks/page": "app/pic/tasks/page.js",
-  "/findings/[id]/page": "app/findings/[id]/page.js",
-  "/landing/page": "app/landing/page.js",
-  "/findings/page": "app/findings/page.js"
+  "/page": "app/page.js"
 }

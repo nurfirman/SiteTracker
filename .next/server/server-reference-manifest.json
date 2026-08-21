@@ -1,150 +1,102 @@
 {
   "node": {
-    "4a320ea32af02ab3ebf53e64d96c823b303de359": {
+    "1ee33a4f3f3dd7a97fe9ec6dcceddfdede760f6d": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
+      }
+    },
+    "4a320ea32af02ab3ebf53e64d96c823b303de359": {
+      "workers": {
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/page": "action-browser"
       }
     },
     "4ce72fd77ac411c86ada4b59025bd7d1421b30d2": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "55474cc71dbda1d1870d0d59204b8178ff24a6bd": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "5bbee67086f779bdfa13e96b48ab2affc3a38c07": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "659236c118d3b8c6b98d50082f2fc97146108dbe": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "81ee1b221cb21354a4be7a15c6376f5b7ef80cbe": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "8765cc8ab47d58ffbaf640f9189e57a744d949d6": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
+      }
+    },
+    "95b2f12578a973c1a812e3e2a467cd9fae8aa97a": {
+      "workers": {
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/page": "action-browser"
+      }
+    },
+    "a2fe2e41e43aedc604aa11f69ec8a903de9d1687": {
+      "workers": {
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/page": "action-browser"
       }
     },
     "c1ad2c22d1783d9894f29d8c8dc1fa5eba2e8716": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     },
     "cdacb66a66ee79a32bdbe11947c10c7c41a1df2e": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/new/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/[id]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/pic/tasks/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!",
-        "app/findings/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CAntiGravity%5C%5CSiteTracker%5C%5Csrc%5C%5Clib%5C%5Cactions.ts%22%2C%5B%22logoutUser%22%2C%22resolveFinding%22%2C%22getProjects%22%2C%22getFindings%22%2C%22getUsers%22%2C%22seedDatabase%22%2C%22createFinding%22%2C%22validateFinding%22%2C%22getCurrentUserSession%22%2C%22loginUser%22%2C%22getFindingById%22%2C%22getDatabaseStatus%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/findings/new/page": "action-browser",
-        "app/findings/[id]/page": "action-browser",
-        "app/pic/tasks/page": "action-browser",
-        "app/findings/page": "action-browser"
+        "app/page": "action-browser"
       }
     }
   },
   "edge": {},
-  "encryptionKey": "E2tHdp8qW0ILKW3SRt+Yoptv7eoaIuBrlfAraThKQoY="
+  "encryptionKey": "ojUgELJQb0Sb+uMqOikvcxz0Cq1TTqcPX1c+AloWUsY="
 }
