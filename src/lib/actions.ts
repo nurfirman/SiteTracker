@@ -3,7 +3,7 @@
 import { Category, Finding, FindingStatus, Project, Role, User } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
-import { generateTicketCode } from "./utils";
+import { generateTicketCode, calculateDueDate } from "./utils";
 import { revalidatePath } from "next/cache";
 
 // In-memory fallback state for immediate demo execution without active Neon DB connection
@@ -18,6 +18,20 @@ function hasValidDatabaseUrl(): boolean {
       !process.env.DATABASE_URL.includes("your_password_here")
   );
 }
+
+export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode: string }> {
+  const hasUrl = hasValidDatabaseUrl();
+  if (!hasUrl) {
+    return { isConnected: false, mode: "In-Memory Simulation" };
+  }
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return { isConnected: true, mode: "Neon PostgreSQL Live" };
+  } catch (e) {
+    return { isConnected: false, mode: "In-Memory Simulation (Fallback)" };
+  }
+}
+
 
 export async function getProjects(): Promise<Project[]> {
   if (hasValidDatabaseUrl()) {
@@ -153,6 +167,7 @@ export async function getFindings(filters?: {
         photoResolutionUrl: f.photoResolutionUrl,
         rejectionNote: f.rejectionNote,
         createdAt: f.createdAt.toISOString(),
+        dueDate: f.dueDate ? f.dueDate.toISOString() : null,
         resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
         closedAt: f.closedAt ? f.closedAt.toISOString() : null,
       }));
@@ -233,6 +248,7 @@ export async function getFindingById(id: string): Promise<Finding | null> {
           photoResolutionUrl: f.photoResolutionUrl,
           rejectionNote: f.rejectionNote,
           createdAt: f.createdAt.toISOString(),
+          dueDate: f.dueDate ? f.dueDate.toISOString() : null,
           resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
           closedAt: f.closedAt ? f.closedAt.toISOString() : null,
         };
@@ -260,6 +276,7 @@ export async function createFinding(payload: {
     const existing = await getFindings();
     const ticketCode = generateTicketCode(existing.length);
     const now = new Date();
+    const dueDate = calculateDueDate(payload.category, now);
 
     if (hasValidDatabaseUrl()) {
       try {
@@ -276,6 +293,7 @@ export async function createFinding(payload: {
             photoFindingUrl: payload.photoFindingUrl,
             status: "OPEN",
             createdAt: now,
+            dueDate: dueDate,
           },
           include: { project: true, pic: true, reporter: true },
         });
@@ -302,6 +320,7 @@ export async function createFinding(payload: {
             photoFindingUrl: created.photoFindingUrl,
             status: created.status as FindingStatus,
             createdAt: created.createdAt.toISOString(),
+            dueDate: created.dueDate ? created.dueDate.toISOString() : null,
           },
         };
       } catch (dbErr: any) {
@@ -330,6 +349,7 @@ export async function createFinding(payload: {
       photoFindingUrl: payload.photoFindingUrl,
       status: "OPEN",
       createdAt: now.toISOString(),
+      dueDate: dueDate.toISOString(),
     };
 
     inMemoryFindings.unshift(newFinding);

@@ -23,7 +23,49 @@ export function formatDate(dateInput: string | Date | null | undefined): string 
 export function generateTicketCode(existingCount: number = 0): string {
   const year = new Date().getFullYear();
   const sequence = String(existingCount + 1).padStart(3, "0");
-  return `CMD-${year}-${sequence}`;
+  const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number to prevent race conditions
+  return `CMD-${year}-${sequence}-${randomSuffix}`;
+}
+
+export function calculateDueDate(category: string, createdAtDate: Date = new Date()): Date {
+  const due = new Date(createdAtDate.getTime());
+  // K3 Safety has strict 24-hour SLA; Quality & others get 48 hours
+  if (category === "K3_SAFETY") {
+    due.setHours(due.getHours() + 24);
+  } else {
+    due.setHours(due.getHours() + 48);
+  }
+  return due;
+}
+
+export function getSlaStatus(dueDateInput?: string | Date | null, status?: string) {
+  if (!dueDateInput || status === "CLOSED") {
+    return { label: "SLA OK", isOverdue: false, badgeClass: "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300" };
+  }
+
+  const dueDate = typeof dueDateInput === "string" ? new Date(dueDateInput) : dueDateInput;
+  const now = new Date();
+  const diffHours = Math.round((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60));
+
+  if (diffHours < 0) {
+    return {
+      label: `OVERDUE (${Math.abs(diffHours)}j lalu)`,
+      isOverdue: true,
+      badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950/80 dark:text-red-300 animate-pulse",
+    };
+  } else if (diffHours <= 12) {
+    return {
+      label: `SLA < ${diffHours}j lagi`,
+      isOverdue: false,
+      badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300",
+    };
+  } else {
+    return {
+      label: `SLA ${diffHours}j lagi`,
+      isOverdue: false,
+      badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300",
+    };
+  }
 }
 
 export function getStatusDetails(status: FindingStatus) {

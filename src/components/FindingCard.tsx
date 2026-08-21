@@ -4,8 +4,8 @@ import React from "react";
 import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
-import { formatDate } from "../lib/utils";
-import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare } from "lucide-react";
+import { formatDate, getSlaStatus } from "../lib/utils";
+import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock } from "lucide-react";
 import Link from "next/link";
 
 interface FindingCardProps {
@@ -21,15 +21,24 @@ export function FindingCard({
   onQuickResolve,
   currentUserRole,
 }: FindingCardProps) {
+  const sla = getSlaStatus(finding.dueDate, finding.status);
+
   return (
     <div className="group relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between">
       {/* Header Card */}
       <div className="p-5 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-bold rounded-lg tracking-wider">
             {finding.ticketCode}
           </span>
-          <StatusBadge status={finding.status} size="sm" />
+          <div className="flex items-center gap-1.5">
+            {finding.dueDate && (
+              <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 ${sla.badgeClass}`}>
+                <Clock size={11} /> {sla.label}
+              </span>
+            )}
+            <StatusBadge status={finding.status} size="sm" />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

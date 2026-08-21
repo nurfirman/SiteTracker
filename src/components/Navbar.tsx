@@ -12,6 +12,9 @@ import {
   LayoutDashboard,
   ClipboardList,
   Building2,
+  Sparkles,
+  FileText,
+  Database,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -20,6 +23,7 @@ export function Navbar() {
   const { currentUser } = useRole();
 
   const navItems = [
+    { href: "/landing", label: "Landing", icon: Sparkles },
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/findings/new", label: "Input Temuan", icon: PlusCircle, highlight: true },
     {
@@ -28,7 +32,8 @@ export function Navbar() {
       icon: CheckSquare,
       badgeRole: "PIC",
     },
-    { href: "/findings", label: "Semua Temuan", icon: ClipboardList },
+    { href: "/findings", label: "Temuan", icon: ClipboardList },
+    { href: "/reports", label: "Laporan PDF", icon: FileText },
     { href: "/projects", label: "Proyek", icon: Building2 },
   ];
 
@@ -77,8 +82,12 @@ export function Navbar() {
               })}
             </nav>
 
-            {/* Role Switcher Widget */}
-            <div className="flex items-center gap-3">
+            {/* Role Switcher Widget & DB Status Indicator */}
+            <div className="flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                <Database size={13} className="text-emerald-500 animate-pulse" />
+                <span>Simulasi DB Safe Mode</span>
+              </div>
               <RoleSwitcher />
             </div>
           </div>

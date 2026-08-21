@@ -81,6 +81,7 @@ export const MOCK_FINDINGS: Finding[] = [
     photoFindingUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80",
     status: "OPEN",
     createdAt: new Date("2026-08-20T09:15:00Z").toISOString(),
+    dueDate: new Date("2026-08-21T09:15:00Z").toISOString(),
   },
   {
     id: "find-2",
@@ -100,6 +101,7 @@ export const MOCK_FINDINGS: Finding[] = [
     picResponse: "Telah dilakukan chipping area retak, pengolesan bonding agent mortar epoxy, serta finishing ulang plesteran dan curing basah selama 3 hari.",
     photoResolutionUrl: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80",
     createdAt: new Date("2026-08-19T14:30:00Z").toISOString(),
+    dueDate: new Date("2026-08-21T14:30:00Z").toISOString(),
     resolvedAt: new Date("2026-08-20T11:00:00Z").toISOString(),
   },
   {
@@ -120,6 +122,7 @@ export const MOCK_FINDINGS: Finding[] = [
     picResponse: "Tim 5R proyek telah pembersihan total material kayu dan semen. Saluran kini lancar kembali dan disediakan dump bin khusus.",
     photoResolutionUrl: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?auto=format&fit=crop&w=800&q=80",
     createdAt: new Date("2026-08-18T08:00:00Z").toISOString(),
+    dueDate: new Date("2026-08-20T08:00:00Z").toISOString(),
     resolvedAt: new Date("2026-08-18T16:20:00Z").toISOString(),
     closedAt: new Date("2026-08-19T09:00:00Z").toISOString(),
   },
@@ -139,5 +142,6 @@ export const MOCK_FINDINGS: Finding[] = [
     photoFindingUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80",
     status: "OPEN",
     createdAt: new Date("2026-08-21T08:45:00Z").toISOString(),
+    dueDate: new Date("2026-08-23T08:45:00Z").toISOString(),
   },
 ];

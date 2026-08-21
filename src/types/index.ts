@@ -45,6 +45,7 @@ export interface Finding {
   photoResolutionUrl?: string | null;
   rejectionNote?: string | null;
   createdAt: string | Date;
+  dueDate?: string | Date | null;
   resolvedAt?: string | Date | null;
   closedAt?: string | Date | null;
 }

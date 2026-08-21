@@ -77,8 +77,14 @@ model Finding {
   photoResolutionUrl String?       @map("photo_resolution_url") @db.Text
   rejectionNote      String?       @map("rejection_note") @db.Text
   createdAt          DateTime      @default(now()) @map("created_at")
+  dueDate            DateTime?     @map("due_date")
   resolvedAt         DateTime?     @map("resolved_at")
   closedAt           DateTime?     @map("closed_at")
 
+  @@index([projectId])
+  @@index([picId])
+  @@index([status])
+  @@index([category])
   @@map("findings")
 }
+
