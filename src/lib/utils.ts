@@ -108,3 +108,57 @@ export function getStatusDetails(status: FindingStatus) {
       };
   }
 }
+
+export function exportFindingsToCsv(findings: any[], filename = "rekap_temuan_sitetracker.csv") {
+  const headers = [
+    "Kode Tiket",
+    "Proyek",
+    "Kategori",
+    "Lokasi Spesifik",
+    "Deskripsi Temuan",
+    "PIC Penanggung Jawab",
+    "Pelapor (CMD)",
+    "Status",
+    "Tanggal Dibuat",
+    "Due Date SLA",
+    "Respon PIC",
+    "Tanggal Selesai",
+    "Catatan Rejection PM"
+  ];
+
+  const escapeCsv = (str: any) => {
+    if (str === null || str === undefined) return '""';
+    const s = String(str).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = findings.map((f) => [
+    escapeCsv(f.ticketCode),
+    escapeCsv(f.project?.name || f.projectId),
+    escapeCsv(f.category),
+    escapeCsv(f.locationDetail),
+    escapeCsv(f.description),
+    escapeCsv(f.pic?.name || f.picId),
+    escapeCsv(f.reporter?.name || f.reporterId),
+    escapeCsv(f.status),
+    escapeCsv(f.createdAt),
+    escapeCsv(f.dueDate),
+    escapeCsv(f.picResponse),
+    escapeCsv(f.resolvedAt),
+    escapeCsv(f.rejectionNote)
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((r) => r.join(","))
+  ].join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}

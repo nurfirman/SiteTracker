@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { RoleProvider } from "@/components/RoleContext";
-import { Navbar } from "@/components/Navbar";
+import { AppLayoutShell } from "@/components/AppLayoutShell";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,9 +10,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SiteTracker CMD - Sistem Pencatatan Patroli & Pelacakan Temuan",
+  title: "SiteTracker CMD - Sistem Patroli & Pelacakan Temuan Konstruksi",
   description:
-    "Aplikasi pencatatan patroli lapangan, pelacakan temuan K3 & Kualitas, dan validasi perbaikan konstruksi.",
+    "Aplikasi manajemen patroli konstruksi, pelacakan temuan K3 & Kualitas, serta validasi perbaikan Side-by-Side.",
 };
 
 export default function RootLayout({
@@ -22,12 +22,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className={`${inter.variable}`}>
-      <body className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased pb-20 md:pb-8">
+      <body className="min-h-screen bg-slate-950 font-sans antialiased selection:bg-yellow-500 selection:text-slate-950">
         <RoleProvider>
-          <Navbar />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {children}
-          </main>
+          <AppLayoutShell>{children}</AppLayoutShell>
         </RoleProvider>
       </body>
     </html>

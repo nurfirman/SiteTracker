@@ -3,21 +3,23 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, Role, ROLE_LABELS } from "@/types";
-import { getUsers, loginUser, getCurrentUserSession } from "@/lib/actions";
+import { getUsers, loginUser } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import {
   HardHat,
-  ShieldCheck,
-  Building2,
-  Users,
-  CheckCircle2,
-  ArrowRight,
-  Sparkles,
   Lock,
-  UserCheck,
+  Mail,
+  ArrowRight,
   Eye,
+  EyeOff,
+  AlertCircle,
   KeyRound,
-  ShieldAlert,
+  Building2,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  Info,
+  Layers,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -25,14 +27,23 @@ export default function LoginPage() {
   const { setCurrentUser } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+
+  // Form State
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         const uList = await getUsers();
         setUsers(uList);
+        if (uList.length > 0) {
+          setEmailInput(uList[0].email);
+          setPasswordInput(uList[0].password || "admin");
+        }
       } catch (e) {
         console.error("Gagal memuat pengguna:", e);
       } finally {
@@ -42,110 +53,231 @@ export default function LoginPage() {
     load();
   }, []);
 
-  const handleSelectPersona = async (user: User) => {
-    setSubmittingId(user.id);
-    setMessage(null);
+  const handleManualLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!emailInput.trim()) {
+      setErrorMessage("Mohon masukkan email atau username akun.");
+      return;
+    }
+    if (!passwordInput.trim()) {
+      setErrorMessage("Mohon masukkan password akun.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const res = await loginUser(user.id);
+      const res = await loginUser(emailInput.trim(), passwordInput.trim());
+      if (res.success && res.session) {
+        const targetUser = users.find((u) => u.id === res.session!.userId) || users[0];
+        setCurrentUser(targetUser);
+        router.push("/");
+        router.refresh();
+      } else {
+        setErrorMessage(res.message || "Email atau password salah.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Terjadi kesalahan saat verifikasi login.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleQuickPersonaSelect = async (user: User) => {
+    const pwd = user.password || (user.role === "ADMIN" ? "admin" : "123");
+    setEmailInput(user.email);
+    setPasswordInput(pwd);
+    setErrorMessage(null);
+    setSubmitting(true);
+
+    try {
+      const res = await loginUser(user.id, pwd);
       if (res.success) {
         setCurrentUser(user);
         router.push("/");
         router.refresh();
       } else {
-        setMessage(res.message || "Gagal masuk sesi.");
+        setErrorMessage(res.message || "Gagal masuk sesi.");
       }
     } catch (err: any) {
-      setMessage(err.message || "Terjadi kesalahan saat login.");
+      setErrorMessage(err.message || "Terjadi kesalahan saat login.");
     } finally {
-      setSubmittingId(null);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-yellow-500 selection:text-slate-950">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl text-center space-y-4">
-        <div className="inline-flex items-center justify-center p-3.5 bg-yellow-500 text-slate-950 rounded-3xl shadow-xl shadow-yellow-500/20 mb-2">
-          <HardHat size={36} strokeWidth={2.5} />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between py-8 px-4 sm:px-6 lg:px-12 font-sans selection:bg-yellow-500 selection:text-slate-950">
+      {/* Brand Header */}
+      <div className="w-full max-w-5xl mx-auto text-center space-y-3 pt-4">
+        <div className="inline-flex items-center justify-center p-3 bg-yellow-500 text-slate-950 rounded-2xl shadow-xl shadow-yellow-500/20">
+          <HardHat size={32} strokeWidth={2.5} />
         </div>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-          Portal Masuk <span className="text-yellow-500">SiteTracker CMD</span>
+          SiteTracker <span className="text-yellow-500">CMD</span>
         </h1>
-        <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-          Pilih Persona Akun Demo di bawah ini untuk mengakses dashboard dengan hak akses & alur kerja terautentikasi (Server Session).
+        <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
+          Platform Terpadu Pengawasan K3 (ISO 45001) & Pelacakan Temuan Kualitas Fisik Proyek Konstruksi
         </p>
-
-        {message && (
-          <div className="p-4 bg-red-950/60 border border-red-800 text-red-300 text-xs font-bold rounded-2xl">
-            {message}
-          </div>
-        )}
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-3xl">
-        <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl space-y-6">
+      {/* Main Content Grid: Login Form & Persona Quick Select */}
+      <div className="w-full max-w-5xl mx-auto my-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Direct Login Card */}
+        <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <span className="text-xs font-black uppercase tracking-wider text-yellow-500 flex items-center gap-2">
-              <KeyRound size={16} /> Persona Akun Terdaftar
+              <Lock size={15} /> Masuk Akun Pengguna
             </span>
-            <span className="text-[11px] font-bold text-slate-400">
-              Multi-Role Security Enabled
+            <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+              <ShieldCheck size={13} /> HMAC Encrypted
             </span>
           </div>
 
+          {errorMessage && (
+            <div className="p-3.5 bg-red-950/80 border border-red-800 text-red-300 text-xs font-bold rounded-2xl flex items-center gap-2.5 animate-in fade-in duration-200">
+              <AlertCircle size={18} className="shrink-0 text-red-400" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleManualLogin} className="space-y-4">
+            {/* Username / Email Input */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-300">
+                Email / Username Akun <span className="text-yellow-500">*</span>
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
+                <input
+                  type="text"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="admin@sitetracker.id atau nama@sitetracker.id"
+                  required
+                  className="w-full pl-12 pr-4 py-3.5 min-h-[48px] text-sm rounded-2xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Password Input with Toggle */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-300">
+                  Password <span className="text-yellow-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-400 font-semibold">
+                  Demo: <code className="text-yellow-400 font-mono">admin</code> / <code className="text-yellow-400 font-mono">123</code>
+                </span>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Masukkan password akun"
+                  required
+                  className="w-full pl-12 pr-12 py-3.5 min-h-[48px] text-sm rounded-2xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-yellow-500 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300 min-h-[24px] min-w-[24px]"
+                  aria-label="Toggle Password Visibility"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 min-h-[50px] bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-yellow-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              <span>{submitting ? "Memverifikasi Kredensial..." : "Masuk ke Dashboard"}</span>
+              <ArrowRight size={18} />
+            </button>
+          </form>
+
+          {/* Security footnote */}
+          <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
+            <Info size={16} className="text-yellow-500 shrink-0 mt-0.5" />
+            <p>
+              Sesi terenkripsi secara aman. Akses fitur secara otomatis disesuaikan dengan matriks wewenang peran (RBAC) pengguna.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Column: 1-Click Quick Fill & Persona Demo */}
+        <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800/80 p-6 rounded-3xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <span className="text-xs font-black uppercase text-slate-300 flex items-center gap-1.5">
+              <KeyRound size={15} className="text-yellow-500" /> Pilih Cepat Akun Demo (1-Click)
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold">5 Peran Teruji</span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Pilih salah satu profil untuk menguji tampilan dan fitur khusus tiap peran di lapangan:
+          </p>
+
           {loading ? (
-            <div className="py-12 text-center text-slate-400 font-bold">Memuat daftar akun...</div>
+            <div className="py-8 text-center text-xs text-slate-500">Memuat profil persona...</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {users.map((user) => {
-                const roleConfig = ROLE_LABELS[user.role];
-                const isSubmitting = submittingId === user.id;
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {users.map((u) => {
+                const roleConfig = ROLE_LABELS[u.role] || { label: u.role, badgeClass: "bg-slate-800 text-slate-300" };
+                const isSelected = emailInput === u.email;
 
                 return (
                   <button
-                    key={user.id}
-                    onClick={() => handleSelectPersona(user)}
-                    disabled={Boolean(submittingId)}
-                    className="text-left p-5 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-yellow-500/70 hover:bg-slate-800/60 transition-all duration-200 flex flex-col justify-between group relative overflow-hidden"
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleQuickPersonaSelect(u)}
+                    className={`text-left p-3.5 rounded-2xl border transition-all flex flex-col justify-between group ${
+                      isSelected
+                        ? "bg-slate-800 border-yellow-500/80 shadow-lg ring-1 ring-yellow-500/50"
+                        : "bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/50"
+                    }`}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${roleConfig.badgeClass}`}>
-                          {user.role}
-                        </span>
-                        <span className="text-[11px] text-slate-500 group-hover:text-yellow-400 transition-colors flex items-center gap-1 font-bold">
-                          {isSubmitting ? "Masuk..." : "Masuk"} <ArrowRight size={13} />
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${roleConfig.badgeClass}`}>
+                        {u.role}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        pwd: {u.password || (u.role === "ADMIN" ? "admin" : "123")}
+                      </span>
+                    </div>
 
-                      <h3 className="text-base font-black text-white group-hover:text-yellow-400 transition-colors">
-                        {user.name}
-                      </h3>
-
-                      <p className="text-xs text-slate-400 font-medium leading-relaxed line-clamp-2">
-                        {roleConfig.description}
+                    <div>
+                      <p className="font-bold text-xs text-white group-hover:text-yellow-400 transition-colors truncate">
+                        {u.name}
                       </p>
-
-                      {user.project && (
-                        <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 pt-1">
-                          <Building2 size={12} className="text-slate-400" /> {user.project.name}
-                        </p>
-                      )}
+                      <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                      <span>{user.email}</span>
-                      <span className="font-mono text-slate-400">{user.phoneNumber}</span>
-                    </div>
+                    {u.project && (
+                      <p className="text-[10px] text-purple-300 font-semibold flex items-center gap-1 pt-2 truncate border-t border-slate-800/60 mt-2">
+                        <Building2 size={11} className="shrink-0 text-purple-400" />
+                        <span className="truncate">{u.project.name}</span>
+                      </p>
+                    )}
                   </button>
                 );
               })}
             </div>
           )}
-
-          <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1">
-            <p>🔒 Autentikasi menggunakan HTTP-Only Cookie Session yang terverifikasi di Next.js Server Actions.</p>
-          </div>
         </div>
+      </div>
+
+      {/* Footer System Info */}
+      <div className="w-full max-w-5xl mx-auto text-center py-4 border-t border-slate-800/60 text-[11px] text-slate-500 space-y-1">
+        <p>SiteTracker CMD © 2026 — Sistem Digitalisasi Kepatuhan & Mutu Konstruksi</p>
+        <p className="text-[10px] text-slate-600">Terstandarisasi ISO 45001 (K3) & ISO 9001 (Manajemen Mutu)</p>
       </div>
     </div>
   );

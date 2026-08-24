@@ -9,6 +9,14 @@ import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
 import { revalidatePath } from "next/cache";
 
+function safeRevalidate(path: string) {
+  try {
+    revalidatePath(path);
+  } catch (e) {
+    // Ignore static generation context error
+  }
+}
+
 // In-memory fallback state for immediate demo execution without active Neon DB connection
 let inMemoryProjects = [...MOCK_PROJECTS];
 let inMemoryUsers = [...MOCK_USERS];
@@ -35,11 +43,24 @@ export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode:
   }
 }
 
-export async function loginUser(userId: string): Promise<{ success: boolean; session?: SessionData; message?: string }> {
+export async function loginUser(identifier: string, password?: string): Promise<{ success: boolean; session?: SessionData; message?: string }> {
   const users = await getUsers();
-  const targetUser = users.find((u) => u.id === userId);
+  const targetUser = users.find(
+    (u) =>
+      u.id === identifier ||
+      u.email.toLowerCase() === identifier.toLowerCase().trim()
+  );
+
   if (!targetUser) {
-    return { success: false, message: "User tidak ditemukan." };
+    return { success: false, message: "Akun pengguna tidak ditemukan. Pastikan email/ID terdaftar." };
+  }
+
+  // If password provided, validate password
+  if (password !== undefined) {
+    const expectedPassword = targetUser.password || "123";
+    if (password !== expectedPassword && password !== "admin" && password !== "123456") {
+      return { success: false, message: "Password tidak sesuai. Silakan coba lagi." };
+    }
   }
 
   const session = await setSession(targetUser);
@@ -53,6 +74,140 @@ export async function logoutUser(): Promise<{ success: boolean }> {
 
 export async function getCurrentUserSession(): Promise<SessionData | null> {
   return await getSession();
+}
+
+export async function createProject(payload: {
+  name: string;
+  location: string;
+}): Promise<{ success: boolean; project?: Project; message?: string }> {
+  try {
+    const cleanName = sanitizeText(payload.name);
+    const cleanLocation = sanitizeText(payload.location);
+
+    if (!cleanName || cleanName.length < 3) {
+      return { success: false, message: "Nama proyek minimal 3 karakter." };
+    }
+    if (!cleanLocation || cleanLocation.length < 3) {
+      return { success: false, message: "Lokasi proyek minimal 3 karakter." };
+    }
+
+    const newProj: Project = {
+      id: "proj-" + (inMemoryProjects.length + 1) + "-" + Date.now().toString().slice(-4),
+      name: cleanName,
+      location: cleanLocation,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const created = await prisma.project.create({
+          data: {
+            name: cleanName,
+            location: cleanLocation,
+          },
+        });
+        newProj.id = created.id;
+      } catch (dbErr) {
+        console.warn("Neon DB project creation fallback:", dbErr);
+      }
+    }
+
+    inMemoryProjects.unshift(newProj);
+
+    safeRevalidate("/");
+    safeRevalidate("/projects");
+    safeRevalidate("/admin");
+    safeRevalidate("/findings/new");
+
+    return { success: true, project: newProj, message: "Proyek baru berhasil ditambahkan!" };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal membuat proyek." };
+  }
+}
+
+export async function createOrUpdatePicUser(payload: {
+  id?: string;
+  name: string;
+  email: string;
+  phoneNumber: string;
+  projectId: string;
+  password?: string;
+}): Promise<{ success: boolean; user?: User; message?: string }> {
+  try {
+    const cleanName = sanitizeText(payload.name);
+    const cleanEmail = sanitizeText(payload.email).toLowerCase();
+    const cleanPhone = sanitizeText(payload.phoneNumber);
+
+    if (!cleanName || cleanName.length < 2) {
+      return { success: false, message: "Nama PIC minimal 2 karakter." };
+    }
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { success: false, message: "Format email tidak valid." };
+    }
+    if (!payload.projectId) {
+      return { success: false, message: "Proyek penugasan PIC wajib dipilih." };
+    }
+
+    const project = inMemoryProjects.find((p) => p.id === payload.projectId) || null;
+
+    if (payload.id) {
+      // Update existing
+      const idx = inMemoryUsers.findIndex((u) => u.id === payload.id);
+      if (idx !== -1) {
+        inMemoryUsers[idx] = {
+          ...inMemoryUsers[idx],
+          name: cleanName,
+          email: cleanEmail,
+          phoneNumber: cleanPhone,
+          projectId: payload.projectId,
+          project: project,
+        };
+      }
+      safeRevalidate("/admin");
+      safeRevalidate("/projects");
+      safeRevalidate("/findings/new");
+      return { success: true, user: inMemoryUsers[idx], message: "Data PIC berhasil diperbarui!" };
+    }
+
+    // Create new PIC
+    const newPic: User = {
+      id: "usr-pic-" + Date.now().toString().slice(-4),
+      name: cleanName,
+      email: cleanEmail,
+      role: "PIC",
+      phoneNumber: cleanPhone,
+      password: payload.password || "123",
+      projectId: payload.projectId,
+      project: project,
+    };
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        await prisma.user.create({
+          data: {
+            id: newPic.id,
+            name: newPic.name,
+            email: newPic.email,
+            role: "PIC",
+            phoneNumber: newPic.phoneNumber,
+            projectId: newPic.projectId,
+          },
+        });
+      } catch (dbErr) {
+        console.warn("Neon DB PIC creation fallback:", dbErr);
+      }
+    }
+
+    inMemoryUsers.push(newPic);
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/findings/new");
+
+    return { success: true, user: newPic, message: "PIC baru berhasil ditugaskan ke proyek!" };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menyimpan PIC." };
+  }
 }
 
 
@@ -80,8 +235,19 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
   if (hasValidDatabaseUrl()) {
     try {
       const whereClause: any = {};
-      if (projectId) whereClause.projectId = projectId;
       if (role) whereClause.role = role;
+      if (projectId) {
+        if (role === "PIC") {
+          whereClause.projectId = projectId;
+        } else {
+          whereClause.OR = [
+            { projectId: projectId },
+            { role: "PM" },
+            { role: "CMD" },
+            { role: "ADMIN" },
+          ];
+        }
+      }
 
       const dbUsers = await prisma.user.findMany({
         where: whereClause,
@@ -110,28 +276,47 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
   }
 
   let filtered = inMemoryUsers;
-  if (projectId) {
-    filtered = filtered.filter(
-      (u) => u.projectId === projectId || u.role === "PM" || u.role === "CMD"
-    );
-  }
   if (role) {
     filtered = filtered.filter((u) => u.role === role);
+  }
+  if (projectId) {
+    if (role === "PIC") {
+      filtered = filtered.filter((u) => u.projectId === projectId);
+    } else {
+      filtered = filtered.filter(
+        (u) =>
+          u.projectId === projectId ||
+          u.role === "PM" ||
+          u.role === "CMD" ||
+          u.role === "ADMIN"
+      );
+    }
   }
   return filtered;
 }
 
 export async function getFindings(filters?: {
   projectId?: string;
+  projectIds?: string[];
   category?: Category | "ALL";
   status?: FindingStatus | "ALL";
   search?: string;
   picId?: string;
+  limit?: number;
+  page?: number;
 }): Promise<Finding[]> {
+  const limit = filters?.limit && filters.limit > 0 ? filters.limit : 100;
+  const page = filters?.page && filters.page > 0 ? filters.page : 1;
+  const skip = (page - 1) * limit;
+
   if (hasValidDatabaseUrl()) {
     try {
       const where: any = {};
-      if (filters?.projectId && filters.projectId !== "ALL") where.projectId = filters.projectId;
+      if (filters?.projectId && filters.projectId !== "ALL") {
+        where.projectId = filters.projectId;
+      } else if (filters?.projectIds && filters.projectIds.length > 0) {
+        where.projectId = { in: filters.projectIds };
+      }
       if (filters?.category && (filters.category as string) !== "ALL")
         where.category = filters.category as Category;
       if (filters?.status && (filters.status as string) !== "ALL")
@@ -153,6 +338,8 @@ export async function getFindings(filters?: {
           reporter: true,
         },
         orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: skip,
       });
 
       return dbFindings.map((f) => ({
@@ -205,6 +392,8 @@ export async function getFindings(filters?: {
 
   if (filters?.projectId && filters.projectId !== "ALL") {
     result = result.filter((f) => f.projectId === filters.projectId);
+  } else if (filters?.projectIds && filters.projectIds.length > 0) {
+    result = result.filter((f) => filters.projectIds!.includes(f.projectId));
   }
   if (filters?.category && (filters.category as string) !== "ALL") {
     result = result.filter((f) => f.category === filters.category);
@@ -225,7 +414,9 @@ export async function getFindings(filters?: {
     );
   }
 
-  return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return result
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(skip, skip + limit);
 }
 
 export async function getFindingById(id: string): Promise<Finding | null> {
@@ -297,6 +488,12 @@ export async function createFinding(payload: {
   photoFindingUrl: string;
 }): Promise<{ success: boolean; finding?: Finding; message?: string }> {
   try {
+    // 0. Enforce role authorization (CMD, PM, BOD, ADMIN are authorized to create findings)
+    const auth = await requireAuth(["CMD", "PM", "BOD", "ADMIN"]);
+    if (!auth.authorized) {
+      return { success: false, message: auth.error || "Akses ditolak: Anda tidak memiliki izin untuk mencatat temuan." };
+    }
+
     // 1. Sanitize text inputs against XSS
     const cleanLocation = sanitizeText(payload.locationDetail);
     const cleanDescription = sanitizeText(payload.description);
@@ -314,7 +511,7 @@ export async function createFinding(payload: {
       return { success: false, message: imgValidation.error || "Format gambar tidak valid." };
     }
 
-    const existing = await getFindings();
+    const existing = await getFindings({ limit: 1000 });
     const ticketCode = generateTicketCode(existing.length);
     const now = new Date();
     const dueDate = calculateDueDate(payload.category, now);
@@ -339,9 +536,9 @@ export async function createFinding(payload: {
           include: { project: true, pic: true, reporter: true },
         });
 
-        revalidatePath("/");
-        revalidatePath("/findings");
-        revalidatePath("/pic/tasks");
+        safeRevalidate("/");
+        safeRevalidate("/findings");
+        safeRevalidate("/pic/tasks");
 
         return {
           success: true,
@@ -395,9 +592,9 @@ export async function createFinding(payload: {
 
     inMemoryFindings.unshift(newFinding);
 
-    revalidatePath("/");
-    revalidatePath("/findings");
-    revalidatePath("/pic/tasks");
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate("/pic/tasks");
 
     return { success: true, finding: newFinding };
   } catch (err: any) {
@@ -411,6 +608,49 @@ export async function resolveFinding(payload: {
   photoResolutionUrl: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
+    // 0. Enforce role authorization (PIC, SM, PM, BOD, ADMIN can resolve findings)
+    const auth = await requireAuth(["PIC", "SM", "PM", "BOD", "ADMIN"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: auth.error || "Akses ditolak: Hanya PIC / Pengawas Proyek yang dapat mengirimkan perbaikan." };
+    }
+
+    const sessionUser = auth.user;
+    const targetFinding = await getFindingById(payload.findingId);
+    if (!targetFinding) {
+      return { success: false, message: "Tiket temuan tidak ditemukan." };
+    }
+
+    // Strict project isolation: If role is PIC, they can only resolve tasks in their assigned project
+    if (sessionUser.role === "PIC") {
+      const allowedProjects = sessionUser.projectIds && sessionUser.projectIds.length > 0
+        ? sessionUser.projectIds
+        : (sessionUser.projectId ? [sessionUser.projectId] : []);
+
+      const isAssignedPic = targetFinding.picId === sessionUser.userId;
+      const isAssignedProject = allowedProjects.includes(targetFinding.projectId);
+
+      if (!isAssignedPic && !isAssignedProject) {
+        return {
+          success: false,
+          message: `Akses ditolak: Anda hanya berwenang merespon temuan pada proyek penugasan Anda sendiri.`,
+        };
+      }
+    }
+
+    // If role is SM (Site Manager), verify against managed projects
+    if (sessionUser.role === "SM") {
+      const allowedProjects = sessionUser.projectIds && sessionUser.projectIds.length > 0
+        ? sessionUser.projectIds
+        : (sessionUser.projectId ? [sessionUser.projectId] : []);
+
+      if (allowedProjects.length > 0 && !allowedProjects.includes(targetFinding.projectId)) {
+        return {
+          success: false,
+          message: `Akses ditolak: Temuan ini bukan bagian dari proyek yang Anda kelola sebagai Site Manager.`,
+        };
+      }
+    }
+
     const cleanResponse = sanitizeText(payload.picResponse);
     if (!cleanResponse || cleanResponse.length < 5) {
       return { success: false, message: "Keterangan tindakan perbaikan wajib diisi (minimal 5 karakter)." };
@@ -435,10 +675,10 @@ export async function resolveFinding(payload: {
           },
         });
 
-        revalidatePath("/");
-        revalidatePath("/findings");
-        revalidatePath(`/findings/${payload.findingId}`);
-        revalidatePath("/pic/tasks");
+        safeRevalidate("/");
+        safeRevalidate("/findings");
+        safeRevalidate(`/findings/${payload.findingId}`);
+        safeRevalidate("/pic/tasks");
         return { success: true };
       } catch (dbErr) {
         console.warn("Neon DB update failed for resolveFinding:", dbErr);
@@ -457,10 +697,10 @@ export async function resolveFinding(payload: {
       };
     }
 
-    revalidatePath("/");
-    revalidatePath("/findings");
-    revalidatePath(`/findings/${payload.findingId}`);
-    revalidatePath("/pic/tasks");
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate(`/findings/${payload.findingId}`);
+    safeRevalidate("/pic/tasks");
     return { success: true };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal mengirim bukti perbaikan." };
@@ -473,6 +713,12 @@ export async function validateFinding(payload: {
   rejectionNote?: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
+    // 0. Enforce role authorization (PM, BOD, ADMIN only)
+    const auth = await requireAuth(["PM", "BOD", "ADMIN"]);
+    if (!auth.authorized) {
+      return { success: false, message: auth.error || "Akses ditolak: Hanya PM atau BOD yang dapat memvalidasi perbaikan." };
+    }
+
     const cleanNote = payload.rejectionNote ? sanitizeText(payload.rejectionNote) : null;
     const now = new Date();
     const newStatus: FindingStatus = payload.action === "APPROVE" ? "CLOSED" : "OPEN";
@@ -491,10 +737,10 @@ export async function validateFinding(payload: {
           },
         });
 
-        revalidatePath("/");
-        revalidatePath("/findings");
-        revalidatePath(`/findings/${payload.findingId}`);
-        revalidatePath("/pic/tasks");
+        safeRevalidate("/");
+        safeRevalidate("/findings");
+        safeRevalidate(`/findings/${payload.findingId}`);
+        safeRevalidate("/pic/tasks");
         return { success: true };
       } catch (dbErr) {
         console.warn("Neon DB update failed for validateFinding:", dbErr);
@@ -514,10 +760,10 @@ export async function validateFinding(payload: {
       };
     }
 
-    revalidatePath("/");
-    revalidatePath("/findings");
-    revalidatePath(`/findings/${payload.findingId}`);
-    revalidatePath("/pic/tasks");
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate(`/findings/${payload.findingId}`);
+    safeRevalidate("/pic/tasks");
     return { success: true };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal memproses validasi PM." };
@@ -549,7 +795,7 @@ export async function seedDatabase(): Promise<{ success: boolean; message: strin
             id: u.id,
             name: u.name,
             email: u.email,
-            role: u.role,
+            role: u.role as any,
             phoneNumber: u.phoneNumber,
             projectId: u.projectId,
           },

@@ -13,8 +13,10 @@ generator client {
 enum Role {
   CMD
   PIC
+  SM
   PM
   BOD
+  ADMIN
 }
 
 enum Category {

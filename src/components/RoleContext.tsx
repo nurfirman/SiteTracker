@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, Role } from "../types";
 import { MOCK_USERS } from "../lib/mockData";
-import { loginUser, getCurrentUserSession } from "../lib/actions";
+import { getUsers, loginUser, getCurrentUserSession } from "../lib/actions";
 
 interface RoleContextType {
   currentUser: User;
@@ -15,15 +15,21 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
+  const [availableUsers, setAvailableUsers] = useState<User[]>(MOCK_USERS);
   const [currentUser, setCurrentUser] = useState<User>(MOCK_USERS[0]);
 
   // Load from session or localStorage on mount
   useEffect(() => {
     async function syncSession() {
       try {
+        const uList: User[] = await getUsers();
+        if (uList && uList.length > 0) {
+          setAvailableUsers(uList);
+        }
+
         const session = await getCurrentUserSession();
         if (session) {
-          const found = MOCK_USERS.find((u) => u.id === session.userId);
+          const found = (uList || []).find((u: User) => u.id === session.userId) || MOCK_USERS.find((u) => u.id === session.userId);
           if (found) {
             setCurrentUser(found);
             return;
@@ -31,14 +37,17 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         }
         const savedUserId = localStorage.getItem("sitetracker_active_user_id");
         if (savedUserId) {
-          const found = MOCK_USERS.find((u) => u.id === savedUserId);
+          const found = (uList || []).find((u: User) => u.id === savedUserId) || MOCK_USERS.find((u) => u.id === savedUserId);
           if (found) {
             setCurrentUser(found);
             loginUser(found.id);
           }
         } else {
           // Initialize default session
-          loginUser(MOCK_USERS[0].id);
+          if (uList.length > 0) {
+            setCurrentUser(uList[0]);
+            loginUser(uList[0].id);
+          }
         }
       } catch (err) {
         console.warn("Session sync warning:", err);
@@ -54,7 +63,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setRoleByEnum = (role: Role) => {
-    const found = MOCK_USERS.find((u) => u.role === role);
+    const found = availableUsers.find((u) => u.role === role) || MOCK_USERS.find((u) => u.role === role);
     if (found) {
       handleSetCurrentUser(found);
     }
@@ -65,7 +74,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUser,
         setCurrentUser: handleSetCurrentUser,
-        availableUsers: MOCK_USERS,
+        availableUsers,
         setRoleByEnum,
       }}
     >

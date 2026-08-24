@@ -58,8 +58,16 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (currentUser.role === "PIC" && currentUser.projectId) {
+      setSelectedProject(currentUser.projectId);
+    } else {
+      setSelectedProject("ALL");
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     loadData();
-  }, [selectedProject, selectedCategory, selectedStatus]);
+  }, [selectedProject, selectedCategory, selectedStatus, currentUser]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,18 +82,38 @@ export default function DashboardPage() {
 
   const resolvedForValidation = findings.filter((f) => f.status === "RESOLVED");
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const handleApproveFinding = async (findingId: string) => {
-    await validateFinding({ findingId, action: "APPROVE" });
+    const res = await validateFinding({ findingId, action: "APPROVE" });
+    if (res.success) {
+      showToast("✅ Berhasil menyetujui perbaikan! Status tiket CLOSED.");
+    }
     loadData();
   };
 
   const handleRejectFinding = async (findingId: string, note: string) => {
-    await validateFinding({ findingId, action: "REJECT", rejectionNote: note });
+    const res = await validateFinding({ findingId, action: "REJECT", rejectionNote: note });
+    if (res.success) {
+      showToast("⚠️ Perbaikan ditolak dan dikembalikan ke OPEN untuk revisi PIC.");
+    }
     loadData();
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Toast Feedback Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 p-4 bg-slate-900 text-white rounded-2xl border border-yellow-500/50 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
+          <Sparkles className="text-yellow-400 w-5 h-5 shrink-0" />
+          <span className="text-xs font-extrabold">{toastMessage}</span>
+        </div>
+      )}
       {/* Banner & Greeting Header */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-yellow-950 p-6 sm:p-8 rounded-3xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
@@ -277,8 +305,55 @@ export default function DashboardPage() {
               Daftar Temuan Patroli Lapangan
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Gunakan filter di bawah untuk mempersempit daftar proyek dan status.
+              Pilih tab cepat atau gunakan filter terperinci di bawah untuk meninjau temuan.
             </p>
+          </div>
+
+          {/* Quick Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-x-auto">
+            <button
+              onClick={() => setSelectedStatus("ALL")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                selectedStatus === "ALL"
+                  ? "bg-slate-900 text-white dark:bg-yellow-500 dark:text-slate-950 shadow-md"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              Semua ({totalAll})
+            </button>
+            <button
+              onClick={() => setSelectedStatus("OPEN")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                selectedStatus === "OPEN"
+                  ? "bg-red-600 text-white shadow-md"
+                  : "text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50"
+              }`}
+            >
+              <span>🔴 Open</span>
+              <span className="opacity-80">({totalOpen})</span>
+            </button>
+            <button
+              onClick={() => setSelectedStatus("RESOLVED")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                selectedStatus === "RESOLVED"
+                  ? "bg-amber-600 text-white shadow-md"
+                  : "text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50"
+              }`}
+            >
+              <span>🟡 Resolved</span>
+              <span className="opacity-80">({totalResolved})</span>
+            </button>
+            <button
+              onClick={() => setSelectedStatus("CLOSED")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                selectedStatus === "CLOSED"
+                  ? "bg-emerald-600 text-white shadow-md"
+                  : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+              }`}
+            >
+              <span>🟢 Closed</span>
+              <span className="opacity-80">({totalClosed})</span>
+            </button>
           </div>
         </div>
 

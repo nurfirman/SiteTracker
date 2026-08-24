@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Finding, Project } from "@/types";
 import { getFindings, getProjects } from "@/lib/actions";
-import { formatDate, getSlaStatus } from "@/lib/utils";
+import { formatDate, getSlaStatus, exportFindingsToCsv } from "@/lib/utils";
 import {
   Printer,
   FileText,
@@ -28,7 +28,7 @@ export default function ReportsPage() {
       setLoading(true);
       try {
         const [fList, pList] = await Promise.all([
-          getFindings({ projectId: selectedProject }),
+          getFindings({ projectId: selectedProject, limit: 1000 }),
           getProjects(),
         ]);
         setFindings(fList);
@@ -54,6 +54,10 @@ export default function ReportsPage() {
     window.print();
   };
 
+  const handleExportCsv = () => {
+    exportFindingsToCsv(findings, `rekap_temuan_${selectedProject}_${Date.now()}.csv`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 p-4 sm:p-8 font-sans print:p-0 print:bg-white print:text-black">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -64,10 +68,10 @@ export default function ReportsPage() {
               <FileText size={16} /> Laporan Patroli Eksekutif
             </div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-              Cetak / Ekspor Rekapitulasi Temuan (PDF)
+              Cetak / Ekspor Rekapitulasi Temuan (PDF & CSV)
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Gunakan tombol cetak di bawah ini untuk menyimpan laporan resmi format PDF untuk rapat mingguan proyek.
+              Gunakan tombol di bawah untuk mencetak PDF resmi atau mengunduh spreadsheet CSV untuk kebutuhan rapat mingguan.
             </p>
           </div>
 
@@ -84,6 +88,16 @@ export default function ReportsPage() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={handleExportCsv}
+              disabled={findings.length === 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition-all min-h-[44px] disabled:opacity-50"
+              title="Unduh format spreadsheet CSV"
+            >
+              <Download size={16} />
+              <span>Ekspor CSV</span>
+            </button>
 
             <button
               onClick={handlePrint}
