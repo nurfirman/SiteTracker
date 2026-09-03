@@ -125,7 +125,7 @@ export default function PicTasksPage() {
 
   const isStrictPic = currentUser.role === "PIC";
   const isSm = currentUser.role === "SM";
-  const isPmOrExec = currentUser.role === "PM" || currentUser.role === "BOD" || currentUser.role === "CMD" || currentUser.role === "ADMIN";
+  const isPmOrExec = currentUser.role === "PM" || currentUser.role === "GM" || currentUser.role === "BOD" || currentUser.role === "CMD" || currentUser.role === "ADMIN";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 pb-12">

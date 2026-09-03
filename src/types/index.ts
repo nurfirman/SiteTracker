@@ -1,4 +1,4 @@
-export type Role = "CMD" | "PIC" | "SM" | "PM" | "BOD" | "ADMIN" | "PENDING";
+export type Role = "CMD" | "PIC" | "SM" | "PM" | "GM" | "BOD" | "ADMIN" | "PENDING";
 
 export type Category = 
   | "K3_SAFETY" 
@@ -14,6 +14,11 @@ export interface Project {
   code?: string | null;
   name: string;
   location: string;
+  division?: string | null;
+  pmId?: string | null;
+  pm?: User | null;
+  gmId?: string | null;
+  gm?: User | null;
   createdAt: string | Date;
 }
 
@@ -101,6 +106,11 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     label: "Project Manager (PM)",
     badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
     description: "Akses Multi-Proyek: Evaluasi SLA, memvalidasi dan menyetujui penutupan temuan.",
+  },
+  GM: {
+    label: "General Manager (GM)",
+    badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
+    description: "Akses Divisi / Wilayah: Supervisi PM & PIC, pemantauan eskalasi dan kepatuhan patroli.",
   },
   BOD: {
     label: "Board of Directors (BOD)",

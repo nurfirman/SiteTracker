@@ -316,12 +316,12 @@ export default function DashboardPage() {
       </div>
 
       {/* SECTION VALIDASI PM (SIDE-BY-SIDE HIGHLIGHT) */}
-      {(["PM", "BOD", "ADMIN", "SM"].includes(currentUser.role) || resolvedForValidation.length > 0) && (
+      {(["PM", "GM", "BOD", "ADMIN", "SM"].includes(currentUser.role) || resolvedForValidation.length > 0) && (
         <div className="p-6 bg-violet-50/70 dark:bg-violet-950/20 border-2 border-violet-300 dark:border-violet-800/80 rounded-3xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-600 text-white font-extrabold text-xs rounded-lg uppercase tracking-wider mb-1">
-                <Clock size={14} /> Antrean Validasi PM / BOD
+                <Clock size={14} /> Antrean Validasi PM / GM / BOD
               </span>
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
                 Verifikasi Hasil Perbaikan PIC ({resolvedForValidation.length} Tiket Menunggu)
@@ -557,7 +557,7 @@ export default function DashboardPage() {
         onClose={() => setSelectedModalFinding(null)}
         onApprove={handleApproveFinding}
         onReject={handleRejectFinding}
-        isPmOrBod={currentUser.role === "PM" || currentUser.role === "BOD" || currentUser.role === "ADMIN"}
+        isPmOrBod={currentUser.role === "PM" || currentUser.role === "GM" || currentUser.role === "BOD" || currentUser.role === "ADMIN"}
       />
     </div>
   );

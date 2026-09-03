@@ -77,8 +77,8 @@ export function Sidebar() {
       },
     ];
 
-    // Only allow Create Finding for CMD, PM, SM, ADMIN, BOD
-    if (["CMD", "PM", "SM", "ADMIN", "BOD"].includes(currentUser.role)) {
+    // Only allow Create Finding for CMD, PM, GM, SM, ADMIN, BOD
+    if (["CMD", "PM", "GM", "SM", "ADMIN", "BOD"].includes(currentUser.role)) {
       operationalItems.push({
         href: "/findings/new",
         label: "Catat Temuan Baru",
@@ -96,7 +96,7 @@ export function Sidebar() {
     });
 
     // PIC Tasks / Field Action
-    if (["PIC", "SM", "PM", "ADMIN"].includes(currentUser.role)) {
+    if (["PIC", "SM", "PM", "GM", "BOD", "ADMIN"].includes(currentUser.role)) {
       operationalItems.push({
         href: "/pic/tasks",
         label:
@@ -104,6 +104,8 @@ export function Sidebar() {
             ? "Tugas & Respon PIC"
             : currentUser.role === "SM"
             ? "Monitoring Lapangan (SM)"
+            : currentUser.role === "GM"
+            ? "Supervisi Divisi (GM)"
             : "Validasi Perbaikan (PM)",
         icon: CheckSquare,
         badge:

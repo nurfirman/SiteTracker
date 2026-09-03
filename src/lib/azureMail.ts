@@ -3,10 +3,13 @@
  * SiteTracker CMD Construction Patrol Management System
  */
 
+import { getAppBaseUrl } from "./utils";
+
 export interface SendAzureMailOptions {
   recipients: string[];
   subject: string;
   projectName: string;
+  division?: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
   messageNote?: string;
   findingsCount: number;
@@ -15,6 +18,9 @@ export interface SendAzureMailOptions {
   closedCount: number;
   inspectorName?: string;
   siteManagerName?: string;
+  picName?: string;
+  pmName?: string;
+  gmName?: string;
   reportDate?: string;
 }
 
@@ -205,6 +211,26 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600; width: 35%;">Tanggal Inspeksi:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${inspectionDateFormatted}</td>
                 </tr>
+                ${options.division ? `
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Divisi / Wilayah:</td>
+                  <td style="padding: 6px 10px; color: #0284c7; font-weight: 800;">${options.division}</td>
+                </tr>` : ""}
+                ${options.picName ? `
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">PIC Lapangan:</td>
+                  <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.picName}</td>
+                </tr>` : ""}
+                ${options.pmName ? `
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Project Manager (PM):</td>
+                  <td style="padding: 6px 10px; color: #059669; font-weight: 800;">${options.pmName}</td>
+                </tr>` : ""}
+                ${options.gmName ? `
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">General Manager (GM):</td>
+                  <td style="padding: 6px 10px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
+                </tr>` : ""}
                 <tr>
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Petugas Patroli CMD:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Lapangan"}</td>
@@ -222,10 +248,10 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
               <!-- Action Callout -->
               <div style="text-align: center; margin: 30px 0 10px 0;">
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                  Detail bukti foto resolusi dan timeline tindak lanjut lengkap dapat diakses pada portal web SiteTracker:
+                  Detail bukti foto temuan dan tindak lanjut perbaikan dapat diakses langsung oleh PIC pada portal web:
                 </p>
-                <a href="http://localhost:3000/reports" target="_blank" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);">
-                  Buka Portal Laporan Lengkap &rarr;
+                <a href="${getAppBaseUrl()}/pic/tasks" target="_blank" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);">
+                  Buka Portal PIC & Tindak Lanjuti Temuan &rarr;
                 </a>
               </div>
 
@@ -345,3 +371,271 @@ export async function sendEmailViaAzureGraph(
     },
   };
 }
+
+export interface OverdueFindingItem {
+  ticketCode: string;
+  category: string;
+  description: string;
+  locationDetail: string;
+  daysOpen: number;
+  createdAt: string;
+}
+
+export interface SendEscalationReminderOptions {
+  recipients: string[];
+  projectName: string;
+  division?: string;
+  gmName?: string;
+  pmName?: string;
+  picName?: string;
+  overdueFindings: OverdueFindingItem[];
+}
+
+/**
+ * Generate HTML Template untuk Email Eskalasi SLA Reminder (H+7) ke PIC dan GM
+ */
+export function generateEscalationReminderEmailHtml(
+  options: SendEscalationReminderOptions
+): string {
+  const dateFormatted = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const findingsRows = options.overdueFindings
+    .map(
+      (f, idx) => `
+    <tr style="background-color: ${idx % 2 === 0 ? "#ffffff" : "#fef2f2"}; border-bottom: 1px solid #fee2e2;">
+      <td style="padding: 10px; font-weight: 800; color: #991b1b; font-size: 12px; vertical-align: top;">
+        ${f.ticketCode}
+        <span style="display: block; font-size: 10px; color: #b91c1c; font-weight: 600; margin-top: 2px;">
+          ${f.category}
+        </span>
+      </td>
+      <td style="padding: 10px; font-size: 12px; color: #374151; vertical-align: top;">
+        <strong style="color: #111827;">${f.locationDetail}</strong>
+        <p style="margin: 4px 0 0 0; color: #4b5563; font-size: 11px; line-height: 1.4;">
+          ${f.description}
+        </p>
+      </td>
+      <td style="padding: 10px; font-size: 11px; vertical-align: top; text-align: center; white-space: nowrap;">
+        <span style="display: inline-block; background-color: #fee2e2; color: #991b1b; font-weight: 900; padding: 4px 8px; border-radius: 8px; border: 1px solid #fca5a5;">
+          ${f.daysOpen} Hari Belum Direspon
+        </span>
+      </td>
+    </tr>
+  `
+    )
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Peringatan Eskalasi SLA H+7 - ${options.projectName}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 650px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+          
+          <!-- Header Banner (Crimson Red for SLA Escalation) -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 60%, #b91c1c 100%); padding: 32px 30px; text-align: left; color: #ffffff;">
+              <span style="display: inline-block; background-color: rgba(254, 202, 202, 0.25); border: 1px solid rgba(254, 202, 202, 0.4); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 12px; color: #fecaca;">
+                🚨 Peringatan Keterlambatan SLA (H+7)
+              </span>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 900; line-height: 1.3; color: #ffffff;">
+                Eskalasi Temuan Patroli Belum Direspon
+              </h1>
+              <p style="margin: 8px 0 0 0; font-size: 13px; color: #fecaca; line-height: 1.5;">
+                Proyek: <strong>${options.projectName}</strong> ${options.division ? `(${options.division})` : ""}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 28px 30px;">
+              
+              <!-- Warning Callout Box -->
+              <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
+                <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
+                  <strong>Pemberitahuan kepada PIC Proyek & General Manager (GM):</strong><br>
+                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan patroli</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari PIC di lapangan.
+                </p>
+              </div>
+
+              <!-- Organizational Hierarchy Info -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 12px; padding: 14px; border: 1px solid #e2e8f0; margin-bottom: 24px; font-size: 12px;">
+                ${options.division ? `
+                <tr>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600; width: 35%;">Divisi:</td>
+                  <td style="padding: 4px 8px; color: #0f172a; font-weight: 800;">${options.division}</td>
+                </tr>` : ""}
+                ${options.gmName ? `
+                <tr>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">General Manager (GM):</td>
+                  <td style="padding: 4px 8px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
+                </tr>` : ""}
+                ${options.pmName ? `
+                <tr>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">Project Manager (PM):</td>
+                  <td style="padding: 4px 8px; color: #059669; font-weight: 800;">${options.pmName}</td>
+                </tr>` : ""}
+                ${options.picName ? `
+                <tr>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">PIC Lapangan:</td>
+                  <td style="padding: 4px 8px; color: #b45309; font-weight: 800;">${options.picName}</td>
+                </tr>` : ""}
+                <tr>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">Tanggal Pengecekan Cron:</td>
+                  <td style="padding: 4px 8px; color: #0f172a; font-weight: 800;">${dateFormatted}</td>
+                </tr>
+              </table>
+
+              <!-- Overdue Findings Table -->
+              <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: #0f172a;">
+                Daftar Tiket Terlambat Respon:
+              </h3>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border: 1px solid #fee2e2; border-radius: 12px; overflow: hidden; margin-bottom: 26px;">
+                <thead>
+                  <tr style="background-color: #fef2f2; border-bottom: 2px solid #fecaca;">
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase;">Kode & Tipe</th>
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase;">Lokasi & Temuan</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase;">Status SLA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${findingsRows}
+                </tbody>
+              </table>
+
+              <!-- Action Callout Button -->
+              <div style="text-align: center; margin: 30px 0 10px 0;">
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                  PIC dimohon segera mengakses portal dan mengunggah bukti perbaikan:
+                </p>
+                <a href="${getAppBaseUrl()}/pic/tasks" target="_blank" style="display: inline-block; background-color: #dc2626; color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);">
+                  Buka Portal PIC & Respon Temuan Sekarang &rarr;
+                </a>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+                Email eskalasi otomatis terjadwal via <strong>Vercel Cron & Microsoft Graph API</strong>.<br>
+                Sistem SiteTracker CMD &copy; ${new Date().getFullYear()}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
+/**
+ * Mengirim email reminder eskalasi SLA melalui Microsoft Graph API (Azure OAuth2)
+ */
+export async function sendEscalationReminderViaAzureGraph(
+  options: SendEscalationReminderOptions
+): Promise<{
+  success: boolean;
+  message: string;
+  deliveryLog?: {
+    id: string;
+    timestamp: string;
+    recipientsCount: number;
+    recipientsList: string[];
+    azureMessageId?: string;
+  };
+}> {
+  const senderEmail = process.env.AZURE_SENDER_EMAIL?.trim();
+
+  if (!isAzureMailConfigured() || !senderEmail) {
+    throw new Error(
+      "Kredensial Azure OAuth2 belum diisi lengkap di file .env."
+    );
+  }
+
+  const accessToken = await getAzureOAuthToken();
+  const emailHtml = generateEscalationReminderEmailHtml(options);
+
+  const toRecipients = options.recipients.map((email) => ({
+    emailAddress: {
+      address: email.trim(),
+    },
+  }));
+
+  const subject = `[REMINDER SLA H+7] Peringatan Temuan Patroli Belum Direspon (>7 Hari) - ${options.projectName}`;
+
+  const graphPayload = {
+    message: {
+      subject,
+      body: {
+        contentType: "HTML",
+        content: emailHtml,
+      },
+      toRecipients: toRecipients,
+    },
+    saveToSentItems: "true",
+  };
+
+  const graphEndpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
+    senderEmail
+  )}/sendMail`;
+
+  const graphResponse = await fetch(graphEndpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(graphPayload),
+  });
+
+  const logId = "SLA-REMINDER-" + Date.now().toString().slice(-6);
+  const timestamp = new Date().toISOString();
+
+  if (!graphResponse.ok) {
+    let errorDetail = "";
+    try {
+      const errJson = await graphResponse.json();
+      errorDetail =
+        errJson?.error?.message ||
+        errJson?.error?.code ||
+        JSON.stringify(errJson);
+    } catch {
+      errorDetail = await graphResponse.text();
+    }
+
+    throw new Error(
+      `[Microsoft Graph API Error ${graphResponse.status}] ${errorDetail}`
+    );
+  }
+
+  return {
+    success: true,
+    message: `Reminder SLA H+7 berhasil dikirimkan via Azure Microsoft Graph ke ${options.recipients.length} penerima (${options.recipients.join(", ")})!`,
+    deliveryLog: {
+      id: logId,
+      timestamp,
+      recipientsCount: options.recipients.length,
+      recipientsList: options.recipients,
+    },
+  };
+}
+

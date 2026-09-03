@@ -1,6 +1,6 @@
-kode_proyek,nama_proyek,lokasi_proyek,nama_pic,email_pic,no_hp_pic,password_pic
-PRJ-TSS,Tower Sentra Sudirman,Jakarta Pusat,Hendra Kurniawan,hendra.kurniawan@kontraktor.com,081234567891,123
-PRJ-RSM,RS Mitra Keluarga Bekasi,Bekasi Timur,Budi Wahyudi,budi.wahyudi@mitrakonstruksi.id,081298765432,123
-PRJ-FC2,Flyover Ciawi Tahap 2,Bogor Jawa Barat,Siti Nurhaliza,siti.nurhaliza@adhitama.co.id,081345678901,123
-PRJ-PSG,Pabrik Semen Gresik Unit 4,Gresik Jawa Timur,Eko Prasetyo,eko.prasetyo@kontraktor.com,081233445566,123
-PRJ-GDC,Apartemen Grand Dhika City,Bekasi Barat,Doni Setiawan,doni.setiawan@subkonjaya.com,081122334455,123
+kode_proyek,nama_proyek,lokasi_proyek,divisi,email_pm,email_gm,nama_pic,email_pic,no_hp_pic,password_pic
+PRJ-TSS,Tower Sentra Sudirman,Jakarta Pusat,Divisi 1 (Gedung & Komersial),aa.pm@sitetracker.id,ab.gm@sitetracker.id,Hendra Kurniawan,hendra.kurniawan@kontraktor.com,081234567891,123
+PRJ-RSM,RS Mitra Keluarga Bekasi,Bekasi Timur,Divisi 1 (Gedung & Komersial),aa.pm@sitetracker.id,ab.gm@sitetracker.id,Budi Wahyudi,budi.wahyudi@mitrakonstruksi.id,081298765432,123
+PRJ-FC2,Flyover Ciawi Tahap 2,Bogor Jawa Barat,Divisi 2 (Infrastruktur & Sipil),bb.pm@sitetracker.id,bc.gm@sitetracker.id,Siti Nurhaliza,siti.nurhaliza@adhitama.co.id,081345678901,123
+PRJ-PSG,Pabrik Semen Gresik Unit 4,Gresik Jawa Timur,Divisi 2 (Infrastruktur & Sipil),bb.pm@sitetracker.id,bc.gm@sitetracker.id,Eko Prasetyo,eko.prasetyo@kontraktor.com,081233445566,123
+PRJ-GDC,Apartemen Grand Dhika City,Bekasi Barat,Divisi 1 (Gedung & Komersial),aa.pm@sitetracker.id,ab.gm@sitetracker.id,Doni Setiawan,doni.setiawan@subkonjaya.com,081122334455,123

@@ -6,6 +6,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Mendapatkan Base URL aplikasi secara dinamis (mendukung localhost, Vercel preview/production, dan custom domain)
+ */
+export function getAppBaseUrl(): string {
+  // 1. Custom URL dari environment variable
+  if (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.trim() !== "") {
+    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, "");
+  }
+  // 2. Vercel Production Custom Domain / Aliases
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
+  }
+  // 3. Vercel Branch / Preview URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
+  }
+  // 4. Browser window context fallback
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  // 5. Default local dev
+  return "http://localhost:3000";
+}
+
 export function formatDate(dateInput: string | Date | null | undefined): string {
   if (!dateInput) return "-";
   const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;

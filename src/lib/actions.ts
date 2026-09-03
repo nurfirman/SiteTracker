@@ -8,7 +8,7 @@ import { setSession, getSession, destroySession, requireAuth, SessionData } from
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
 import { revalidatePath } from "next/cache";
-import { sendEmailViaAzureGraph, isAzureMailConfigured } from "./azureMail";
+import { sendEmailViaAzureGraph, isAzureMailConfigured, sendEscalationReminderViaAzureGraph } from "./azureMail";
 import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
 
 function safeRevalidate(path: string) {
@@ -298,11 +298,17 @@ export async function createProject(payload: {
   code?: string;
   name: string;
   location: string;
+  division?: string;
+  pmId?: string;
+  gmId?: string;
 }): Promise<{ success: boolean; project?: Project; message?: string }> {
   try {
     const cleanName = sanitizeText(payload.name);
     const cleanLocation = sanitizeText(payload.location);
     const cleanCode = payload.code ? sanitizeText(payload.code).toUpperCase().trim() : null;
+    const cleanDivision = payload.division ? sanitizeText(payload.division).trim() : null;
+    const cleanPmId = payload.pmId?.trim() || null;
+    const cleanGmId = payload.gmId?.trim() || null;
 
     if (!cleanName || cleanName.length < 3) {
       return { success: false, message: "Nama proyek minimal 3 karakter." };
@@ -352,16 +358,22 @@ export async function createProject(payload: {
       code: defaultCode,
       name: cleanName,
       location: cleanLocation,
+      division: cleanDivision,
+      pmId: cleanPmId,
+      gmId: cleanGmId,
       createdAt: new Date().toISOString(),
     };
 
     if (hasValidDatabaseUrl()) {
       try {
-        const created = await prisma.project.create({
+        const created = await (prisma.project as any).create({
           data: {
             code: defaultCode,
             name: cleanName,
             location: cleanLocation,
+            division: cleanDivision,
+            pmId: cleanPmId,
+            gmId: cleanGmId,
           },
         });
         newProj.id = created.id;
@@ -376,11 +388,61 @@ export async function createProject(payload: {
     safeRevalidate("/");
     safeRevalidate("/projects");
     safeRevalidate("/admin");
+    safeRevalidate("/reports");
     safeRevalidate("/findings/new");
 
     return { success: true, project: newProj, message: "Proyek baru berhasil ditambahkan!" };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal membuat proyek." };
+  }
+}
+
+/**
+ * Server Action untuk mengupdate penugasan Divisi, PM, dan GM pada Proyek
+ */
+export async function updateProjectAssignment(
+  projectId: string,
+  payload: {
+    division?: string | null;
+    pmId?: string | null;
+    gmId?: string | null;
+  }
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanDivision = payload.division ? sanitizeText(payload.division).trim() : null;
+    const cleanPmId = payload.pmId?.trim() || null;
+    const cleanGmId = payload.gmId?.trim() || null;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        await (prisma.project as any).update({
+          where: { id: projectId },
+          data: {
+            division: cleanDivision,
+            pmId: cleanPmId,
+            gmId: cleanGmId,
+          },
+        });
+      } catch (dbErr) {
+        console.warn("DB update project assignment fallback:", dbErr);
+      }
+    }
+
+    const memProj = inMemoryProjects.find((p) => p.id === projectId);
+    if (memProj) {
+      memProj.division = cleanDivision;
+      memProj.pmId = cleanPmId;
+      memProj.gmId = cleanGmId;
+    }
+
+    safeRevalidate("/");
+    safeRevalidate("/projects");
+    safeRevalidate("/admin");
+    safeRevalidate("/reports");
+
+    return { success: true, message: "Penugasan Divisi, PM & GM proyek berhasil diperbarui!" };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memperbarui penugasan proyek." };
   }
 }
 
@@ -453,6 +515,9 @@ export async function importProjectsAndPicsFromCsv(
     const picEmailIdx = findCol(["email_pic", "emailpic", "pic_email", "email"]);
     const picPhoneIdx = findCol(["no_hp_pic", "nohp", "telepon", "phone", "hp", "no_hp", "wa"]);
     const picPasswordIdx = findCol(["password_pic", "password", "kata_sandi", "pwd"]);
+    const divisionIdx = findCol(["divisi", "division", "wilayah", "divisi_proyek"]);
+    const pmEmailIdx = findCol(["email_pm", "pm_email", "pm"]);
+    const gmEmailIdx = findCol(["email_gm", "gm_email", "gm"]);
 
     if (nameIdx === -1) {
       return {
@@ -462,16 +527,23 @@ export async function importProjectsAndPicsFromCsv(
       };
     }
 
-    // Load existing projects & users for lightning-fast duplication check
+    // Load existing projects & users for lightning-fast duplication check & PM/GM mapping
     const existingProjectNames = new Set<string>();
     const existingProjectCodes = new Set<string>();
+    const userEmailMap = new Map<string, string>(); // email -> userId
 
     if (hasValidDatabaseUrl()) {
       try {
-        const dbProjects = await prisma.project.findMany({ select: { id: true, code: true, name: true } });
+        const [dbProjects, dbUsers] = await Promise.all([
+          prisma.project.findMany({ select: { id: true, code: true, name: true } }),
+          prisma.user.findMany({ select: { id: true, email: true } }),
+        ]);
         dbProjects.forEach((p) => {
           existingProjectNames.add(p.name.toLowerCase().trim());
           if (p.code) existingProjectCodes.add(p.code.toLowerCase().trim());
+        });
+        dbUsers.forEach((u) => {
+          userEmailMap.set(u.email.toLowerCase().trim(), u.id);
         });
       } catch (dbErr) {
         console.warn("Fetch existing projects error:", dbErr);
@@ -480,6 +552,9 @@ export async function importProjectsAndPicsFromCsv(
     inMemoryProjects.forEach((p) => {
       existingProjectNames.add(p.name.toLowerCase().trim());
       if (p.code) existingProjectCodes.add(p.code.toLowerCase().trim());
+    });
+    inMemoryUsers.forEach((u) => {
+      userEmailMap.set(u.email.toLowerCase().trim(), u.id);
     });
 
     const details: ImportProjectPicRowResult[] = [];
@@ -499,6 +574,12 @@ export async function importProjectsAndPicsFromCsv(
       const rawPicEmail = picEmailIdx !== -1 && cols[picEmailIdx] ? sanitizeText(cols[picEmailIdx]).toLowerCase().trim() : "";
       const rawPicPhone = picPhoneIdx !== -1 && cols[picPhoneIdx] ? sanitizeText(cols[picPhoneIdx]).trim() : "081234567890";
       const rawPicPassword = picPasswordIdx !== -1 && cols[picPasswordIdx] ? sanitizeText(cols[picPasswordIdx]).trim() : "123";
+      const rawDivision = divisionIdx !== -1 && cols[divisionIdx] ? sanitizeText(cols[divisionIdx]).trim() : null;
+      const rawPmEmail = pmEmailIdx !== -1 && cols[pmEmailIdx] ? sanitizeText(cols[pmEmailIdx]).toLowerCase().trim() : null;
+      const rawGmEmail = gmEmailIdx !== -1 && cols[gmEmailIdx] ? sanitizeText(cols[gmEmailIdx]).toLowerCase().trim() : null;
+
+      const matchedPmId = rawPmEmail ? userEmailMap.get(rawPmEmail) || null : null;
+      const matchedGmId = rawGmEmail ? userEmailMap.get(rawGmEmail) || null : null;
 
       // Validation
       if (!rawName || rawName.length < 2) {
@@ -553,11 +634,14 @@ export async function importProjectsAndPicsFromCsv(
       // 1. Create Project
       if (hasValidDatabaseUrl()) {
         try {
-          const createdDb = await prisma.project.create({
+          const createdDb = await (prisma.project as any).create({
             data: {
               code: finalProjectCode,
               name: rawName,
               location: rawLocation,
+              division: rawDivision,
+              pmId: matchedPmId,
+              gmId: matchedGmId,
             },
           });
           newProjectObj = {
@@ -565,6 +649,9 @@ export async function importProjectsAndPicsFromCsv(
             code: createdDb.code,
             name: createdDb.name,
             location: createdDb.location,
+            division: createdDb.division || rawDivision,
+            pmId: createdDb.pmId || matchedPmId,
+            gmId: createdDb.gmId || matchedGmId,
             createdAt: createdDb.createdAt.toISOString(),
           };
         } catch (dbErr: any) {
@@ -574,6 +661,9 @@ export async function importProjectsAndPicsFromCsv(
             code: finalProjectCode,
             name: rawName,
             location: rawLocation,
+            division: rawDivision,
+            pmId: matchedPmId,
+            gmId: matchedGmId,
             createdAt: new Date().toISOString(),
           };
         }
@@ -583,6 +673,9 @@ export async function importProjectsAndPicsFromCsv(
           code: finalProjectCode,
           name: rawName,
           location: rawLocation,
+          division: rawDivision,
+          pmId: matchedPmId,
+          gmId: matchedGmId,
           createdAt: new Date().toISOString(),
         };
       }
@@ -778,21 +871,54 @@ export async function createOrUpdatePicUser(payload: {
 export async function getProjects(): Promise<Project[]> {
   if (hasValidDatabaseUrl()) {
     try {
-      const dbProjects = await prisma.project.findMany({
+      const dbProjects = await (prisma.project as any).findMany({
         orderBy: { createdAt: "desc" },
+        include: {
+          pm: true,
+          gm: true,
+        },
       });
-      return dbProjects.map((p) => ({
+      return dbProjects.map((p: any) => ({
         id: p.id,
         code: p.code,
         name: p.name,
         location: p.location,
+        division: p.division || null,
+        pmId: p.pmId || null,
+        pm: p.pm
+          ? {
+              id: p.pm.id,
+              name: p.pm.name,
+              email: p.pm.email,
+              role: p.pm.role,
+              phoneNumber: p.pm.phoneNumber,
+            }
+          : null,
+        gmId: p.gmId || null,
+        gm: p.gm
+          ? {
+              id: p.gm.id,
+              name: p.gm.name,
+              email: p.gm.email,
+              role: p.gm.role,
+              phoneNumber: p.gm.phoneNumber,
+            }
+          : null,
         createdAt: p.createdAt.toISOString(),
       }));
     } catch (e) {
       console.warn("Neon DB query failed for getProjects, using in-memory fallback:", e);
     }
   }
-  return inMemoryProjects;
+  return inMemoryProjects.map((p) => {
+    const pm = inMemoryUsers.find((u) => u.id === p.pmId) || null;
+    const gm = inMemoryUsers.find((u) => u.id === p.gmId) || null;
+    return {
+      ...p,
+      pm,
+      gm,
+    };
+  });
 }
 
 export async function getUsers(projectId?: string, role?: Role): Promise<User[]> {
@@ -807,6 +933,8 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
           whereClause.OR = [
             { projectId: projectId },
             { role: "PM" },
+            { role: "GM" },
+            { role: "BOD" },
             { role: "CMD" },
             { role: "ADMIN" },
           ];
@@ -1460,6 +1588,7 @@ export async function clearFindings(projectId?: string): Promise<{
 export interface EmailReportPayload {
   projectId: string;
   projectName: string;
+  division?: string;
   recipients: string[];
   subject: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
@@ -1470,6 +1599,9 @@ export interface EmailReportPayload {
   closedCount: number;
   inspectorName?: string;
   siteManagerName?: string;
+  picName?: string;
+  pmName?: string;
+  gmName?: string;
   reportDate?: string;
 }
 
@@ -1511,6 +1643,7 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         recipients: payload.recipients,
         subject: payload.subject,
         projectName: payload.projectName,
+        division: payload.division,
         reportType: payload.reportType,
         messageNote: payload.messageNote,
         findingsCount: payload.findingsCount,
@@ -1519,6 +1652,9 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         closedCount: payload.closedCount,
         inspectorName: payload.inspectorName,
         siteManagerName: payload.siteManagerName,
+        picName: payload.picName,
+        pmName: payload.pmName,
+        gmName: payload.gmName,
         reportDate: payload.reportDate,
       });
 
@@ -1601,4 +1737,287 @@ export async function updateCategorySla(key: string, slaHours: number): Promise<
   }
   return { success: false, message: "Kategori tidak ditemukan." };
 }
+
+export interface SlaReminderEngineResult {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  totalCheckedTickets: number;
+  overdueTicketsCount: number;
+  projectsAffectedCount: number;
+  details: Array<{
+    projectId: string;
+    projectName: string;
+    division?: string;
+    recipients: string[];
+    ticketCount: number;
+    tickets: Array<{ ticketCode: string; category: string; daysOpen: number }>;
+    status: "SENT" | "SIMULATED" | "ERROR";
+    message: string;
+  }>;
+}
+
+/**
+ * Engine Reminder SLA Patroli (H+7):
+ * Memeriksa seluruh temuan yang berstatus OPEN lebih dari 7 hari,
+ * kemudian mengirimkan email eskalasi otomatis kepada PIC Proyek dan General Manager (GM) divisi (CC PM).
+ */
+export async function runPatrolSlaReminderEngine(options?: {
+  minDaysOverdue?: number;
+}): Promise<SlaReminderEngineResult> {
+  const minDays = options?.minDaysOverdue ?? 7;
+  const now = new Date();
+  const thresholdTime = now.getTime() - minDays * 24 * 60 * 60 * 1000;
+  const thresholdDate = new Date(thresholdTime);
+
+  try {
+    let allOpenFindings: Finding[] = [];
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const dbFindings = await prisma.finding.findMany({
+          where: {
+            status: "OPEN",
+            createdAt: {
+              lte: thresholdDate,
+            },
+          },
+          include: {
+            project: {
+              include: {
+                pm: true,
+                gm: true,
+              },
+            },
+            pic: true,
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        allOpenFindings = dbFindings.map((f: any) => ({
+          id: f.id,
+          ticketCode: f.ticketCode,
+          projectId: f.projectId,
+          project: f.project
+            ? {
+                id: f.project.id,
+                code: f.project.code,
+                name: f.project.name,
+                location: f.project.location,
+                division: f.project.division,
+                pmId: f.project.pmId,
+                pm: f.project.pm,
+                gmId: f.project.gmId,
+                gm: f.project.gm,
+                createdAt: f.project.createdAt?.toISOString?.() || new Date().toISOString(),
+              }
+            : undefined,
+          picId: f.picId,
+          pic: f.pic
+            ? {
+                id: f.pic.id,
+                name: f.pic.name,
+                email: f.pic.email,
+                role: f.pic.role,
+                phoneNumber: f.pic.phoneNumber,
+                password: "",
+                projectId: f.pic.projectId,
+              }
+            : undefined,
+          reporterId: f.reporterId,
+          locationDetail: f.locationDetail,
+          coordinates: f.coordinates || "",
+          category: f.category,
+          description: f.description,
+          photoFindingUrl: f.photoFindingUrl,
+          status: f.status,
+          picResponse: f.picResponse || undefined,
+          photoResolutionUrl: f.photoResolutionUrl || undefined,
+          createdAt: f.createdAt.toISOString(),
+          dueDate: f.dueDate ? f.dueDate.toISOString() : "",
+          resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : undefined,
+          closedAt: f.closedAt ? f.closedAt.toISOString() : undefined,
+        }));
+      } catch (dbErr) {
+        console.warn("Neon DB query open findings fallback:", dbErr);
+      }
+    }
+
+    if (allOpenFindings.length === 0) {
+      allOpenFindings = inMemoryFindings.filter((f) => {
+        if (f.status !== "OPEN") return false;
+        const createdTimestamp = new Date(f.createdAt).getTime();
+        return createdTimestamp <= thresholdTime;
+      });
+    }
+
+    // Ambil data users dan projects untuk melengkapi PIC, PM, GM
+    const [projects, users] = await Promise.all([getProjects(), getUsers()]);
+
+    // Kelompokkan temuan berdasarkan projectId
+    const findingsByProject = new Map<string, Finding[]>();
+    for (const f of allOpenFindings) {
+      const existing = findingsByProject.get(f.projectId) || [];
+      existing.push(f);
+      findingsByProject.set(f.projectId, existing);
+    }
+
+    const details: SlaReminderEngineResult["details"] = [];
+
+    for (const [projId, projFindings] of findingsByProject.entries()) {
+      const project = projects.find((p) => p.id === projId) || projFindings[0].project;
+      const projectName = project ? project.name : `Proyek ID ${projId}`;
+      const division = project?.division || undefined;
+
+      // Temukan PM & GM divisi
+      const pmUser = project?.pm || (project?.pmId ? users.find((u) => u.id === project.pmId) : null);
+      const gmUser = project?.gm || (project?.gmId ? users.find((u) => u.id === project.gmId) : null);
+
+      // Temukan PIC terkait
+      const projectPics = users.filter(
+        (u) =>
+          u.role === "PIC" &&
+          (u.projectId === projId || u.projectIds?.includes(projId))
+      );
+
+      // Kumpulkan email penerima: PIC (wajib), GM (wajib), PM (wajib)
+      const recipientEmails: string[] = [];
+
+      projectPics.forEach((pic) => {
+        if (pic.email && !recipientEmails.includes(pic.email)) {
+          recipientEmails.push(pic.email);
+        }
+      });
+
+      // Tambahkan juga PIC dari temuan jika belum tercatat
+      projFindings.forEach((f) => {
+        if (f.pic?.email && !recipientEmails.includes(f.pic.email)) {
+          recipientEmails.push(f.pic.email);
+        }
+      });
+
+      if (gmUser?.email && !recipientEmails.includes(gmUser.email)) {
+        recipientEmails.push(gmUser.email);
+      }
+
+      if (pmUser?.email && !recipientEmails.includes(pmUser.email)) {
+        recipientEmails.push(pmUser.email);
+      }
+
+      const overdueItems = projFindings.map((f) => {
+        const days = Math.max(
+          1,
+          Math.floor((now.getTime() - new Date(f.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        );
+        return {
+          ticketCode: f.ticketCode,
+          category: f.category,
+          description: f.description,
+          locationDetail: f.locationDetail,
+          daysOpen: days,
+          createdAt: typeof f.createdAt === "string" ? f.createdAt : new Date(f.createdAt).toISOString(),
+        };
+      });
+
+      if (recipientEmails.length === 0) {
+        details.push({
+          projectId: projId,
+          projectName,
+          division,
+          recipients: [],
+          ticketCount: projFindings.length,
+          tickets: overdueItems.map((t) => ({
+            ticketCode: t.ticketCode,
+            category: t.category,
+            daysOpen: t.daysOpen,
+          })),
+          status: "ERROR",
+          message: "Tidak ditemukan alamat email PIC maupun GM pada proyek ini.",
+        });
+        continue;
+      }
+
+      try {
+        if (isAzureMailConfigured()) {
+          await sendEscalationReminderViaAzureGraph({
+            recipients: recipientEmails,
+            projectName,
+            division,
+            gmName: gmUser?.name,
+            pmName: pmUser?.name,
+            picName: projectPics.map((p) => p.name).join(", ") || undefined,
+            overdueFindings: overdueItems,
+          });
+
+          details.push({
+            projectId: projId,
+            projectName,
+            division,
+            recipients: recipientEmails,
+            ticketCount: projFindings.length,
+            tickets: overdueItems.map((t) => ({
+              ticketCode: t.ticketCode,
+              category: t.category,
+              daysOpen: t.daysOpen,
+            })),
+            status: "SENT",
+            message: `Email reminder SLA berhasil dikirim ke ${recipientEmails.length} penerima via Azure Graph API.`,
+          });
+        } else {
+          // Simulasi
+          details.push({
+            projectId: projId,
+            projectName,
+            division,
+            recipients: recipientEmails,
+            ticketCount: projFindings.length,
+            tickets: overdueItems.map((t) => ({
+              ticketCode: t.ticketCode,
+              category: t.category,
+              daysOpen: t.daysOpen,
+            })),
+            status: "SIMULATED",
+            message: `[Mode Simulasi] Email reminder SLA tersimulasi untuk dikirim ke PIC (${projectPics.map((p) => p.name).join(", ")}), GM (${gmUser?.name || "GM Divisi"}), dan PM (${pmUser?.name || "PM"}).`,
+          });
+        }
+      } catch (sendErr: any) {
+        details.push({
+          projectId: projId,
+          projectName,
+          division,
+          recipients: recipientEmails,
+          ticketCount: projFindings.length,
+          tickets: overdueItems.map((t) => ({
+            ticketCode: t.ticketCode,
+            category: t.category,
+            daysOpen: t.daysOpen,
+          })),
+          status: "ERROR",
+          message: "Gagal mengirim email eskalasi: " + sendErr.message,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      message: `Pemeriksaan SLA H+7 selesai. Ditemukan ${allOpenFindings.length} tiket terbuka melewati batas SLA pada ${findingsByProject.size} proyek.`,
+      timestamp: now.toISOString(),
+      totalCheckedTickets: allOpenFindings.length,
+      overdueTicketsCount: allOpenFindings.length,
+      projectsAffectedCount: findingsByProject.size,
+      details,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal menjalankan engine reminder SLA: " + err.message,
+      timestamp: now.toISOString(),
+      totalCheckedTickets: 0,
+      overdueTicketsCount: 0,
+      projectsAffectedCount: 0,
+      details: [],
+    };
+  }
+}
+
 

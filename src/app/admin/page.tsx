@@ -11,6 +11,7 @@ import {
   getDatabaseStatus,
   seedDatabase,
   createProject,
+  updateProjectAssignment,
   createOrUpdatePicUser,
   getCategorySettings,
   updateCategorySla,
@@ -88,7 +89,18 @@ export default function AdminSettingsPage() {
   const [newProjectCode, setNewProjectCode] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectLocation, setNewProjectLocation] = useState("");
+  const [newProjectDivision, setNewProjectDivision] = useState("");
+  const [newProjectPmId, setNewProjectPmId] = useState("");
+  const [newProjectGmId, setNewProjectGmId] = useState("");
   const [projectSubmitting, setProjectSubmitting] = useState(false);
+
+  // Edit Project Assignment Modal State
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editDivision, setEditDivision] = useState("");
+  const [editPmId, setEditPmId] = useState("");
+  const [editGmId, setEditGmId] = useState("");
+  const [projectEditSubmitting, setProjectEditSubmitting] = useState(false);
 
   // Forms State for Adding / Assigning PIC
   const [showAddPicModal, setShowAddPicModal] = useState(false);
@@ -159,12 +171,18 @@ export default function AdminSettingsPage() {
         code: newProjectCode.trim() || undefined,
         name: newProjectName,
         location: newProjectLocation,
+        division: newProjectDivision.trim() || undefined,
+        pmId: newProjectPmId || undefined,
+        gmId: newProjectGmId || undefined,
       });
       if (res.success) {
         showToast(res.message || "Proyek baru berhasil dibuat!");
         setNewProjectCode("");
         setNewProjectName("");
         setNewProjectLocation("");
+        setNewProjectDivision("");
+        setNewProjectPmId("");
+        setNewProjectGmId("");
         setShowAddProjectModal(false);
         loadAdminData();
       } else {
@@ -174,6 +192,39 @@ export default function AdminSettingsPage() {
       showToast(err.message || "Terjadi kesalahan.", "error");
     } finally {
       setProjectSubmitting(false);
+    }
+  };
+
+  const handleOpenEditProject = (project: Project) => {
+    setEditingProject(project);
+    setEditDivision(project.division || "");
+    setEditPmId(project.pmId || "");
+    setEditGmId(project.gmId || "");
+    setShowEditProjectModal(true);
+  };
+
+  const handleUpdateProjectAssignmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+    setProjectEditSubmitting(true);
+    try {
+      const res = await updateProjectAssignment(editingProject.id, {
+        division: editDivision.trim() || null,
+        pmId: editPmId || null,
+        gmId: editGmId || null,
+      });
+      if (res.success) {
+        showToast(res.message);
+        setShowEditProjectModal(false);
+        setEditingProject(null);
+        loadAdminData();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal memperbarui proyek.", "error");
+    } finally {
+      setProjectEditSubmitting(false);
     }
   };
 
@@ -339,7 +390,7 @@ export default function AdminSettingsPage() {
     if (!assignTargetUser) return;
     setAssignSubmitting(true);
     try {
-      const isGlobalRole = ["CMD", "BOD", "ADMIN"].includes(assignRole);
+      const isGlobalRole = ["CMD", "GM", "BOD", "ADMIN"].includes(assignRole);
       const res = await updateUserRoleAndProject(
         assignTargetUser.id,
         assignRole,
@@ -592,6 +643,8 @@ export default function AdminSettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {projects.map((project) => {
               const assignedPics = users.filter((u) => u.role === "PIC" && u.projectId === project.id);
+              const pmUser = project.pm || users.find((u) => u.id === project.pmId);
+              const gmUser = project.gm || users.find((u) => u.id === project.gmId);
 
               return (
                 <div
@@ -605,6 +658,11 @@ export default function AdminSettingsPage() {
                           {project.code && (
                             <span className="text-[11px] font-mono font-black px-2 py-0.5 bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-800 rounded-md">
                               {project.code}
+                            </span>
+                          )}
+                          {project.division && (
+                            <span className="text-[10px] font-black px-2 py-0.5 bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800 rounded-md">
+                              {project.division}
                             </span>
                           )}
                           <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md">
@@ -625,8 +683,54 @@ export default function AdminSettingsPage() {
                       <span>{project.location}</span>
                     </p>
 
+                    {/* Hierarchy: PM & GM Info */}
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                          Pimpinan Divisi & Proyek
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditProject(project)}
+                          className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1"
+                        >
+                          <Sliders size={11} /> Ubah
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block">
+                            Project Manager (PM)
+                          </span>
+                          {pmUser ? (
+                            <div className="truncate mt-0.5">
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{pmUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{pmUser.email}</p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
+                          )}
+                        </div>
+
+                        <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 block">
+                            General Manager (GM)
+                          </span>
+                          {gmUser ? (
+                            <div className="truncate mt-0.5">
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{gmUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{gmUser.email}</p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Assigned PICs List */}
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                           PIC Penanggung Jawab ({assignedPics.length})
@@ -667,16 +771,25 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setNewPicProjectId(project.id);
-                      setShowAddPicModal(true);
-                    }}
-                    className="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <UserPlus size={14} />
-                    <span>+ Tugaskan PIC Baru ke Proyek Ini</span>
-                  </button>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => handleOpenEditProject(project)}
+                      className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Sliders size={13} />
+                      <span>Atur Divisi/PM/GM</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNewPicProjectId(project.id);
+                        setShowAddPicModal(true);
+                      }}
+                      className="flex-1 py-2 px-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-violet-500/20"
+                    >
+                      <UserPlus size={13} />
+                      <span>+ PIC Proyek</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1238,6 +1351,62 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Divisi / Unit Bisnis</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Opsional</span>
+                </label>
+                <input
+                  type="text"
+                  value={newProjectDivision}
+                  onChange={(e) => setNewProjectDivision(e.target.value)}
+                  placeholder="e.g. Divisi 1 (Gedung & Komersial)"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Project Manager (PM)
+                  </label>
+                  <select
+                    value={newProjectPmId}
+                    onChange={(e) => setNewProjectPmId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih PM Penanggung Jawab --</option>
+                    {users
+                      .filter((u) => u.role === "PM")
+                      .map((pm) => (
+                        <option key={pm.id} value={pm.id}>
+                          {pm.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    General Manager (GM)
+                  </label>
+                  <select
+                    value={newProjectGmId}
+                    onChange={(e) => setNewProjectGmId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih GM Divisi --</option>
+                    {users
+                      .filter((u) => u.role === "GM")
+                      .map((gm) => (
+                        <option key={gm.id} value={gm.id}>
+                          {gm.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2.5 pt-3">
                 <button
                   type="button"
@@ -1252,6 +1421,110 @@ export default function AdminSettingsPage() {
                   className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
                 >
                   {projectSubmitting ? "Menyimpan..." : "Simpan Proyek"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT PENUGASAN PROYEK (DIVISI, PM, GM) */}
+      {showEditProjectModal && editingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-violet-100 dark:bg-violet-950 text-violet-600 rounded-xl">
+                  <Sliders size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Atur Penugasan Divisi, PM & GM
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Proyek: <strong className="text-violet-600 dark:text-violet-400">{editingProject.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditProjectModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProjectAssignmentSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Divisi / Unit Bisnis Proyek
+                </label>
+                <input
+                  type="text"
+                  value={editDivision}
+                  onChange={(e) => setEditDivision(e.target.value)}
+                  placeholder="e.g. Divisi 1 (Gedung & Komersial)"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Project Manager (PM) Penanggung Jawab
+                </label>
+                <select
+                  value={editPmId}
+                  onChange={(e) => setEditPmId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">-- Belum Ditentukan / Tidak Ada PM --</option>
+                  {users
+                    .filter((u) => u.role === "PM")
+                    .map((pm) => (
+                      <option key={pm.id} value={pm.id}>
+                        {pm.name} ({pm.email})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  General Manager (GM) Divisi
+                </label>
+                <select
+                  value={editGmId}
+                  onChange={(e) => setEditGmId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">-- Belum Ditentukan / Tidak Ada GM --</option>
+                  {users
+                    .filter((u) => u.role === "GM")
+                    .map((gm) => (
+                      <option key={gm.id} value={gm.id}>
+                        {gm.name} ({gm.email})
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  GM dan PIC akan otomatis menerima reminder email jika temuan patroli belum direspon lebih dari batas waktu SLA.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowEditProjectModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={projectEditSubmitting}
+                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
+                >
+                  {projectEditSubmitting ? "Menyimpan..." : "Simpan Penugasan"}
                 </button>
               </div>
             </form>
@@ -1541,6 +1814,7 @@ export default function AdminSettingsPage() {
                   <option value="CMD">CMD (Inspector Lapangan / Patrol ISO)</option>
                   <option value="SM">SM (Site Manager Lapangan)</option>
                   <option value="PM">PM (Project Manager - Evaluasi & Approval)</option>
+                  <option value="GM">GM (General Manager - Supervisi Divisi)</option>
                   <option value="BOD">BOD (Board of Directors - Pemantau Eksekutif)</option>
                   <option value="ADMIN">ADMIN (Administrator Sistem)</option>
                 </select>
@@ -1569,7 +1843,7 @@ export default function AdminSettingsPage() {
                 <p className="text-[11px] text-slate-500">
                   {assignRole === "PIC"
                     ? "Wajib pilih proyek: PIC akan diisolasi hanya pada tiket proyek ini."
-                    : "Opsional: CMD, SM, PM, BOD, dan Admin dapat mengakses lintas proyek."}
+                    : "Opsional: CMD, SM, PM, GM, BOD, dan Admin dapat mengakses lintas proyek."}
                 </p>
               </div>
 

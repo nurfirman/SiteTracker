@@ -235,7 +235,7 @@ export default function AllFindingsPage() {
         onClose={() => setSelectedModalFinding(null)}
         onApprove={handleApproveFinding}
         onReject={handleRejectFinding}
-        isPmOrBod={currentUser.role === "PM" || currentUser.role === "BOD"}
+        isPmOrBod={currentUser.role === "PM" || currentUser.role === "GM" || currentUser.role === "BOD" || currentUser.role === "ADMIN"}
       />
     </div>
   );
