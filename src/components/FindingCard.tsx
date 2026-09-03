@@ -5,7 +5,7 @@ import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 import { formatDate, getSlaStatus } from "../lib/utils";
-import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock } from "lucide-react";
+import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 interface FindingCardProps {
@@ -63,8 +63,9 @@ export function FindingCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
           {finding.photoResolutionUrl && (
-            <div className="absolute top-2 right-2 px-2.5 py-1 bg-emerald-600/90 text-white text-xs font-extrabold rounded-lg backdrop-blur-md shadow-md">
-              ✓ Ada Bukti Perbaikan
+            <div className="absolute top-2 right-2 px-2.5 py-1 bg-emerald-600/90 text-white text-xs font-extrabold rounded-lg backdrop-blur-md shadow-md flex items-center gap-1">
+              <CheckCircle2 size={12} />
+              <span>Ada Bukti Perbaikan</span>
             </div>
           )}
           {finding.project && (
@@ -102,7 +103,7 @@ export function FindingCard({
         {currentUserRole === "PIC" && finding.status === "OPEN" && onQuickResolve && (
           <button
             onClick={() => onQuickResolve(finding)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-md transition-all active:scale-95"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-xl shadow-md shadow-violet-500/25 transition-all active:scale-95"
           >
             <CheckSquare size={16} />
             <span>Tindak Lanjuti</span>

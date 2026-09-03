@@ -7,14 +7,20 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
-  // Protected paths that require authenticated role session
-  const isProtectedPath =
-    pathname.startsWith("/findings/new") ||
-    pathname.startsWith("/pic/tasks");
+  // Exclude static assets, api routes, and public pages
+  const isPublicRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/landing") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/api");
 
-  if (isProtectedPath && !sessionCookie?.value) {
+  // If user opens the application (e.g. root "/" or protected pages) without active session, redirect to /login
+  if (!isPublicRoute && !sessionCookie?.value) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("returnUrl", pathname);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("returnUrl", pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
@@ -22,5 +28,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/findings/new", "/pic/tasks/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -13,6 +13,7 @@ import {
   MapPin,
   Send,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   ArrowLeft,
   Building2,
@@ -131,15 +132,47 @@ export default function NewFindingPage() {
           <ArrowLeft size={18} /> Kembali ke Dashboard
         </Link>
 
-        <span className="px-3 py-1 bg-yellow-500/20 text-yellow-800 dark:text-yellow-300 text-xs font-extrabold rounded-lg">
+        <span className="px-3 py-1 bg-violet-100 dark:bg-violet-950/80 text-violet-900 dark:text-violet-300 border border-violet-300 dark:border-violet-800 text-xs font-extrabold rounded-lg">
           Role Pelapor: {currentUser.name} ({currentUser.role})
         </span>
       </div>
 
-      {/* Main Form Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-        <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-900 to-yellow-950 text-white border-b border-slate-800 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-500 text-slate-950 text-xs font-black rounded-lg uppercase tracking-wider">
+      {/* PENDING ROLE RESTRICTION */}
+      {currentUser.role === "PENDING" ? (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-rose-300 dark:border-rose-900/60 p-8 shadow-xl text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
+            <AlertTriangle size={32} />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white">
+            Wewenang Belum Diatur (Status: PENDING)
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan tiket temuan patroli baru. Silakan hubungi <strong>Administrator Proyek</strong> untuk mengonfigurasi role dan proyek penugasan Anda.
+          </p>
+          <div className="pt-3 flex justify-center gap-3">
+            <Link
+              href="/"
+              className="px-5 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl"
+            >
+              Kembali ke Dashboard
+            </Link>
+            <a
+              href={`https://wa.me/6281234567890?text=Halo%20Admin,%20akun%20saya%20(${encodeURIComponent(
+                currentUser.email
+              )})%20membutuhkan%20setting%20role%20untuk%20catat%20temuan.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition-all"
+            >
+              Hubungi Administrator
+            </a>
+          </div>
+        </div>
+      ) : (
+        /* Main Form Card */
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+        <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-900 to-violet-950 text-white border-b border-slate-800 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-600 text-white text-xs font-black rounded-lg uppercase tracking-wider">
             <HardHat size={16} /> Formulir Input Temuan Patroli CMD
           </div>
           <h1 className="text-2xl sm:text-3xl font-black">
@@ -157,35 +190,35 @@ export default function NewFindingPage() {
               Tiket Berhasil Dibuat!
             </h2>
             <p className="text-base text-slate-600 dark:text-slate-300">
-              Kode Tiket: <strong className="text-yellow-600 font-mono text-xl">{successTicket}</strong>
+              Kode Tiket: <strong className="text-violet-600 dark:text-violet-400 font-mono text-xl">{successTicket}</strong>
             </p>
             <p className="text-sm text-slate-500">
-              Mengarahkan Anda ke detail tiket temuan...
+              Mengarahkan ke halaman detail temuan...
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
             {errorMsg && (
-              <div className="p-4 bg-red-50 dark:bg-red-950/60 border-2 border-red-300 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-300 text-sm font-bold flex items-center gap-3">
-                <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+              <div className="p-4 bg-red-50 dark:bg-red-950/60 border-2 border-red-300 dark:border-red-800 rounded-2xl flex items-center gap-3 text-red-800 dark:text-red-300 text-sm font-bold">
+                <AlertCircle className="w-5 h-5 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* 1. SELEKSI PROYEK & PIC */}
+            {/* 1. PILIH PROYEK & PIC */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Dropdown Project */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  1. Pilih Proyek <span className="text-red-500">*</span>
+                  1. Proyek Konstruksi <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <select
                     value={selectedProjectId}
                     onChange={(e) => setSelectedProjectId(e.target.value)}
                     required
-                    className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-yellow-500 focus:outline-none"
+                    className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                   >
+                    <option value="">-- Pilih Proyek Lapangan --</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -195,7 +228,6 @@ export default function NewFindingPage() {
                 </div>
               </div>
 
-              {/* Dropdown PIC */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
                   2. PIC Penanggung Jawab (Subkont) <span className="text-red-500">*</span>
@@ -205,7 +237,7 @@ export default function NewFindingPage() {
                     value={selectedPicId}
                     onChange={(e) => setSelectedPicId(e.target.value)}
                     required
-                    className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-yellow-500 focus:outline-none"
+                    className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                   >
                     {availablePics.length === 0 ? (
                       <option value="">-- Tidak Ada PIC untuk proyek ini --</option>
@@ -218,9 +250,6 @@ export default function NewFindingPage() {
                     )}
                   </select>
                 </div>
-                <p className="text-xs text-slate-500">
-                  * Otomatis memfilter PIC sesuai proyek yang dipilih
-                </p>
               </div>
             </div>
 
@@ -233,7 +262,7 @@ export default function NewFindingPage() {
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Category)}
                 required
-                className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-yellow-500 focus:outline-none"
+                className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
               >
                 <option value="K3_SAFETY">🛡️ K3 / Keselamatan Kerja (APD, Barikade, Listrik)</option>
                 <option value="QUALITY">🏗️ Kualitas Pekerjaan (Retak, Coring, Plesteran)</option>
@@ -255,7 +284,7 @@ export default function NewFindingPage() {
                   onChange={(e) => setLocationDetail(e.target.value)}
                   placeholder="Contoh: Lantai 3 - Area Coring Sisi Selatan"
                   required
-                  className="w-full px-4 py-3.5 min-h-[48px] text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-yellow-500 focus:outline-none"
+                  className="w-full px-4 py-3.5 min-h-[48px] text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                 />
               </div>
 
@@ -274,7 +303,7 @@ export default function NewFindingPage() {
                 placeholder="Tuliskan temuan secara jelas dan objektif (contoh: 3 pekerja tidak menggunakan helm dan harness saat bekerja di ketinggian 5m)."
                 required
                 rows={4}
-                className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-yellow-500 focus:outline-none"
+                className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
               />
             </div>
 
@@ -294,7 +323,7 @@ export default function NewFindingPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[56px] text-lg font-black text-slate-950 bg-yellow-400 hover:bg-yellow-300 rounded-2xl shadow-xl hover:shadow-yellow-500/20 active:scale-98 transition-all disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[56px] text-lg font-black text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-xl shadow-violet-500/25 active:scale-98 transition-all disabled:opacity-50"
               >
                 <Send className="w-6 h-6" />
                 <span>{submitting ? "Menyimpan Tiket..." : "Kirim Tiket Temuan Patroli (OPEN)"}</span>
@@ -303,6 +332,7 @@ export default function NewFindingPage() {
           </form>
         )}
       </div>
-    </div>
+    )}
+  </div>
   );
 }

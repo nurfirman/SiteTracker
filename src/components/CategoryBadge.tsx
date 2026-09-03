@@ -28,7 +28,7 @@ export function CategoryBadge({ category, className, showIcon = true }: Category
       case "SCHEDULE":
         return <CalendarClock size={16} className="text-amber-600 dark:text-amber-400" />;
       case "MATERIAL":
-        return <PackageX size={16} className="text-purple-600 dark:text-purple-400" />;
+        return <PackageX size={16} className="text-indigo-600 dark:text-indigo-400" />;
       default:
         return <ShieldAlert size={16} />;
     }

@@ -8,6 +8,8 @@ import { setSession, getSession, destroySession, requireAuth, SessionData } from
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
 import { revalidatePath } from "next/cache";
+import { sendEmailViaAzureGraph, isAzureMailConfigured } from "./azureMail";
+import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
 
 function safeRevalidate(path: string) {
   try {
@@ -57,15 +59,212 @@ export async function loginUser(identifier: string, password?: string): Promise<
 
   // If password provided, validate password
   if (password !== undefined) {
-    const expectedPassword = targetUser.password || "123";
-    if (password !== expectedPassword && password !== "admin" && password !== "123456") {
-      return { success: false, message: "Password tidak sesuai. Silakan coba lagi." };
+    if (isNeonAuthConfigured()) {
+      const neonRes = await signInWithNeonAuth({
+        email: targetUser.email,
+        password: password,
+      });
+      if (!neonRes.success) {
+        return { success: false, message: neonRes.message };
+      }
+    } else {
+      const expectedPassword = targetUser.password || "123";
+      if (password !== expectedPassword && password !== "admin" && password !== "123456") {
+        return { success: false, message: "Password tidak sesuai. Silakan coba lagi." };
+      }
     }
   }
 
   const session = await setSession(targetUser);
   return { success: true, session };
 }
+
+export async function registerUser(payload: {
+  name: string;
+  email: string;
+  password: string;
+  phoneNumber?: string;
+  role?: Role;
+  projectId?: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  user?: User;
+  session?: SessionData;
+}> {
+  try {
+    const cleanName = sanitizeText(payload.name);
+    const cleanEmail = sanitizeText(payload.email).toLowerCase().trim();
+    const cleanPhone = sanitizeText(payload.phoneNumber || "0812-0000-0000");
+    // New self-registered users default to PENDING until assigned by Administrator
+    const role: Role = payload.role || "PENDING";
+    const password = payload.password;
+
+    if (!cleanName || cleanName.length < 2) {
+      return { success: false, message: "Nama lengkap minimal 2 karakter." };
+    }
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { success: false, message: "Format email tidak valid." };
+    }
+    if (!password || password.length < 6) {
+      return { success: false, message: "Password minimal 6 karakter." };
+    }
+
+    // Cek apakah email sudah terdaftar
+    const existingUsers = await getUsers();
+    const isExisting = existingUsers.some((u) => u.email.toLowerCase() === cleanEmail);
+    if (isExisting) {
+      return {
+        success: false,
+        message: "Email sudah terdaftar. Silakan gunakan email lain atau langsung login.",
+      };
+    }
+
+    // 1. Daftarkan akun ke Neon Auth (Managed Better Auth)
+    const neonAuthRes = await signUpWithNeonAuth({
+      email: cleanEmail,
+      password: password,
+      name: cleanName,
+    });
+
+    if (!neonAuthRes.success) {
+      return { success: false, message: neonAuthRes.message };
+    }
+
+    const assignedId = neonAuthRes.user?.id || "usr-" + Date.now().toString().slice(-6);
+
+    // 2. Simpan user ke PostgreSQL Neon / memory dengan status PENDING
+    const newUser: User = {
+      id: assignedId,
+      name: cleanName,
+      email: cleanEmail,
+      role: role,
+      phoneNumber: cleanPhone,
+      projectId: role === "PENDING" ? null : (payload.projectId || null),
+      password: password,
+    };
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const created = await prisma.user.create({
+          data: {
+            id: assignedId,
+            name: cleanName,
+            email: cleanEmail,
+            role: role,
+            phoneNumber: cleanPhone,
+            projectId: role === "PENDING" ? null : (payload.projectId || null),
+          },
+        });
+        newUser.id = created.id;
+      } catch (dbErr) {
+        console.warn("Neon DB user registration fallback:", dbErr);
+      }
+    }
+
+    inMemoryUsers.unshift(newUser);
+
+    // 3. Buat sesi login aktif
+    const session = await setSession(newUser);
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/login");
+
+    return {
+      success: true,
+      message: `Pendaftaran akun ${cleanName} berhasil! Status: Menunggu penugasan role & proyek oleh Administrator.`,
+      user: newUser,
+      session,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal mendaftarkan akun: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+/**
+ * Server Action bagi Administrator untuk mengatur wewenang Role dan Proyek akun pengguna
+ */
+export async function updateUserRoleAndProject(
+  userId: string,
+  role: Role,
+  projectId?: string | null
+): Promise<{ success: boolean; message: string; user?: User }> {
+  try {
+    let updatedUser: User | null = null;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const u = await prisma.user.update({
+          where: { id: userId },
+          data: {
+            role: role,
+            projectId: projectId || null,
+          },
+          include: { project: true },
+        });
+        updatedUser = {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          phoneNumber: u.phoneNumber,
+          projectId: u.projectId,
+          project: u.project
+            ? {
+                id: u.project.id,
+                name: u.project.name,
+                location: u.project.location,
+                createdAt: u.project.createdAt,
+              }
+            : null,
+        };
+      } catch (dbErr) {
+        console.warn("Neon DB update user fallback:", dbErr);
+      }
+    }
+
+    // Update in-memory fallback
+    const memIdx = inMemoryUsers.findIndex((u) => u.id === userId);
+    if (memIdx !== -1) {
+      inMemoryUsers[memIdx].role = role;
+      inMemoryUsers[memIdx].projectId = projectId || null;
+      if (projectId) {
+        const p = inMemoryProjects.find((proj) => proj.id === projectId);
+        inMemoryUsers[memIdx].project = p || null;
+      } else {
+        inMemoryUsers[memIdx].project = null;
+      }
+      if (!updatedUser) {
+        updatedUser = inMemoryUsers[memIdx];
+      }
+    }
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/findings");
+    safeRevalidate("/pic/tasks");
+    safeRevalidate("/");
+
+    return {
+      success: true,
+      message: `Berhasil mengubah wewenang personil menjadi [${role}] ${
+        projectId ? "pada proyek terkait" : "(Akses Lintas Proyek)"
+      }.`,
+      user: updatedUser || undefined,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal memperbarui wewenang akun: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+export { getNeonAuthServiceStatus };
 
 export async function logoutUser(): Promise<{ success: boolean }> {
   await destroySession();
@@ -76,13 +275,34 @@ export async function getCurrentUserSession(): Promise<SessionData | null> {
   return await getSession();
 }
 
+export interface ImportProjectPicRowResult {
+  rowNumber: number;
+  projectCode: string;
+  projectName: string;
+  projectLocation: string;
+  picName?: string;
+  picEmail?: string;
+  status: "SUCCESS" | "SKIPPED" | "ERROR";
+  message: string;
+}
+
+export interface ImportProjectPicReport {
+  totalRows: number;
+  successCount: number;
+  skippedCount: number;
+  errorCount: number;
+  details: ImportProjectPicRowResult[];
+}
+
 export async function createProject(payload: {
+  code?: string;
   name: string;
   location: string;
 }): Promise<{ success: boolean; project?: Project; message?: string }> {
   try {
     const cleanName = sanitizeText(payload.name);
     const cleanLocation = sanitizeText(payload.location);
+    const cleanCode = payload.code ? sanitizeText(payload.code).toUpperCase().trim() : null;
 
     if (!cleanName || cleanName.length < 3) {
       return { success: false, message: "Nama proyek minimal 3 karakter." };
@@ -91,8 +311,45 @@ export async function createProject(payload: {
       return { success: false, message: "Lokasi proyek minimal 3 karakter." };
     }
 
+    const defaultCode = cleanCode || ("PRJ-" + cleanName.replace(/[^a-zA-Z0-9]/g, "").substring(0, 4).toUpperCase());
+
+    // Check duplicate by name or code
+    if (hasValidDatabaseUrl()) {
+      try {
+        const existing = await prisma.project.findFirst({
+          where: {
+            OR: [
+              { name: { equals: cleanName, mode: "insensitive" as const } },
+              ...(cleanCode ? [{ code: { equals: cleanCode, mode: "insensitive" as const } }] : []),
+            ],
+          },
+        });
+        if (existing) {
+          return {
+            success: false,
+            message: `Proyek ${existing.code ? `[${existing.code}] ` : ""}'${existing.name}' sudah terdaftar.`,
+          };
+        }
+      } catch (checkErr) {
+        console.warn("Check duplicate project fallback:", checkErr);
+      }
+    } else {
+      const existing = inMemoryProjects.find(
+        (p) =>
+          p.name.toLowerCase() === cleanName.toLowerCase() ||
+          (cleanCode && p.code && p.code.toLowerCase() === cleanCode.toLowerCase())
+      );
+      if (existing) {
+        return {
+          success: false,
+          message: `Proyek '${cleanName}' sudah terdaftar di sistem.`,
+        };
+      }
+    }
+
     const newProj: Project = {
       id: "proj-" + (inMemoryProjects.length + 1) + "-" + Date.now().toString().slice(-4),
+      code: defaultCode,
       name: cleanName,
       location: cleanLocation,
       createdAt: new Date().toISOString(),
@@ -102,11 +359,13 @@ export async function createProject(payload: {
       try {
         const created = await prisma.project.create({
           data: {
+            code: defaultCode,
             name: cleanName,
             location: cleanLocation,
           },
         });
         newProj.id = created.id;
+        newProj.code = created.code;
       } catch (dbErr) {
         console.warn("Neon DB project creation fallback:", dbErr);
       }
@@ -122,6 +381,310 @@ export async function createProject(payload: {
     return { success: true, project: newProj, message: "Proyek baru berhasil ditambahkan!" };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal membuat proyek." };
+  }
+}
+
+/**
+ * Impor Massal Data Proyek & PIC Pengguna dari File CSV
+ * Melakukan pengecekan duplikasi: jika proyek sudah ada (berdasarkan Kode atau Nama), maka otomatis DI-SKIP
+ * dan menghasilkan rekapitulasi laporan rinci per baris.
+ */
+export async function importProjectsAndPicsFromCsv(
+  csvContent: string
+): Promise<{ success: boolean; message: string; report: ImportProjectPicReport }> {
+  try {
+    if (!csvContent || csvContent.trim().length === 0) {
+      return {
+        success: false,
+        message: "File CSV kosong atau tidak memiliki data.",
+        report: { totalRows: 0, successCount: 0, skippedCount: 0, errorCount: 0, details: [] },
+      };
+    }
+
+    const lines = csvContent
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length < 2) {
+      return {
+        success: false,
+        message: "File CSV minimal harus memiliki 1 baris header dan minimal 1 baris data.",
+        report: { totalRows: 0, successCount: 0, skippedCount: 0, errorCount: 0, details: [] },
+      };
+    }
+
+    // Detect delimiter (; or , or \t)
+    const headerLine = lines[0];
+    const commaCount = (headerLine.match(/,/g) || []).length;
+    const semiCount = (headerLine.match(/;/g) || []).length;
+    const delimiter = semiCount > commaCount ? ";" : ",";
+
+    const parseLine = (lineStr: string): string[] => {
+      const res: string[] = [];
+      let cur = "";
+      let inQuotes = false;
+      for (let i = 0; i < lineStr.length; i++) {
+        const c = lineStr[i];
+        if (c === '"' || c === "'") {
+          inQuotes = !inQuotes;
+        } else if (c === delimiter && !inQuotes) {
+          res.push(cur.trim().replace(/^["']|["']$/g, ""));
+          cur = "";
+        } else {
+          cur += c;
+        }
+      }
+      res.push(cur.trim().replace(/^["']|["']$/g, ""));
+      return res;
+    };
+
+    const headers = parseLine(headerLine).map((h) => h.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_"));
+
+    // Find column indices with alias support
+    const findCol = (candidates: string[]) => {
+      return headers.findIndex((h) => candidates.some((c) => h === c || h.includes(c)));
+    };
+
+    const codeIdx = findCol(["kode_proyek", "kodeproyek", "project_code", "kode", "code"]);
+    const nameIdx = findCol(["nama_proyek", "namaproyek", "project_name", "proyek", "project", "nama"]);
+    const locationIdx = findCol(["lokasi_proyek", "lokasiproyek", "location", "lokasi", "alamat"]);
+    const picNameIdx = findCol(["nama_pic", "namapic", "pic_name", "pic", "penanggung_jawab"]);
+    const picEmailIdx = findCol(["email_pic", "emailpic", "pic_email", "email"]);
+    const picPhoneIdx = findCol(["no_hp_pic", "nohp", "telepon", "phone", "hp", "no_hp", "wa"]);
+    const picPasswordIdx = findCol(["password_pic", "password", "kata_sandi", "pwd"]);
+
+    if (nameIdx === -1) {
+      return {
+        success: false,
+        message: "Header 'nama_proyek' tidak ditemukan di baris pertama CSV. Mohon gunakan template resmi.",
+        report: { totalRows: 0, successCount: 0, skippedCount: 0, errorCount: 0, details: [] },
+      };
+    }
+
+    // Load existing projects & users for lightning-fast duplication check
+    const existingProjectNames = new Set<string>();
+    const existingProjectCodes = new Set<string>();
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const dbProjects = await prisma.project.findMany({ select: { id: true, code: true, name: true } });
+        dbProjects.forEach((p) => {
+          existingProjectNames.add(p.name.toLowerCase().trim());
+          if (p.code) existingProjectCodes.add(p.code.toLowerCase().trim());
+        });
+      } catch (dbErr) {
+        console.warn("Fetch existing projects error:", dbErr);
+      }
+    }
+    inMemoryProjects.forEach((p) => {
+      existingProjectNames.add(p.name.toLowerCase().trim());
+      if (p.code) existingProjectCodes.add(p.code.toLowerCase().trim());
+    });
+
+    const details: ImportProjectPicRowResult[] = [];
+    let successCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    // Process data rows
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i + 1; // 1-indexed (row 1 is header)
+      const cols = parseLine(lines[i]);
+
+      const rawCode = codeIdx !== -1 && cols[codeIdx] ? sanitizeText(cols[codeIdx]).toUpperCase().trim() : "";
+      const rawName = nameIdx !== -1 && cols[nameIdx] ? sanitizeText(cols[nameIdx]).trim() : "";
+      const rawLocation = locationIdx !== -1 && cols[locationIdx] ? sanitizeText(cols[locationIdx]).trim() : "Site Lapangan";
+      const rawPicName = picNameIdx !== -1 && cols[picNameIdx] ? sanitizeText(cols[picNameIdx]).trim() : "";
+      const rawPicEmail = picEmailIdx !== -1 && cols[picEmailIdx] ? sanitizeText(cols[picEmailIdx]).toLowerCase().trim() : "";
+      const rawPicPhone = picPhoneIdx !== -1 && cols[picPhoneIdx] ? sanitizeText(cols[picPhoneIdx]).trim() : "081234567890";
+      const rawPicPassword = picPasswordIdx !== -1 && cols[picPasswordIdx] ? sanitizeText(cols[picPasswordIdx]).trim() : "123";
+
+      // Validation
+      if (!rawName || rawName.length < 2) {
+        details.push({
+          rowNumber: rowNum,
+          projectCode: rawCode || "-",
+          projectName: rawName || "(Nama Kosong)",
+          projectLocation: rawLocation,
+          picName: rawPicName || "-",
+          picEmail: rawPicEmail || "-",
+          status: "ERROR",
+          message: "Gagal: Nama proyek wajib diisi (minimal 2 karakter).",
+        });
+        errorCount++;
+        continue;
+      }
+
+      // Check if project already exists (by name or code) -> SKIP
+      const isNameDuplicate = existingProjectNames.has(rawName.toLowerCase());
+      const isCodeDuplicate = rawCode ? existingProjectCodes.has(rawCode.toLowerCase()) : false;
+
+      if (isNameDuplicate || isCodeDuplicate) {
+        details.push({
+          rowNumber: rowNum,
+          projectCode: rawCode || "-",
+          projectName: rawName,
+          projectLocation: rawLocation,
+          picName: rawPicName || "-",
+          picEmail: rawPicEmail || "-",
+          status: "SKIPPED",
+          message: `Dilewati: Proyek ${
+            isCodeDuplicate ? `dengan kode [${rawCode}]` : `'${rawName}'`
+          } sudah terdaftar di sistem.`,
+        });
+        skippedCount++;
+        continue;
+      }
+
+      // Generate project code if not provided
+      const finalProjectCode =
+        rawCode ||
+        ("PRJ-" +
+          rawName
+            .replace(/[^a-zA-Z0-9]/g, "")
+            .substring(0, 4)
+            .toUpperCase() +
+          "-" +
+          Date.now().toString().slice(-3));
+
+      let newProjectObj: Project;
+
+      // 1. Create Project
+      if (hasValidDatabaseUrl()) {
+        try {
+          const createdDb = await prisma.project.create({
+            data: {
+              code: finalProjectCode,
+              name: rawName,
+              location: rawLocation,
+            },
+          });
+          newProjectObj = {
+            id: createdDb.id,
+            code: createdDb.code,
+            name: createdDb.name,
+            location: createdDb.location,
+            createdAt: createdDb.createdAt.toISOString(),
+          };
+        } catch (dbErr: any) {
+          console.warn("DB create project fallback:", dbErr);
+          newProjectObj = {
+            id: "proj-" + (inMemoryProjects.length + 1) + "-" + Date.now().toString().slice(-4),
+            code: finalProjectCode,
+            name: rawName,
+            location: rawLocation,
+            createdAt: new Date().toISOString(),
+          };
+        }
+      } else {
+        newProjectObj = {
+          id: "proj-" + (inMemoryProjects.length + 1) + "-" + Date.now().toString().slice(-4),
+          code: finalProjectCode,
+          name: rawName,
+          location: rawLocation,
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      inMemoryProjects.unshift(newProjectObj);
+      existingProjectNames.add(rawName.toLowerCase());
+      existingProjectCodes.add(finalProjectCode.toLowerCase());
+
+      // 2. Create or Link PIC User if provided
+      let picMessage = "Proyek berhasil ditambahkan";
+      if (rawPicEmail && rawPicEmail.includes("@") && rawPicName) {
+        if (hasValidDatabaseUrl()) {
+          try {
+            const existingUser = await prisma.user.findUnique({
+              where: { email: rawPicEmail },
+            });
+            if (existingUser) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  role: "PIC",
+                  projectId: newProjectObj.id,
+                  name: rawPicName || existingUser.name,
+                  phoneNumber: rawPicPhone || existingUser.phoneNumber,
+                },
+              });
+              picMessage = `Proyek dibuat & PIC '${rawPicName}' (${rawPicEmail}) dihubungkan`;
+            } else {
+              await prisma.user.create({
+                data: {
+                  id: "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum,
+                  name: rawPicName,
+                  email: rawPicEmail,
+                  role: "PIC",
+                  phoneNumber: rawPicPhone,
+                  projectId: newProjectObj.id,
+                },
+              });
+              picMessage = `Proyek dibuat & Akun PIC '${rawPicName}' berhasil didaftarkan`;
+            }
+          } catch (uErr) {
+            console.warn("DB user creation fallback in CSV:", uErr);
+          }
+        }
+
+        // In-memory sync
+        const memIdx = inMemoryUsers.findIndex((u) => u.email.toLowerCase() === rawPicEmail);
+        if (memIdx !== -1) {
+          inMemoryUsers[memIdx].role = "PIC";
+          inMemoryUsers[memIdx].projectId = newProjectObj.id;
+          inMemoryUsers[memIdx].project = newProjectObj;
+        } else {
+          inMemoryUsers.push({
+            id: "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum,
+            name: rawPicName,
+            email: rawPicEmail,
+            role: "PIC",
+            phoneNumber: rawPicPhone,
+            password: rawPicPassword,
+            projectId: newProjectObj.id,
+            project: newProjectObj,
+          });
+        }
+      } else {
+        picMessage = "Proyek dibuat (tanpa data PIC)";
+      }
+
+      details.push({
+        rowNumber: rowNum,
+        projectCode: finalProjectCode,
+        projectName: rawName,
+        projectLocation: rawLocation,
+        picName: rawPicName || "-",
+        picEmail: rawPicEmail || "-",
+        status: "SUCCESS",
+        message: picMessage,
+      });
+      successCount++;
+    }
+
+    safeRevalidate("/");
+    safeRevalidate("/projects");
+    safeRevalidate("/admin");
+    safeRevalidate("/findings/new");
+
+    return {
+      success: true,
+      message: `Impor selesai: ${successCount} proyek ditambahkan, ${skippedCount} dilewati (sudah ada), ${errorCount} gagal validasi.`,
+      report: {
+        totalRows: details.length,
+        successCount,
+        skippedCount,
+        errorCount,
+        details,
+      },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal memproses berkas CSV: " + (err.message || "Unknown error"),
+      report: { totalRows: 0, successCount: 0, skippedCount: 0, errorCount: 0, details: [] },
+    };
   }
 }
 
@@ -220,6 +783,7 @@ export async function getProjects(): Promise<Project[]> {
       });
       return dbProjects.map((p) => ({
         id: p.id,
+        code: p.code,
         name: p.name,
         location: p.location,
         createdAt: p.createdAt.toISOString(),
@@ -305,6 +869,11 @@ export async function getFindings(filters?: {
   limit?: number;
   page?: number;
 }): Promise<Finding[]> {
+  const session = await getSession();
+  if (session && session.role === "PENDING") {
+    return [];
+  }
+
   const limit = filters?.limit && filters.limit > 0 ? filters.limit : 100;
   const page = filters?.page && filters.page > 0 ? filters.page : 1;
   const skip = (page - 1) * limit;
@@ -832,3 +1401,204 @@ export async function seedDatabase(): Promise<{ success: boolean; message: strin
   }
   return { success: true, message: "Aplikasi berjalan dengan data simulasi memori siap pakai." };
 }
+
+export async function clearFindings(projectId?: string): Promise<{
+  success: boolean;
+  message: string;
+  count: number;
+}> {
+  try {
+    let deletedCount = 0;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        if (projectId && projectId !== "ALL") {
+          const res = await prisma.finding.deleteMany({
+            where: { projectId },
+          });
+          deletedCount = res.count;
+        } else {
+          const res = await prisma.finding.deleteMany({});
+          deletedCount = res.count;
+        }
+      } catch (dbErr) {
+        console.warn("Neon DB delete findings fallback:", dbErr);
+      }
+    }
+
+    if (projectId && projectId !== "ALL") {
+      const beforeCount = inMemoryFindings.length;
+      inMemoryFindings = inMemoryFindings.filter((f) => f.projectId !== projectId);
+      deletedCount = Math.max(deletedCount, beforeCount - inMemoryFindings.length);
+    } else {
+      deletedCount = Math.max(deletedCount, inMemoryFindings.length);
+      inMemoryFindings = [];
+    }
+
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate("/pic/tasks");
+    safeRevalidate("/reports");
+    safeRevalidate("/projects");
+    safeRevalidate("/admin");
+
+    const scopeText = projectId && projectId !== "ALL" ? `pada proyek terpilih` : `untuk semua proyek`;
+    return {
+      success: true,
+      count: deletedCount,
+      message: `Berhasil membersihkan ${deletedCount} data temuan ${scopeText}!`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      count: 0,
+      message: "Gagal menghapus data temuan: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+export interface EmailReportPayload {
+  projectId: string;
+  projectName: string;
+  recipients: string[];
+  subject: string;
+  reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
+  messageNote?: string;
+  findingsCount: number;
+  openCount: number;
+  resolvedCount: number;
+  closedCount: number;
+  inspectorName?: string;
+  siteManagerName?: string;
+  reportDate?: string;
+}
+
+export async function getMailServiceStatus(): Promise<{
+  isConfigured: boolean;
+  provider: string;
+  senderEmail: string;
+}> {
+  const configured = isAzureMailConfigured();
+  return {
+    isConfigured: configured,
+    provider: configured ? "Microsoft Azure Entra ID (Graph API OAuth2)" : "Mode Simulasi (Belum ada kredensial Azure di .env)",
+    senderEmail: process.env.AZURE_SENDER_EMAIL || "Belum diatur",
+  };
+}
+
+export async function sendReportEmail(payload: EmailReportPayload): Promise<{
+  success: boolean;
+  message: string;
+  deliveryLog?: {
+    id: string;
+    timestamp: string;
+    recipientsCount: number;
+    recipientsList: string[];
+    provider?: string;
+  };
+}> {
+  try {
+    if (!payload.recipients || payload.recipients.length === 0) {
+      return { success: false, message: "Penerima email laporan wajib dipilih minimal 1 alamat email." };
+    }
+    if (!payload.subject || payload.subject.trim().length === 0) {
+      return { success: false, message: "Subjek email laporan wajib diisi." };
+    }
+
+    // Jika Azure OAuth sudah diisi di .env, kirim langsung via Microsoft Graph API
+    if (isAzureMailConfigured()) {
+      const azureResult = await sendEmailViaAzureGraph({
+        recipients: payload.recipients,
+        subject: payload.subject,
+        projectName: payload.projectName,
+        reportType: payload.reportType,
+        messageNote: payload.messageNote,
+        findingsCount: payload.findingsCount,
+        openCount: payload.openCount,
+        resolvedCount: payload.resolvedCount,
+        closedCount: payload.closedCount,
+        inspectorName: payload.inspectorName,
+        siteManagerName: payload.siteManagerName,
+        reportDate: payload.reportDate,
+      });
+
+      return {
+        ...azureResult,
+        deliveryLog: azureResult.deliveryLog
+          ? { ...azureResult.deliveryLog, provider: "Microsoft Azure Graph API" }
+          : undefined,
+      };
+    }
+
+    // Jika belum diisi, jalankan simulasi internal dengan log bukti pengiriman
+    const logId = "SIM-MAIL-" + Date.now().toString().slice(-6);
+    const timestamp = new Date().toISOString();
+
+    return {
+      success: true,
+      message: `[Mode Simulasi] Laporan berhasil disiapkan untuk ${payload.recipients.length} penerima (${payload.recipients.join(", ")}). Kredensial Azure OAuth di .env belum diisi sehingga email fisik belum dialirkan ke Graph API.`,
+      deliveryLog: {
+        id: logId,
+        timestamp,
+        recipientsCount: payload.recipients.length,
+        recipientsList: payload.recipients,
+        provider: "Internal Simulation Dispatcher",
+      },
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memproses pengiriman email laporan." };
+  }
+}
+
+// In-memory category configurations
+let inMemoryCategories = [
+  {
+    key: "K3_SAFETY",
+    label: "K3 / Keselamatan Kerja",
+    description: "Isu keselamatan kerja, APD, barikade, kelistrikan, & bahaya kerja.",
+    slaHours: 24,
+    color: "red",
+  },
+  {
+    key: "QUALITY",
+    label: "Kualitas Pekerjaan (Quality)",
+    description: "Cacat fisik, penyimpangan gambar teknis, retak coring, dan instalasi.",
+    slaHours: 48,
+    color: "blue",
+  },
+  {
+    key: "KEBERSIHAN_5R",
+    label: "Kebersihan 5R",
+    description: "Sampah material, lokasi kumuh, sisa bahan, kerapian area kerja.",
+    slaHours: 48,
+    color: "emerald",
+  },
+  {
+    key: "SCHEDULE",
+    label: "Jadwal & Progres Proyek",
+    description: "Keterlambatan tahapan kerja, kekurangan tenaga, kemacetan alat berat.",
+    slaHours: 72,
+    color: "amber",
+  },
+  {
+    key: "MATERIAL",
+    label: "Material & Logistik",
+    description: "Material rusak, penyimpanan basah, kekurangan stok bahan bangunan.",
+    slaHours: 48,
+    color: "purple",
+  },
+];
+
+export async function getCategorySettings() {
+  return inMemoryCategories;
+}
+
+export async function updateCategorySla(key: string, slaHours: number): Promise<{ success: boolean; message: string }> {
+  const cat = inMemoryCategories.find((c) => c.key === key);
+  if (cat) {
+    cat.slaHours = slaHours;
+    return { success: true, message: `SLA untuk kategori ${cat.label} berhasil diperbarui menjadi ${slaHours} jam.` };
+  }
+  return { success: false, message: "Kategori tidak ditemukan." };
+}
+

@@ -3,18 +3,21 @@ import { Finding, Project, User } from "../types";
 export const MOCK_PROJECTS: Project[] = [
   {
     id: "proj-1",
+    code: "PRJ-SCBD",
     name: "Proyek Tower Gedung A - SCBD",
     location: "Kaveling 52-53, Jakarta Selatan",
     createdAt: new Date("2026-01-10").toISOString(),
   },
   {
     id: "proj-2",
+    code: "PRJ-CW45",
     name: "Pembangunan Jembatan Layang Ciawi",
     location: "KM 45 Tol Jagorawi, Bogor",
     createdAt: new Date("2026-02-01").toISOString(),
   },
   {
     id: "proj-3",
+    code: "PRJ-RSMU",
     name: "Renovasi Rumah Sakit Medika Utama",
     location: "Jl. Pemuda No. 12, Surabaya",
     createdAt: new Date("2026-03-15").toISOString(),

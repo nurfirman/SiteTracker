@@ -6,10 +6,12 @@ import { getFindings, resolveFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PhotoUploader } from "@/components/PhotoUploader";
+import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
 import { formatDate } from "@/lib/utils";
 import {
   CheckSquare,
   AlertCircle,
+  AlertTriangle,
   MapPin,
   Clock,
   Send,
@@ -18,6 +20,7 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function PicTasksPage() {
   const { currentUser } = useRole();
@@ -137,7 +140,7 @@ export default function PicTasksPage() {
           </h1>
           <p className="text-sm text-slate-300 max-w-2xl">
             {isStrictPic
-              ? "Daftar temuan 🔴 OPEN yang terisolasi khusus untuk proyek penugasan Anda. Unggah bukti foto hasil pekerjaan di bawah."
+              ? "Daftar temuan status OPEN yang terisolasi khusus untuk proyek penugasan Anda. Unggah bukti foto hasil pekerjaan di bawah."
               : isSm
               ? "Portal Pengawasan Site Manager (SM) untuk memonitor & merespon progres temuan di beberapa proyek site binaan Anda."
               : "Portal Pengawasan Manajemen & Auditor: Memantau dan menguji alur tindak lanjut temuan seluruh proyek."}
@@ -156,7 +159,7 @@ export default function PicTasksPage() {
           </div>
 
           {isStrictPic && currentUser.project && (
-            <div className="flex items-center gap-1.5 text-yellow-400 font-bold text-[11px] pt-1.5 border-t border-slate-700/80">
+            <div className="flex items-center gap-1.5 text-violet-400 font-bold text-[11px] pt-1.5 border-t border-slate-700/80">
               <MapPin size={13} className="shrink-0" />
               <span className="truncate">Area Proyek: {currentUser.project.name}</span>
             </div>
@@ -178,12 +181,34 @@ export default function PicTasksPage() {
         </div>
       </div>
 
-      {/* Main Task List & Project Filter for multi-project users */}
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Temuan Belum Ditangani</span>
+      {/* PENDING ROLE RESTRICTION */}
+      {currentUser.role === "PENDING" ? (
+        <div className="p-8 sm:p-12 bg-white dark:bg-slate-900 border-2 border-dashed border-amber-300 dark:border-amber-800/80 rounded-3xl text-center space-y-4 shadow-sm">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <Clock size={32} />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white">
+            Belum Ada Tugas Ditugaskan
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Akun Anda masih berstatus <strong>PENDING</strong>. Daftar tugas temuan lapangan akan otomatis muncul di sini setelah Administrator menetapkan Anda sebagai PIC proyek tertentu.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-xl shadow-md transition-all inline-block"
+            >
+              Kembali ke Dashboard
+            </Link>
+          </div>
+        </div>
+      ) : (
+        /* Main Task List & Project Filter for multi-project users */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Temuan Belum Ditangani</span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
                 {tasks.length} Tiket OPEN
               </span>
@@ -216,9 +241,7 @@ export default function PicTasksPage() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-slate-500">
-            Memuat tugas temuan...
-          </div>
+          <FindingCardGridSkeleton count={4} />
         ) : tasks.length === 0 ? (
           <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
             <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto" />
@@ -268,15 +291,18 @@ export default function PicTasksPage() {
                       alt="Foto Temuan"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-2 left-2 px-3 py-1 bg-red-600/90 text-white text-xs font-bold rounded-lg backdrop-blur-md">
-                      🔴 Foto Temuan Awal
+                    <div className="absolute top-2 left-2 px-3 py-1 bg-red-600/90 text-white text-xs font-bold rounded-lg backdrop-blur-md flex items-center gap-1">
+                      <AlertCircle size={13} />
+                      <span>Foto Temuan Awal</span>
                     </div>
                   </div>
 
                   {/* Rejection Note jika ini hasil penolakan PM */}
                   {task.rejectionNote && (
                     <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-300 rounded-xl text-xs text-red-800 dark:text-red-300 font-semibold space-y-1">
-                      <span className="font-extrabold block">⚠️ Catatan Perbaikan Ulang dari PM:</span>
+                      <span className="font-extrabold flex items-center gap-1">
+                        <AlertTriangle size={13} className="text-red-500" /> Catatan Perbaikan Ulang dari PM:
+                      </span>
                       <p>"{task.rejectionNote}"</p>
                     </div>
                   )}
@@ -289,32 +315,39 @@ export default function PicTasksPage() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenResponseForm(task)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-amber-600 hover:bg-amber-700 rounded-2xl shadow-lg hover:shadow-amber-600/20 active:scale-95 transition-all"
-                >
-                  <CheckSquare size={20} />
-                  <span>Tindak Lanjuti (Kirim Bukti Perbaikan)</span>
-                </button>
+                {currentUser.role === "PENDING" ? (
+                  <div className="w-full p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl text-center text-xs text-rose-800 dark:text-rose-300 font-bold">
+                    Akun PENDING: Menunggu persetujuan Admin untuk merespon tiket
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenResponseForm(task)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-violet-600/30 active:scale-95 transition-all"
+                  >
+                    <CheckSquare size={20} />
+                    <span>Tindak Lanjuti (Kirim Bukti Perbaikan)</span>
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+      )}
 
       {/* MODAL FORM TINDAK LANJUT PIC */}
       {activeTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
           <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8">
-            <div className="flex items-center justify-between px-6 py-5 bg-amber-500 text-slate-950">
+            <div className="flex items-center justify-between px-6 py-5 bg-violet-600 text-white">
               <div className="flex items-center gap-2 font-black text-lg">
                 <Sparkles size={22} />
                 <span>Form Bukti Perbaikan ({activeTask.ticketCode})</span>
               </div>
               <button
                 onClick={() => setActiveTask(null)}
-                className="p-2 hover:bg-amber-600 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 hover:bg-violet-700 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={24} />
               </button>
@@ -335,8 +368,9 @@ export default function PicTasksPage() {
                 <p className="text-sm font-bold text-slate-900 dark:text-white">
                   "{activeTask.description}"
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  📍 {activeTask.locationDetail}
+                <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                  <MapPin size={12} className="text-red-500 shrink-0" />
+                  <span>{activeTask.locationDetail}</span>
                 </p>
               </div>
 
@@ -351,7 +385,7 @@ export default function PicTasksPage() {
                   placeholder="Jelaskan tindakan perbaikan yang telah dilakukan (contoh: Telah dilakukan pembersihan puing, pemasangan barikade K3, dan pengecatan ulang)."
                   required
                   rows={4}
-                  className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-amber-500 focus:outline-none"
+                  className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                 />
               </div>
 

@@ -17,6 +17,7 @@ enum Role {
   PM
   BOD
   ADMIN
+  PENDING
 }
 
 enum Category {
@@ -35,6 +36,7 @@ enum FindingStatus {
 
 model Project {
   id        String    @id @default(uuid())
+  code      String?   @unique @db.VarChar(50)
   name      String    @db.VarChar(255)
   location  String    @db.VarChar(255)
   createdAt DateTime  @default(now()) @map("created_at")

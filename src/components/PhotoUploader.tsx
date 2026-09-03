@@ -128,11 +128,11 @@ export function PhotoUploader({
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-amber-400 bg-amber-50/60 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 min-h-[160px]">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+        <div className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50/60 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 min-h-[160px]">
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
           <div className="text-center">
             <span className="block text-sm font-extrabold">Mengompresi Foto Lapangan...</span>
-            <span className="block text-xs text-amber-700 dark:text-amber-300 font-medium">
+            <span className="block text-xs text-violet-700 dark:text-violet-300 font-medium">
               Mengoptimalkan ukuran gambar agar unggahan instan & hemat kuota
             </span>
           </div>
@@ -151,7 +151,7 @@ export function PhotoUploader({
                 <Check className="w-4 h-4" /> Foto Terlampir & Siap
               </span>
               {stats && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-amber-300 text-[11px] font-mono rounded-md">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-violet-300 text-[11px] font-mono rounded-md">
                   <Sparkles className="w-3 h-3" /> Ukuran: {stats.comp} ({stats.ratio}% lebih hemat)
                 </span>
               )}

@@ -19,6 +19,7 @@ import {
   Clock,
   Navigation,
   AlertCircle,
+  AlertTriangle,
   Sparkles,
   Send,
 } from "lucide-react";
@@ -280,23 +281,32 @@ export default function FindingDetailPage() {
         <div className="p-6 sm:p-8 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 space-y-4">
           {/* PIC Tindak Lanjut Form Trigger */}
           {finding.status === "OPEN" && !showPicForm && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-slate-600 dark:text-slate-300">
-                Tiket ini berstatus 🔴 <strong>OPEN</strong>. Penanggung Jawab (PIC) dapat mengunggah bukti perbaikan.
+            currentUser.role === "PENDING" ? (
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2.5">
+                <AlertTriangle size={18} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                <span>
+                  Akun Anda masih berstatus <strong>PENDING</strong>. Anda belum diizinkan merespon atau mengunggah perbaikan sebelum Administrator menetapkan Role dan Proyek penugasan Anda.
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPicForm(true)}
-                className="w-full sm:w-auto px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-amber-600 hover:bg-amber-700 rounded-2xl shadow-lg active:scale-95 transition-all"
-              >
-                Tindak Lanjuti Tiket (Unggah Perbaikan)
-              </button>
-            </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-slate-600 dark:text-slate-300">
+                  Tiket ini berstatus 🔴 <strong>OPEN</strong>. Penanggung Jawab (PIC) dapat mengunggah bukti perbaikan.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPicForm(true)}
+                  className="w-full sm:w-auto px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-lg shadow-violet-500/25 active:scale-95 transition-all"
+                >
+                  Tindak Lanjuti Tiket (Unggah Perbaikan)
+                </button>
+              </div>
+            )
           )}
 
           {/* Form inline PIC */}
           {showPicForm && (
-            <form onSubmit={handlePicSubmit} className="space-y-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border-2 border-amber-300">
+            <form onSubmit={handlePicSubmit} className="space-y-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border-2 border-violet-300 dark:border-violet-800 shadow-sm">
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
                 Form Tindak Lanjut Perbaikan Lapangan
               </h3>

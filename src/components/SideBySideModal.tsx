@@ -156,7 +156,10 @@ export function SideBySideModal({
               {/* Foto Sebelum (Temuan Awal) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-3 py-1.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300 font-extrabold text-xs">
-                  <span>🔴 Foto Sebelum (Temuan Awal)</span>
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle size={14} className="text-red-500" />
+                    <span>Foto Sebelum (Temuan Awal)</span>
+                  </span>
                 </div>
                 <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-950 shadow-md aspect-video">
                   <img
@@ -170,7 +173,10 @@ export function SideBySideModal({
               {/* Foto Sesudah (Hasil Perbaikan PIC) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
-                  <span>🟢 Foto Sesudah (Hasil Perbaikan PIC)</span>
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-emerald-500" />
+                    <span>Foto Sesudah (Hasil Perbaikan PIC)</span>
+                  </span>
                 </div>
                 <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-950 shadow-md aspect-video">
                   {finding.photoResolutionUrl ? (

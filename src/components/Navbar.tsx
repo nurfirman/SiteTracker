@@ -45,12 +45,12 @@ export function Navbar() {
           <div className="flex items-center justify-between h-20">
             {/* Logo Brand */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="p-2.5 bg-yellow-500 text-slate-950 rounded-2xl shadow-md group-hover:scale-105 transition-transform duration-200">
+              <div className="p-2.5 bg-violet-600 text-white rounded-2xl shadow-md shadow-violet-500/25 group-hover:scale-105 transition-transform duration-200">
                 <HardHat size={28} strokeWidth={2.5} />
               </div>
               <div>
-                <span className="block font-black text-xl tracking-tight text-slate-900 dark:text-white group-hover:text-yellow-600 transition-colors">
-                  SiteTracker <span className="text-yellow-600">CMD</span>
+                <span className="block font-black text-xl tracking-tight text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  SiteTracker <span className="text-violet-600 dark:text-violet-400">CMD</span>
                 </span>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Patroli & Pelacakan Temuan Lapangan
@@ -71,7 +71,7 @@ export function Navbar() {
                     className={cn(
                       "flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-bold transition-all",
                       isActive
-                        ? "bg-slate-900 text-white shadow-md dark:bg-yellow-500 dark:text-slate-950"
+                        ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                         : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-700/60"
                     )}
                   >
@@ -108,7 +108,7 @@ export function Navbar() {
                 className={cn(
                   "flex flex-col items-center justify-center p-2 min-h-[52px] min-w-[56px] rounded-2xl transition-all text-[11px] font-bold gap-1",
                   item.highlight
-                    ? "text-yellow-600 dark:text-yellow-400 font-extrabold"
+                    ? "text-violet-600 dark:text-violet-400 font-extrabold"
                     : isActive
                     ? "text-slate-900 dark:text-white font-extrabold"
                     : "text-slate-500 dark:text-slate-400"
@@ -118,7 +118,7 @@ export function Navbar() {
                   className={cn(
                     "p-1.5 rounded-xl transition-all",
                     item.highlight
-                      ? "bg-yellow-500 text-slate-950 shadow-md"
+                      ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                       : isActive
                       ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
                       : ""

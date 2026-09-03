@@ -69,6 +69,11 @@ export default function ProjectsPage() {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
+                      {project.code && (
+                        <span className="inline-block text-[11px] font-mono font-black px-2 py-0.5 bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-800 rounded-md">
+                          {project.code}
+                        </span>
+                      )}
                       <h2 className="text-xl font-black text-slate-900 dark:text-white">
                         {project.name}
                       </h2>

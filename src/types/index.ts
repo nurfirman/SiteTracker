@@ -1,4 +1,4 @@
-export type Role = "CMD" | "PIC" | "SM" | "PM" | "BOD" | "ADMIN";
+export type Role = "CMD" | "PIC" | "SM" | "PM" | "BOD" | "ADMIN" | "PENDING";
 
 export type Category = 
   | "K3_SAFETY" 
@@ -11,6 +11,7 @@ export type FindingStatus = "OPEN" | "RESOLVED" | "CLOSED";
 
 export interface Project {
   id: string;
+  code?: string | null;
   name: string;
   location: string;
   createdAt: string | Date;
@@ -83,33 +84,38 @@ export const CATEGORY_LABELS: Record<Category, { label: string; icon: string; de
 export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; description: string }> = {
   CMD: {
     label: "Tim CMD / Patrol Inspector",
-    badgeClass: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/40 dark:text-blue-200",
+    badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800",
     description: "Akses Semua Kasus: Patroli lapangan, catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
     label: "PIC Proyek (Subkon / Site Eng)",
-    badgeClass: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/40 dark:text-purple-200",
+    badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
     description: "Akses Terisolasi Khusus Proyek Sendiri: Hanya dapat melihat & merespon tugas proyeknya.",
   },
   SM: {
     label: "Site Manager (SM)",
-    badgeClass: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/40 dark:text-teal-200",
+    badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
     description: "Akses Multi-Proyek Lapangan: Mengawasi & mengkoordinasikan PIC di beberapa site proyek.",
   },
   PM: {
     label: "Project Manager (PM)",
-    badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200",
+    badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
     description: "Akses Multi-Proyek: Evaluasi SLA, memvalidasi dan menyetujui penutupan temuan.",
   },
   BOD: {
     label: "Board of Directors (BOD)",
-    badgeClass: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200",
+    badgeClass: "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700",
     description: "Akses Semua Kasus: Pemantau makro eksekutif, KPI kepatuhan seluruh proyek.",
   },
   ADMIN: {
     label: "Administrator Sistem",
-    badgeClass: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800",
+    badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800",
     description: "Pengelola Master Proyek, Penugasan PIC/SM/PM, dan Konfigurasi Matriks.",
+  },
+  PENDING: {
+    label: "Menunggu Penugasan Admin",
+    badgeClass: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800",
+    description: "Akun baru terdaftar. Menunggu administrator menentukan role dan proyek penugasan.",
   },
 };
 
