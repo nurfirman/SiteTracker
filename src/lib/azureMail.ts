@@ -639,3 +639,152 @@ export async function sendEscalationReminderViaAzureGraph(
   };
 }
 
+export interface SendPasswordResetMailOptions {
+  recipientEmail: string;
+  recipientName: string;
+  resetCode: string;
+  expiresInMinutes?: number;
+}
+
+/**
+ * Mengirimkan email kode verifikasi reset password melalui Microsoft Graph API
+ */
+export async function sendPasswordResetMail(
+  options: SendPasswordResetMailOptions
+): Promise<{ success: boolean; message: string; logId?: string }> {
+  const expiresIn = options.expiresInMinutes || 15;
+  const configured = isAzureMailConfigured();
+  const logId = "RESET-PWD-" + Date.now().toString().slice(-6);
+
+  if (!configured) {
+    console.info(
+      `[Azure Mail Fallback] Password reset OTP for ${options.recipientEmail} (${options.recipientName}): ${options.resetCode}`
+    );
+    return {
+      success: true,
+      message: `[Mode Simulasi] Email reset password disimulasikan untuk ${options.recipientEmail}. Kode verifikasi: ${options.resetCode}`,
+      logId,
+    };
+  }
+
+  const senderEmail = process.env.AZURE_SENDER_EMAIL!.trim();
+  const accessToken = await getAzureOAuthToken();
+
+  const emailHtml = `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Reset Password SiteTracker CMD</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%); padding: 30px 28px; text-align: left;">
+              <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
+                KEAMANAN AKUN SITETRACKER
+              </div>
+              <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 900; line-height: 1.3;">
+                Permintaan Reset Password
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 28px 24px 28px;">
+              <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+                Halo <strong>${options.recipientName}</strong>,
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 13px; line-height: 1.6; color: #475569;">
+                Kami menerima permintaan untuk mengatur ulang kata sandi (reset password) akun SiteTracker CMD Anda. Gunakan kode verifikasi di bawah ini untuk melanjutkan:
+              </p>
+              
+              <div style="text-align: center; margin: 24px 0;">
+                <div style="display: inline-block; padding: 18px 36px; background-color: #f5f3ff; border: 2px dashed #7c3aed; border-radius: 16px;">
+                  <span style="font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #6d28d9; font-family: 'Courier New', Courier, monospace;">${options.resetCode}</span>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b; font-weight: 600;">
+                  ⏱️ Kode OTP berlaku selama <strong>${expiresIn} menit</strong>.
+                </p>
+              </div>
+
+              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 12px; color: #991b1b; line-height: 1.5;">
+                  <strong>Penting:</strong> Jangan pernah membagikan kode verifikasi ini kepada siapapun, termasuk pihak yang mengatasnamakan Administrator SiteTracker.
+                </p>
+              </div>
+
+              <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #64748b;">
+                Jika Anda tidak merasa melakukan permintaan ini, Anda dapat mengabaikan email ini dengan aman. Password lama Anda tidak akan berubah.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; padding: 18px 28px; border-top: 1px solid #e2e8f0; text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                SiteTracker CMD © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const graphPayload = {
+    message: {
+      subject: "🔒 Kode Verifikasi Reset Password Akun SiteTracker CMD",
+      body: {
+        contentType: "HTML",
+        content: emailHtml,
+      },
+      toRecipients: [
+        {
+          emailAddress: {
+            address: options.recipientEmail,
+          },
+        },
+      ],
+    },
+    saveToSentItems: "false",
+  };
+
+  const graphEndpoint = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
+    senderEmail
+  )}/sendMail`;
+
+  const graphResponse = await fetch(graphEndpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(graphPayload),
+  });
+
+  if (!graphResponse.ok) {
+    let errorDetail = "";
+    try {
+      const errJson = await graphResponse.json();
+      errorDetail =
+        errJson?.error?.message ||
+        errJson?.error?.code ||
+        JSON.stringify(errJson);
+    } catch {
+      errorDetail = await graphResponse.text();
+    }
+    throw new Error(`[Microsoft Graph Error ${graphResponse.status}] ${errorDetail}`);
+  }
+
+  return {
+    success: true,
+    message: `Email kode verifikasi reset password berhasil dikirim ke ${options.recipientEmail}.`,
+    logId,
+  };
+}
+

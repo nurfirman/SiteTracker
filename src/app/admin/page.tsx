@@ -18,6 +18,7 @@ import {
   updateUserRoleAndProject,
   importProjectsAndPicsFromCsv,
   ImportProjectPicReport,
+  adminResetUserPassword,
 } from "@/lib/actions";
 import {
   Sliders,
@@ -1165,9 +1166,34 @@ export default function AdminSettingsPage() {
                     <span className="font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1">
                       <Phone size={12} /> {u.phoneNumber}
                     </span>
-                    <span className="text-slate-500 font-mono text-[11px]">
-                      pwd: <strong className="text-violet-600 dark:text-violet-400">{u.password || "123"}</strong>
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 font-mono text-[11px]">
+                        pwd: <strong className="text-violet-600 dark:text-violet-400">{u.password || "123"}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newPwd = prompt(`Reset kata sandi akun [${u.name}]:`, "123");
+                          if (!newPwd) return;
+                          try {
+                            const res = await adminResetUserPassword(u.id, newPwd.trim());
+                            if (res.success) {
+                              showToast(res.message);
+                              loadAdminData();
+                            } else {
+                              showToast(res.message, "error");
+                            }
+                          } catch (e: any) {
+                            showToast(e.message || "Gagal mereset password.", "error");
+                          }
+                        }}
+                        className="p-1 px-1.5 bg-slate-200 hover:bg-violet-600 hover:text-white dark:bg-slate-700 dark:hover:bg-violet-600 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold transition-colors flex items-center gap-0.5"
+                        title="Reset password pengguna"
+                      >
+                        <KeyRound size={10} />
+                        <span>Reset</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, Role, ROLE_LABELS, Project } from "@/types";
-import { getUsers, loginUser, registerUser, getProjects } from "@/lib/actions";
+import { getUsers, loginUser, registerUser, getProjects, requestPasswordReset, resetPasswordWithOtp } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import {
   HardHat,
@@ -25,6 +25,10 @@ import {
   Database,
   Sparkles,
   Phone,
+  RotateCcw,
+  Send,
+  Check,
+  HelpCircle,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -34,8 +38,8 @@ export default function LoginPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Tab State: LOGIN vs REGISTER
-  const [authMode, setAuthMode] = useState<"LOGIN" | "REGISTER">("LOGIN");
+  // Tab State: LOGIN vs REGISTER vs RESET_PASSWORD
+  const [authMode, setAuthMode] = useState<"LOGIN" | "REGISTER" | "RESET_PASSWORD">("LOGIN");
 
   // Login Form State
   const [emailInput, setEmailInput] = useState("");
@@ -53,6 +57,16 @@ export default function LoginPage() {
   const [regPhone, setRegPhone] = useState("");
   const [regRole, setRegRole] = useState<Role>("PIC");
   const [regProjectId, setRegProjectId] = useState("");
+
+  // Reset Password Form State
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -168,6 +182,97 @@ export default function LoginPage() {
     }
   };
 
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setDevOtpHint(null);
+
+    if (!resetEmail.trim() || !resetEmail.includes("@")) {
+      setErrorMessage("Mohon masukkan alamat email yang valid.");
+      return;
+    }
+
+    setResetSubmitting(true);
+    try {
+      const res = await requestPasswordReset(resetEmail.trim());
+      if (res.success) {
+        setSuccessMessage(res.message);
+        if (res.devOtp) {
+          setDevOtpHint(res.devOtp);
+          setResetOtp(res.devOtp);
+        }
+        setResetStep(2);
+      } else {
+        setErrorMessage(res.message);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Terjadi kesalahan saat meminta reset password.");
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!resetOtp.trim() || resetOtp.trim().length < 6) {
+      setErrorMessage("Mohon masukkan 6 digit kode verifikasi OTP.");
+      return;
+    }
+    if (!resetNewPassword || resetNewPassword.length < 6) {
+      setErrorMessage("Password baru minimal 6 karakter.");
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setErrorMessage("Konfirmasi password baru tidak cocok.");
+      return;
+    }
+
+    setResetSubmitting(true);
+    try {
+      const res = await resetPasswordWithOtp({
+        email: resetEmail.trim(),
+        otp: resetOtp.trim(),
+        newPassword: resetNewPassword,
+      });
+
+      if (res.success) {
+        setSuccessMessage(res.message);
+        // Perbarui password pengguna di state list lokal
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.email.toLowerCase() === resetEmail.toLowerCase().trim()
+              ? { ...u, password: resetNewPassword }
+              : u
+          )
+        );
+
+        // Isi form login dengan kredensial baru
+        setEmailInput(resetEmail.trim());
+        setPasswordInput(resetNewPassword);
+
+        // Alihkan ke tampilan login setelah 1.5 detik
+        setTimeout(() => {
+          setAuthMode("LOGIN");
+          setResetStep(1);
+          setResetOtp("");
+          setResetNewPassword("");
+          setResetConfirmPassword("");
+          setDevOtpHint(null);
+        }, 1500);
+      } else {
+        setErrorMessage(res.message);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Terjadi kesalahan saat mereset password.");
+    } finally {
+      setResetSubmitting(false);
+    }
+  };
+
   const handleQuickPersonaSelect = async (user: User) => {
     setAuthMode("LOGIN");
     const pwd = user.password || (user.role === "ADMIN" ? "admin" : "123");
@@ -212,8 +317,8 @@ export default function LoginPage() {
       <div className="w-full max-w-5xl mx-auto my-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Direct Login / Register Card */}
         <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5">
-          {/* Mode Switcher Tabs: Masuk vs Daftar */}
-          <div className="grid grid-cols-2 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+          {/* Mode Switcher Tabs: Masuk vs Daftar vs Reset Password */}
+          <div className="grid grid-cols-3 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-800">
             <button
               type="button"
               onClick={() => {
@@ -221,14 +326,14 @@ export default function LoginPage() {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
                 authMode === "LOGIN"
                   ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Lock size={14} />
-              <span>Masuk (Login)</span>
+              <Lock size={13} />
+              <span>Masuk</span>
             </button>
 
             <button
@@ -238,14 +343,33 @@ export default function LoginPage() {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
                 authMode === "REGISTER"
                   ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <UserPlus size={14} />
-              <span>Daftar Akun Baru</span>
+              <UserPlus size={13} />
+              <span>Daftar Akun</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode("RESET_PASSWORD");
+                setResetEmail(emailInput || "");
+                setResetStep(1);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
+                authMode === "RESET_PASSWORD"
+                  ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <KeyRound size={13} />
+              <span>Reset Pwd</span>
             </button>
           </div>
 
@@ -269,7 +393,7 @@ export default function LoginPage() {
           {successMessage && (
             <div className="p-3.5 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-bold rounded-2xl flex items-center gap-2.5 animate-in fade-in duration-200">
               <CheckCircle2 size={18} className="shrink-0 text-emerald-400" />
-              <span>{successMessage} Mengalihkan ke dashboard...</span>
+              <span>{successMessage}</span>
             </div>
           )}
 
@@ -300,9 +424,25 @@ export default function LoginPage() {
                   <label className="block text-xs font-bold text-slate-300">
                     Password <span className="text-violet-400">*</span>
                   </label>
-                  <span className="text-[11px] text-slate-400 font-semibold">
-                    Demo: <code className="text-violet-400 font-mono">admin</code> / <code className="text-violet-400 font-mono">123</code>
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">
+                      Demo: <code className="text-violet-400 font-mono">admin</code> / <code className="text-violet-400 font-mono">123</code>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("RESET_PASSWORD");
+                        setResetEmail(emailInput);
+                        setResetStep(1);
+                        setErrorMessage(null);
+                        setSuccessMessage(null);
+                      }}
+                      className="text-[11px] text-violet-400 hover:text-violet-300 font-bold hover:underline transition-colors flex items-center gap-1"
+                    >
+                      <KeyRound size={12} />
+                      <span>Lupa Password?</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
@@ -445,6 +585,217 @@ export default function LoginPage() {
                 <span>{submitting ? "Mendaftarkan ke Neon Auth..." : "Daftar Akun Sekarang"}</span>
               </button>
             </form>
+          )}
+
+          {/* VIEW 3: FORM RESET PASSWORD DENGAN AZURE GRAPH & OTP */}
+          {authMode === "RESET_PASSWORD" && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="space-y-0.5">
+                  <h2 className="text-sm font-black text-white flex items-center gap-1.5">
+                    <KeyRound size={16} className="text-violet-400" />
+                    <span>Reset Kata Sandi Akun</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400">
+                    {resetStep === 1
+                      ? "Langkah 1/2: Masukkan email untuk menerima kode OTP"
+                      : "Langkah 2/2: Masukkan kode OTP dan buat kata sandi baru"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("LOGIN");
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="text-xs text-slate-400 hover:text-white font-bold transition-colors"
+                >
+                  Batal
+                </button>
+              </div>
+
+              {/* Dev/Demo OTP Highlight Badge */}
+              {devOtpHint && resetStep === 2 && (
+                <div className="p-3 bg-violet-950/60 border border-violet-700/70 rounded-2xl flex items-center justify-between text-xs animate-in zoom-in-95">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-amber-400 shrink-0" />
+                    <div>
+                      <p className="text-[11px] text-violet-300 font-semibold">Mode Uji Coba / Demo:</p>
+                      <p className="text-xs text-white">
+                        Kode OTP:{" "}
+                        <span className="font-mono font-black text-amber-300 tracking-widest bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                          {devOtpHint}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResetOtp(devOtpHint)}
+                    className="px-2.5 py-1 bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-bold rounded-lg transition-colors shadow-sm"
+                  >
+                    Isi Otomatis
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 1: Input Email */}
+              {resetStep === 1 && (
+                <form onSubmit={handleRequestOtp} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Alamat Email Terdaftar <span className="text-violet-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="nama@perusahaan.co.id atau admin@sitetracker.id"
+                        required
+                        className="w-full pl-12 pr-4 py-3.5 min-h-[48px] text-sm rounded-2xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-violet-500 transition-colors"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Sistem akan mengirimkan 6 digit kode verifikasi (OTP) ke alamat email Anda.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={resetSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 min-h-[50px] bg-violet-600 hover:bg-violet-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-violet-500/25 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    <Send size={16} />
+                    <span>{resetSubmitting ? "Mengirim Kode..." : "Kirim Kode Verifikasi (OTP)"}</span>
+                  </button>
+                </form>
+              )}
+
+              {/* STEP 2: Input OTP & New Password */}
+              {resetStep === 2 && (
+                <form onSubmit={handleResetPassword} className="space-y-3.5">
+                  <div className="flex items-center justify-between p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs">
+                    <span className="text-slate-400">
+                      Terkirim ke: <strong className="text-white">{resetEmail}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetStep(1);
+                        setErrorMessage(null);
+                        setSuccessMessage(null);
+                      }}
+                      className="text-violet-400 hover:text-violet-300 font-bold text-[11px] underline"
+                    >
+                      Ubah Email
+                    </button>
+                  </div>
+
+                  {/* 6 Digit OTP Input */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Kode Verifikasi (OTP 6-Digit) <span className="text-violet-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={resetOtp}
+                        onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, ""))}
+                        placeholder="123456"
+                        required
+                        className="w-full pl-10 pr-4 py-2.5 text-center font-mono font-black text-lg tracking-[8px] rounded-xl border border-slate-700 bg-slate-950 text-amber-300 focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Baru & Konfirmasi */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-300">
+                        Password Baru <span className="text-violet-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showResetPassword ? "text" : "password"}
+                          value={resetNewPassword}
+                          onChange={(e) => setResetNewPassword(e.target.value)}
+                          placeholder="Min. 6 karakter"
+                          required
+                          minLength={6}
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-violet-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-300">
+                        Konfirmasi Password <span className="text-violet-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showResetPassword ? "text" : "password"}
+                          value={resetConfirmPassword}
+                          onChange={(e) => setResetConfirmPassword(e.target.value)}
+                          placeholder="Ulangi password"
+                          required
+                          minLength={6}
+                          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-violet-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
+                    >
+                      {showResetPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                      <span>{showResetPassword ? "Sembunyikan Password" : "Lihat Password"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleRequestOtp}
+                      disabled={resetSubmitting}
+                      className="text-[11px] text-violet-400 hover:text-violet-300 font-bold flex items-center gap-1"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Kirim Ulang OTP</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={resetSubmitting}
+                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 min-h-[48px] bg-violet-600 hover:bg-violet-500 text-white font-black text-sm rounded-xl shadow-xl shadow-violet-500/25 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
+                  >
+                    <Check size={16} />
+                    <span>{resetSubmitting ? "Menyimpan Kata Sandi..." : "Simpan Kata Sandi Baru"}</span>
+                  </button>
+                </form>
+              )}
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("LOGIN");
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                  }}
+                  className="text-xs text-slate-400 hover:text-white font-bold transition-colors"
+                >
+                  ← Kembali ke Halaman Login
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Security footnote */}

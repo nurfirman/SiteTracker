@@ -8,7 +8,12 @@ import { setSession, getSession, destroySession, requireAuth, SessionData } from
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
 import { revalidatePath } from "next/cache";
-import { sendEmailViaAzureGraph, isAzureMailConfigured, sendEscalationReminderViaAzureGraph } from "./azureMail";
+import {
+  sendEmailViaAzureGraph,
+  isAzureMailConfigured,
+  sendEscalationReminderViaAzureGraph,
+  sendPasswordResetMail,
+} from "./azureMail";
 import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
 
 function safeRevalidate(path: string) {
@@ -78,6 +83,212 @@ export async function loginUser(identifier: string, password?: string): Promise<
   const session = await setSession(targetUser);
   return { success: true, session };
 }
+
+interface PasswordResetEntry {
+  email: string;
+  code: string;
+  expiresAt: number;
+  createdAt: number;
+}
+
+const passwordResetStore: Map<string, PasswordResetEntry> = new Map();
+
+/**
+ * Meminta kode OTP untuk reset password
+ */
+export async function requestPasswordReset(email: string): Promise<{
+  success: boolean;
+  message: string;
+  devOtp?: string;
+  expiresInMinutes?: number;
+}> {
+  try {
+    const cleanEmail = sanitizeText(email).toLowerCase().trim();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return { success: false, message: "Format alamat email tidak valid." };
+    }
+
+    const allUsers = await getUsers();
+    const targetUser = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!targetUser) {
+      return {
+        success: false,
+        message: "Email tidak terdaftar dalam sistem SiteTracker. Pastikan email akun benar.",
+      };
+    }
+
+    // Generate 6-digit numeric OTP code
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresInMinutes = 15;
+    const expiresAt = Date.now() + expiresInMinutes * 60 * 1000;
+
+    passwordResetStore.set(cleanEmail, {
+      email: cleanEmail,
+      code: otpCode,
+      expiresAt,
+      createdAt: Date.now(),
+    });
+
+    // Kirim email notifikasi via Azure Microsoft Graph
+    let emailSent = false;
+    let mailMessage = "";
+    try {
+      const mailRes = await sendPasswordResetMail({
+        recipientEmail: cleanEmail,
+        recipientName: targetUser.name,
+        resetCode: otpCode,
+        expiresInMinutes,
+      });
+      emailSent = mailRes.success;
+      mailMessage = mailRes.message;
+    } catch (mailErr: any) {
+      console.warn("Gagal mengirim email reset password via Azure:", mailErr);
+      mailMessage = "Layanan email Azure belum aktif atau mengalami kendala.";
+    }
+
+    const isConfigured = isAzureMailConfigured();
+
+    return {
+      success: true,
+      message: isConfigured && emailSent
+        ? `Kode verifikasi OTP telah dikirimkan ke email ${cleanEmail}. Periksa kotak masuk Anda.`
+        : `Kode verifikasi berhasil dibuat. ${mailMessage}`,
+      devOtp: !isConfigured ? otpCode : undefined,
+      expiresInMinutes,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Terjadi kesalahan saat meminta reset password: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+/**
+ * Memverifikasi validitas kode OTP reset password
+ */
+export async function verifyPasswordResetOtp(
+  email: string,
+  otp: string
+): Promise<{ success: boolean; message: string }> {
+  const cleanEmail = sanitizeText(email).toLowerCase().trim();
+  const cleanOtp = sanitizeText(otp).trim();
+
+  const entry = passwordResetStore.get(cleanEmail);
+  if (!entry) {
+    return {
+      success: false,
+      message: "Tidak ada permintaan reset password aktif untuk email ini. Silakan kirim ulang kode.",
+    };
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    passwordResetStore.delete(cleanEmail);
+    return {
+      success: false,
+      message: "Kode verifikasi telah kedaluwarsa (maksimal 15 menit). Silakan minta kode baru.",
+    };
+  }
+
+  if (entry.code !== cleanOtp) {
+    return {
+      success: false,
+      message: "Kode verifikasi (OTP) salah. Silakan periksa kembali.",
+    };
+  }
+
+  return {
+    success: true,
+    message: "Kode OTP valid.",
+  };
+}
+
+/**
+ * Menyimpan password baru setelah verifikasi kode OTP
+ */
+export async function resetPasswordWithOtp(payload: {
+  email: string;
+  otp: string;
+  newPassword: string;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const cleanEmail = sanitizeText(payload.email).toLowerCase().trim();
+    const cleanOtp = sanitizeText(payload.otp).trim();
+    const newPassword = payload.newPassword;
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: "Password baru minimal harus 6 karakter." };
+    }
+
+    const verifyRes = await verifyPasswordResetOtp(cleanEmail, cleanOtp);
+    if (!verifyRes.success) {
+      return verifyRes;
+    }
+
+    // Update in-memory user
+    const memIdx = inMemoryUsers.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+    if (memIdx !== -1) {
+      inMemoryUsers[memIdx].password = newPassword;
+    }
+
+    // Hapus token OTP yang sudah digunakan
+    passwordResetStore.delete(cleanEmail);
+
+    safeRevalidate("/login");
+    safeRevalidate("/admin");
+
+    return {
+      success: true,
+      message: "Kata sandi akun Anda berhasil diperbarui! Silakan masuk dengan kata sandi baru.",
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal memperbarui password: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+/**
+ * Server action khusus Administrator untuk mereset password pengguna langsung
+ */
+export async function adminResetUserPassword(
+  userId: string,
+  newPassword: string = "123"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const authCheck = await requireAuth(["ADMIN"]);
+    if (!authCheck.authorized) {
+      return { success: false, message: authCheck.error || "Akses ditolak: Hanya Administrator yang berwenang." };
+    }
+
+    const cleanPwd = newPassword.trim() || "123";
+    if (cleanPwd.length < 3) {
+      return { success: false, message: "Password minimal 3 karakter." };
+    }
+
+    const user = inMemoryUsers.find((u) => u.id === userId);
+    if (!user) {
+      return { success: false, message: "Pengguna tidak ditemukan." };
+    }
+
+    user.password = cleanPwd;
+
+    safeRevalidate("/login");
+    safeRevalidate("/admin");
+
+    return {
+      success: true,
+      message: `Password akun ${user.name} berhasil direset menjadi "${cleanPwd}".`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal mereset password pengguna: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
 
 export async function registerUser(payload: {
   name: string;
