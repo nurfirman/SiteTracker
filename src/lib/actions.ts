@@ -30,10 +30,14 @@ let inMemoryUsers = [...MOCK_USERS];
 let inMemoryFindings = [...MOCK_FINDINGS];
 
 function hasValidDatabaseUrl(): boolean {
+  const url =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL;
   return Boolean(
-    process.env.DATABASE_URL &&
-      process.env.DATABASE_URL.trim().length > 0 &&
-      !process.env.DATABASE_URL.includes("your_password_here")
+    url &&
+      url.trim().length > 0 &&
+      !url.includes("your_password_here")
   );
 }
 
