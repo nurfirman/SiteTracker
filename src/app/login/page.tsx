@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Role, ROLE_LABELS, Project } from "@/types";
+import { User, Role, Project } from "@/types";
 import { getUsers, loginUser, registerUser, getProjects, requestPasswordReset, resetPasswordWithOtp } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import {
@@ -14,13 +14,9 @@ import {
   EyeOff,
   AlertCircle,
   KeyRound,
-  Building2,
   ShieldCheck,
   CheckCircle2,
   Info,
-  Sliders,
-  UserCheck,
-  ClipboardList,
   UserPlus,
   Database,
   Sparkles,
@@ -28,7 +24,6 @@ import {
   RotateCcw,
   Send,
   Check,
-  HelpCircle,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -76,12 +71,6 @@ export default function LoginPage() {
         setProjects(pList);
         if (pList.length > 0) {
           setRegProjectId(pList[0].id);
-        }
-        if (uList.length > 0) {
-          // Default to Admin for presentation demo
-          const adminUser = uList.find((u) => u.role === "ADMIN") || uList[0];
-          setEmailInput(adminUser.email);
-          setPasswordInput(adminUser.password || "admin");
         }
       } catch (e) {
         console.error("Gagal memuat pengguna:", e);
@@ -273,31 +262,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickPersonaSelect = async (user: User) => {
-    setAuthMode("LOGIN");
-    const pwd = user.password || (user.role === "ADMIN" ? "admin" : "123");
-    setEmailInput(user.email);
-    setPasswordInput(pwd);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setSubmitting(true);
-
-    try {
-      const res = await loginUser(user.id, pwd);
-      if (res.success) {
-        setCurrentUser(user);
-        router.push("/");
-        router.refresh();
-      } else {
-        setErrorMessage(res.message || "Gagal masuk sesi.");
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Terjadi kesalahan saat login.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between py-8 px-4 sm:px-6 lg:px-12 font-sans selection:bg-violet-600 selection:text-white">
       {/* Brand Header */}
@@ -313,10 +277,9 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Main Content Grid: Login / Register Form & Persona Quick Select */}
-      <div className="w-full max-w-5xl mx-auto my-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Direct Login / Register Card */}
-        <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5">
+      {/* Main Content: Centered Auth Card */}
+      <div className="w-full max-w-lg mx-auto my-8">
+        <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5">
           {/* Mode Switcher Tabs: Masuk vs Daftar vs Reset Password */}
           <div className="grid grid-cols-3 p-1.5 bg-slate-950/80 rounded-2xl border border-slate-800">
             <button
@@ -411,7 +374,7 @@ export default function LoginPage() {
                     type="text"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="admin@sitetracker.id atau nama@sitetracker.id"
+                    placeholder="nama@perusahaan.co.id atau admin@sitetracker.id"
                     required
                     className="w-full pl-12 pr-4 py-3.5 min-h-[48px] text-sm rounded-2xl border border-slate-700 bg-slate-950 text-white focus:outline-none focus:border-violet-500 transition-colors"
                   />
@@ -424,25 +387,20 @@ export default function LoginPage() {
                   <label className="block text-xs font-bold text-slate-300">
                     Password <span className="text-violet-400">*</span>
                   </label>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-slate-400 font-semibold hidden sm:inline">
-                      Demo: <code className="text-violet-400 font-mono">admin</code> / <code className="text-violet-400 font-mono">123</code>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("RESET_PASSWORD");
-                        setResetEmail(emailInput);
-                        setResetStep(1);
-                        setErrorMessage(null);
-                        setSuccessMessage(null);
-                      }}
-                      className="text-[11px] text-violet-400 hover:text-violet-300 font-bold hover:underline transition-colors flex items-center gap-1"
-                    >
-                      <KeyRound size={12} />
-                      <span>Lupa Password?</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("RESET_PASSWORD");
+                      setResetEmail(emailInput);
+                      setResetStep(1);
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    className="text-[11px] text-violet-400 hover:text-violet-300 font-bold hover:underline transition-colors flex items-center gap-1"
+                  >
+                    <KeyRound size={12} />
+                    <span>Lupa Password?</span>
+                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
@@ -802,80 +760,9 @@ export default function LoginPage() {
           <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
             <Info size={16} className="text-violet-400 shrink-0 mt-0.5" />
             <p>
-              Akun baru langsung tersinkronisasi ke database Neon PostgreSQL dan mendapatkan hak akses sesuai peran yang didaftarkan.
+              Akun pengguna tersinkronisasi ke database Neon PostgreSQL dan mendapatkan wewenang sesuai peran yang ditetapkan.
             </p>
           </div>
-        </div>
-
-        {/* Right Column: 1-Click Persona Simulator for Presentation */}
-        <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800/80 p-6 rounded-3xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <span className="text-xs font-black uppercase text-slate-300 flex items-center gap-1.5">
-              <KeyRound size={15} className="text-violet-400" /> Pilihan Simulasi User (Untuk Presentasi)
-            </span>
-            <span className="text-[10px] text-slate-400 font-semibold">{users.length} Akun Terdaftar</span>
-          </div>
-
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Klik salah satu profil di bawah untuk langsung mencoba tampilan antarmuka dan wewenang tiap peran:
-          </p>
-
-          {loading ? (
-            <div className="py-8 text-center text-xs text-slate-500">Memuat profil persona...</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
-              {users.map((u) => {
-                const roleConfig = ROLE_LABELS[u.role] || { label: u.role, badgeClass: "bg-slate-800 text-slate-300" };
-                const isSelected = emailInput === u.email;
-
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleQuickPersonaSelect(u)}
-                    className={`text-left p-3.5 rounded-2xl border transition-all flex flex-col justify-between group ${
-                      isSelected
-                        ? "bg-slate-800 border-violet-500/80 shadow-lg ring-1 ring-violet-500/50"
-                        : "bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${roleConfig.badgeClass}`}>
-                        {u.role}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        pwd: {u.password || (u.role === "ADMIN" ? "admin" : "123")}
-                      </span>
-                    </div>
-
-                    <div>
-                      <p className="font-bold text-xs text-white group-hover:text-violet-400 transition-colors truncate">
-                        {u.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
-                    </div>
-
-                    {u.project ? (
-                      <p className="text-[10px] text-purple-300 font-semibold flex items-center gap-1 pt-2 truncate border-t border-slate-800/60 mt-2">
-                        <Building2 size={11} className="shrink-0 text-purple-400" />
-                        <span className="truncate">{u.project.name}</span>
-                      </p>
-                    ) : u.role === "ADMIN" ? (
-                      <p className="text-[10px] text-rose-300 font-semibold flex items-center gap-1 pt-2 truncate border-t border-slate-800/60 mt-2">
-                        <Sliders size={11} className="shrink-0 text-rose-400" />
-                        <span>Master Proyek, PIC & Kategori</span>
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 font-semibold flex items-center gap-1 pt-2 truncate border-t border-slate-800/60 mt-2">
-                        <ClipboardList size={11} className="shrink-0 text-violet-400" />
-                        <span>Akses Seluruh Proyek</span>
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
 
