@@ -376,9 +376,11 @@ export default function FindingDetailPage() {
               {hasPhoto ? (
                 <PhotoUploader
                   label="Foto Bukti Perbaikan *"
+                  description="Lampirkan foto hasil perbaikan. Anda dapat menandai atau menambahkan caption/panah pada foto."
                   value={photoResolutionUrl}
                   onChange={(url) => setPhotoResolutionUrl(url)}
                   required
+                  allowAnnotation={true}
                 />
               ) : (
                 <div className="space-y-1.5 p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800">

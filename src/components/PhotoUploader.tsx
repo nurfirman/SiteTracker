@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Camera, Upload, X, Check, Loader2, Sparkles } from "lucide-react";
+import { Camera, Upload, X, Check, Loader2, Sparkles, Edit3 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { ImageAnnotatorModal } from "./ImageAnnotatorModal";
 
 interface PhotoUploaderProps {
   label: string;
@@ -11,6 +12,7 @@ interface PhotoUploaderProps {
   onChange: (url: string) => void;
   required?: boolean;
   className?: string;
+  allowAnnotation?: boolean;
 }
 
 // Client-side image compression function using HTML5 Canvas
@@ -84,9 +86,11 @@ export function PhotoUploader({
   onChange,
   required = false,
   className,
+  allowAnnotation = true,
 }: PhotoUploaderProps) {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<{ orig: string; comp: string; ratio: number } | null>(null);
+  const [showAnnotator, setShowAnnotator] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,6 +121,10 @@ export function PhotoUploader({
     setStats(null);
   };
 
+  const handleSaveAnnotation = (annotatedUrl: string) => {
+    onChange(annotatedUrl);
+  };
+
   return (
     <div className={cn("space-y-2", className)}>
       <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
@@ -138,33 +146,73 @@ export function PhotoUploader({
           </div>
         </div>
       ) : value ? (
-        <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-900 group">
-          <img
-            src={value}
-            alt="Preview Foto"
-            className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90" />
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600/90 backdrop-blur-md text-white text-xs font-bold rounded-lg shadow-md w-fit">
-                <Check className="w-4 h-4" /> Foto Terlampir & Siap
-              </span>
-              {stats && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-violet-300 text-[11px] font-mono rounded-md">
-                  <Sparkles className="w-3 h-3" /> Ukuran: {stats.comp} ({stats.ratio}% lebih hemat)
-                </span>
+        <div className="space-y-2">
+          <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-900 group">
+            <img
+              src={value}
+              alt="Preview Foto"
+              className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90" />
+            
+            {/* Top Quick Actions */}
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              {allowAnnotation && (
+                <button
+                  type="button"
+                  onClick={() => setShowAnnotator(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-lg active:scale-95 transition-all"
+                  title="Beri Tanda Panah, Lingkaran & Teks"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit / Beri Tanda</span>
+                </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={clearPhoto}
-              className="inline-flex items-center justify-center p-2.5 bg-red-600/90 text-white rounded-xl hover:bg-red-700 active:scale-95 transition-all shadow-md min-h-[44px] min-w-[44px]"
-              title="Hapus foto"
-            >
-              <X className="w-5 h-5" />
-            </button>
+
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600/90 backdrop-blur-md text-white text-xs font-bold rounded-lg shadow-md w-fit">
+                  <Check className="w-4 h-4" /> Foto Terlampir & Siap
+                </span>
+                {stats && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-violet-300 text-[11px] font-mono rounded-md">
+                    <Sparkles className="w-3 h-3" /> Ukuran: {stats.comp} ({stats.ratio}% lebih hemat)
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {allowAnnotation && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAnnotator(true)}
+                    className="inline-flex items-center justify-center p-2.5 bg-violet-600/90 hover:bg-violet-500 text-white rounded-xl active:scale-95 transition-all shadow-md min-h-[44px] min-w-[44px]"
+                    title="Edit dan Tambahkan Tanda"
+                  >
+                    <Edit3 className="w-5 h-5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={clearPhoto}
+                  className="inline-flex items-center justify-center p-2.5 bg-red-600/90 text-white rounded-xl hover:bg-red-700 active:scale-95 transition-all shadow-md min-h-[44px] min-w-[44px]"
+                  title="Hapus foto"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Modal Editor Anotasi Gambar */}
+          {allowAnnotation && showAnnotator && (
+            <ImageAnnotatorModal
+              imageUrl={value}
+              isOpen={showAnnotator}
+              onClose={() => setShowAnnotator(false)}
+              onSave={handleSaveAnnotation}
+            />
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -335,10 +335,11 @@ export default function NewFindingPage() {
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
               <PhotoUploader
                 label="6. Foto Temuan Lapangan (Foto Awal) *"
-                description="Ambil foto menggunakan kamera HP atau unggah gambar temuan secara jelas."
+                description="Ambil foto menggunakan kamera HP atau unggah gambar temuan secara jelas. Anda bisa mengedit dan menandai foto dengan panah, lingkaran, dan teks."
                 value={photoFindingUrl}
                 onChange={(url) => setPhotoFindingUrl(url)}
                 required
+                allowAnnotation={true}
               />
             </div>
 
