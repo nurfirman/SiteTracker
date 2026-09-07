@@ -55,8 +55,9 @@ export default function ReportsPage() {
   const [selectedPic, setSelectedPic] = useState<string>("ALL");
   const [inspectionType, setInspectionType] = useState<"ROUTINE" | "MIDDLE" | "FINAL">("ROUTINE");
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [customInspector, setCustomInspector] = useState<string>("Budi Santoso (CMD)");
-  const [customSiteManager, setCustomSiteManager] = useState<string>("Ir. Aris Munandar");
+  const [customInspector, setCustomInspector] = useState<string>("");
+  const [customSiteManager, setCustomSiteManager] = useState<string>("");
+  const [customPicName, setCustomPicName] = useState<string>("");
   
   const [loading, setLoading] = useState(true);
 
@@ -133,6 +134,32 @@ export default function ReportsPage() {
 
   const activeProjectObj = projects.find((p) => p.id === selectedProject);
   const activePicObj = users.find((u) => u.id === selectedPic);
+
+  // Cari user CMD yang bertugas (pengawas patroli)
+  const defaultCmdInspector =
+    users.find((u) => u.role === "CMD")?.name ||
+    findings.find((f) => f.reporter?.role === "CMD")?.reporter?.name ||
+    "Hadi (CMD)";
+
+  // Cari PM / SM proyek terkait
+  const projectPmOrSm =
+    activeProjectObj?.pm?.name ||
+    (activeProjectObj?.pmId ? users.find((u) => u.id === activeProjectObj.pmId)?.name : null) ||
+    users.find((u) => u.role === "SM" && (selectedProject === "ALL" || u.projectId === selectedProject || u.projectIds?.includes(selectedProject)))?.name ||
+    users.find((u) => u.role === "PM" && (selectedProject === "ALL" || u.projectId === selectedProject || u.projectIds?.includes(selectedProject)))?.name ||
+    "Ir. Aris Munandar";
+
+  // Cari nama PIC dari filter atau dari data temuan (misal Chairul Muttaqin)
+  const findingsPicName = findings.find((f) => f.pic?.name)?.pic?.name;
+  const resolvedPicName =
+    customPicName ||
+    activePicObj?.name ||
+    (availablePics.length === 1 ? availablePics[0].name : null) ||
+    findingsPicName ||
+    "Chairul Muttaqin";
+
+  const resolvedInspectorName = customInspector || defaultCmdInspector;
+  const resolvedSiteManagerName = customSiteManager || projectPmOrSm;
 
   // Statistics
   const totalFindings = findings.length;
@@ -256,9 +283,9 @@ export default function ReportsPage() {
         openCount: totalOpen,
         resolvedCount: totalResolved,
         closedCount: totalClosed,
-        inspectorName: customInspector,
-        siteManagerName: customSiteManager,
-        picName: picDisplay,
+        inspectorName: resolvedInspectorName,
+        siteManagerName: resolvedSiteManagerName,
+        picName: resolvedPicName || picDisplay,
         pmName: activePmUser?.name || undefined,
         gmName: activeGmUser?.name || undefined,
         reportDate: reportDate,
@@ -518,9 +545,9 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Inspector & Site Manager fields */}
+          {/* Inspector, Site Manager, and PIC fields */}
           {reportType === "INTERNAL_PATROL" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Nama Inspector (Pengawas / CMD):
@@ -530,19 +557,31 @@ export default function ReportsPage() {
                   value={customInspector}
                   onChange={(e) => setCustomInspector(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder="e.g. Budi Santoso (CMD)"
+                  placeholder={`Otomatis: ${defaultCmdInspector}`}
                 />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Nama Site Manager (SM Proyek):
+                  Nama Site Manager / PM:
                 </label>
                 <input
                   type="text"
                   value={customSiteManager}
                   onChange={(e) => setCustomSiteManager(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder="e.g. Ir. Aris Munandar"
+                  placeholder={`Otomatis: ${projectPmOrSm}`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Nama PIC Penanggung Jawab:
+                </label>
+                <input
+                  type="text"
+                  value={customPicName}
+                  onChange={(e) => setCustomPicName(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                  placeholder={`Otomatis: ${activePicObj?.name || findingsPicName || "Sesuai Data Temuan"}`}
                 />
               </div>
             </div>
@@ -579,7 +618,7 @@ export default function ReportsPage() {
                   Site Manager
                 </div>
                 <div className="col-span-4 sm:col-span-4 p-1.5 font-bold">
-                  {customSiteManager || "-"}
+                  {resolvedSiteManagerName}
                 </div>
               </div>
 
@@ -588,7 +627,7 @@ export default function ReportsPage() {
                   Inspector
                 </div>
                 <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-bold">
-                  {customInspector || "-"}
+                  {resolvedInspectorName}
                 </div>
                 <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
                   Status
@@ -747,19 +786,19 @@ export default function ReportsPage() {
             <div className="mt-8 pt-4 border-t-2 border-black grid grid-cols-3 gap-4 text-center text-xs">
               <div>
                 <p className="font-bold mb-14">Inspector CMD / K3</p>
-                <p className="font-black underline uppercase">({customInspector || "Budi Santoso"})</p>
+                <p className="font-black underline uppercase">({resolvedInspectorName})</p>
                 <p className="text-[10px] text-slate-500">Field QC & Safety Officer</p>
               </div>
               <div>
                 <p className="font-bold mb-14">PIC Subkontraktor</p>
                 <p className="font-black underline uppercase">
-                  ({activePicObj ? activePicObj.name : "Ahmad Fauzi"})
+                  ({resolvedPicName})
                 </p>
                 <p className="text-[10px] text-slate-500">Site Engineer Penanggung Jawab</p>
               </div>
               <div>
                 <p className="font-bold mb-14">Site Manager / PM</p>
-                <p className="font-black underline uppercase">({customSiteManager || "Ir. Aris Munandar"})</p>
+                <p className="font-black underline uppercase">({resolvedSiteManagerName})</p>
                 <p className="text-[10px] text-slate-500">Pimpinan Lapangan Proyek</p>
               </div>
             </div>
@@ -906,19 +945,19 @@ export default function ReportsPage() {
             <div className="pt-10 border-t border-slate-300 dark:border-slate-800 print:border-slate-400 grid grid-cols-3 gap-8 text-center text-xs">
               <div>
                 <p className="text-slate-500 font-bold mb-12">Disiapkan Oleh (Inspector CMD)</p>
-                <p className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">( {customInspector || "Budi Santoso"} )</p>
+                <p className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">( {resolvedInspectorName} )</p>
                 <p className="text-[11px] text-slate-500">Field QC & Safety Officer</p>
               </div>
               <div>
                 <p className="text-slate-500 font-bold mb-12">Ditindaklanjuti (PIC Lapangan)</p>
                 <p className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">
-                  ( {activePicObj ? activePicObj.name : "Ahmad Fauzi"} )
+                  ( {resolvedPicName} )
                 </p>
                 <p className="text-[11px] text-slate-500">Site Engineer Subkontraktor</p>
               </div>
               <div>
                 <p className="text-slate-500 font-bold mb-12">Disetujui Oleh (Site Manager / PM)</p>
-                <p className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">( {customSiteManager || "Ir. Aris Munandar"} )</p>
+                <p className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">( {resolvedSiteManagerName} )</p>
               </div>
             </div>
           </div>
