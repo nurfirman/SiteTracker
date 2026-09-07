@@ -1015,8 +1015,8 @@ export default function AdminSettingsPage() {
                   <th className="p-4 rounded-l-2xl min-w-[220px]">Fitur & Aturan Wewenang</th>
                   <th className="p-4 text-center min-w-[120px]">CMD (Inspector)</th>
                   <th className="p-4 text-center min-w-[120px]">PIC (Proyek)</th>
-                  <th className="p-4 text-center min-w-[130px]">SM (Site Manager)</th>
-                  <th className="p-4 text-center min-w-[130px]">PM (Project Manager)</th>
+                  <th className="p-4 text-center min-w-[130px]">SM / PM</th>
+                  <th className="p-4 text-center min-w-[140px]">GM / DivHead / DepMan</th>
                   <th className="p-4 text-center min-w-[120px]">BOD (Direksi)</th>
                   <th className="p-4 text-center rounded-r-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 min-w-[120px]">
                     ADMIN (SuperAdmin)
@@ -1957,9 +1957,9 @@ export default function AdminSettingsPage() {
                 >
                   <option value="PIC">PIC (Penanggung Jawab Perbaikan Proyek)</option>
                   <option value="CMD">CMD (Inspector Lapangan / Patrol ISO)</option>
-                  <option value="SM">SM (Site Manager Lapangan)</option>
-                  <option value="PM">PM (Project Manager - Evaluasi & Approval)</option>
-                  <option value="GM">GM (General Manager - Supervisi Divisi)</option>
+                  <option value="SM">SM / PM (Site Manager / Project Manager)</option>
+                  <option value="PM">GM / DivHead / DepMan (Manajemen Divisi / Dept)</option>
+                  <option value="GM">SecMan (Section Manager)</option>
                   <option value="BOD">BOD (Board of Directors - Pemantau Eksekutif)</option>
                   <option value="ADMIN">ADMIN (Administrator Sistem)</option>
                 </select>

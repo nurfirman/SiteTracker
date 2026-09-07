@@ -7,6 +7,7 @@ import { getProjects, getUsers, createFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { GpsButton } from "@/components/GpsButton";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import {
   HardHat,
   PlusCircle,
@@ -18,6 +19,8 @@ import {
   ArrowLeft,
   Building2,
   UserCheck,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,13 +32,16 @@ export default function NewFindingPage() {
   const [availablePics, setAvailablePics] = useState<User[]>([]);
 
   // Form State
+  const todayStr = new Date().toISOString().split("T")[0];
+  const [inspectionDate, setInspectionDate] = useState<string>(todayStr);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedPicId, setSelectedPicId] = useState<string>("");
-  const [category, setCategory] = useState<Category>("K3_SAFETY");
+  const [category, setCategory] = useState<string>("K3_SAFETY");
+  const [customCategory, setCustomCategory] = useState<string>("");
   const [locationDetail, setLocationDetail] = useState("");
   const [coordinates, setCoordinates] = useState("");
-  const [description, setDescription] = useState("");
   const [photoFindingUrl, setPhotoFindingUrl] = useState("");
+  const [description, setDescription] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,20 +85,26 @@ export default function NewFindingPage() {
       setErrorMsg("Mohon pilih PIC Penanggung Jawab temuan.");
       return;
     }
+    if (category === "CUSTOM" && !customCategory.trim()) {
+      setErrorMsg("Mohon ketik nama kategori patroli custom.");
+      return;
+    }
     if (!locationDetail.trim()) {
       setErrorMsg("Mohon isi rincian lokasi temuan (contoh: Lantai 3 - Area Coring).");
       return;
     }
-    if (!description.trim()) {
-      setErrorMsg("Mohon isi deskripsi singkat temuan patroli.");
+    if (!photoFindingUrl) {
+      setErrorMsg("Mohon lampirkan/ambil foto temuan patroli terlebih dahulu.");
       return;
     }
-    if (!photoFindingUrl) {
-      setErrorMsg("Mohon lampirkan/ambil foto temuan patroli.");
+    if (!description.trim()) {
+      setErrorMsg("Mohon isi deskripsi temuan patroli.");
       return;
     }
 
     setSubmitting(true);
+
+    const finalCategory = category === "CUSTOM" ? customCategory.trim() : category;
 
     try {
       const res = await createFinding({
@@ -101,9 +113,10 @@ export default function NewFindingPage() {
         reporterId: currentUser.id,
         locationDetail,
         coordinates,
-        category,
+        category: finalCategory,
         description,
         photoFindingUrl,
+        inspectionDate: inspectionDate || todayStr,
       });
 
       if (res.success && res.finding) {
@@ -205,32 +218,43 @@ export default function NewFindingPage() {
               </div>
             )}
 
-            {/* 1. PILIH PROYEK & PIC */}
+            {/* 1. TANGGAL INSPEKSI LAPANGAN */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Calendar size={16} className="text-violet-600 dark:text-violet-400" />
+                  1. Tanggal Inspeksi Lapangan <span className="text-red-500">*</span>
+                </span>
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                  (Default hari ini / bisa diubah jika susulan)
+                </span>
+              </label>
+              <input
+                type="date"
+                value={inspectionDate}
+                onChange={(e) => setInspectionDate(e.target.value)}
+                required
+                className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
+              />
+            </div>
+
+            {/* 2. PILIH PROYEK & PIC */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  1. Proyek Konstruksi <span className="text-red-500">*</span>
+                  2. Proyek Konstruksi <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <select
-                    value={selectedProjectId}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    required
-                    className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
-                  >
-                    <option value="">-- Pilih Proyek Lapangan --</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <ProjectCombobox
+                  projects={projects}
+                  value={selectedProjectId}
+                  onChange={(pId) => setSelectedProjectId(pId)}
+                  required
+                />
               </div>
 
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  2. PIC Penanggung Jawab (Subkont) <span className="text-red-500">*</span>
+                  3. PIC Penanggung Jawab (Subkont) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -253,14 +277,14 @@ export default function NewFindingPage() {
               </div>
             </div>
 
-            {/* 2. KATEGORI TEMUAN */}
+            {/* 3. KATEGORI TEMUAN */}
             <div className="space-y-2">
               <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                3. Kategori Temuan Patroli <span className="text-red-500">*</span>
+                4. Kategori Temuan Patroli <span className="text-red-500">*</span>
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
+                onChange={(e) => setCategory(e.target.value)}
                 required
                 className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
               >
@@ -269,14 +293,29 @@ export default function NewFindingPage() {
                 <option value="KEBERSIHAN_5R">🧹 Kebersihan 5R (Sampah Puing, Kerapian Area)</option>
                 <option value="SCHEDULE">⏱️ Jadwal & Progres (Keterlambatan, Pekerja Less)</option>
                 <option value="MATERIAL">📦 Material & Logistik (Kerusakan, Penyimpanan Basah)</option>
+                <option value="CUSTOM">✏️ Kategori Lainnya (Isi Bebas / Custom)</option>
               </select>
+
+              {/* Input Custom Category jika memilih opsi custom */}
+              {category === "CUSTOM" && (
+                <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <input
+                    type="text"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    placeholder="Tuliskan nama kategori patroli custom..."
+                    required
+                    className="w-full px-4 py-3 text-sm font-semibold rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/40 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+              )}
             </div>
 
-            {/* 3. RINCIAN LOKASI & GPS */}
+            {/* 4. RINCIAN LOKASI & GPS */}
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  4. Rincian Lokasi Spesifik <span className="text-red-500">*</span>
+                  5. Rincian Lokasi Spesifik <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -292,10 +331,21 @@ export default function NewFindingPage() {
               <GpsButton value={coordinates} onChange={(coords) => setCoordinates(coords)} />
             </div>
 
-            {/* 4. DESKRIPSI SINGKAT */}
-            <div className="space-y-2">
+            {/* 5. UPLOAD FOTO TEMUAN (DIPRIORITASKAN SEBELUM DESKRIPSI SESUAI POIN 4) */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <PhotoUploader
+                label="6. Foto Temuan Lapangan (Foto Awal) *"
+                description="Ambil foto menggunakan kamera HP atau unggah gambar temuan secara jelas."
+                value={photoFindingUrl}
+                onChange={(url) => setPhotoFindingUrl(url)}
+                required
+              />
+            </div>
+
+            {/* 6. DESKRIPSI TEMUAN (SETELAH FOTO) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                5. Deskripsi Singkat Temuan <span className="text-red-500">*</span>
+                7. Deskripsi Temuan Lapangan <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={description}
@@ -304,17 +354,6 @@ export default function NewFindingPage() {
                 required
                 rows={4}
                 className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
-              />
-            </div>
-
-            {/* 5. UPLOAD FOTO TEMUAN */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <PhotoUploader
-                label="6. Foto Temuan Lapangan (Foto Awal)"
-                description="Ambil foto menggunakan kamera HP atau unggah gambar temuan secara jelas."
-                value={photoFindingUrl}
-                onChange={(url) => setPhotoFindingUrl(url)}
-                required
               />
             </div>
 

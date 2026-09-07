@@ -5,7 +5,8 @@ export type Category =
   | "QUALITY" 
   | "KEBERSIHAN_5R" 
   | "SCHEDULE" 
-  | "MATERIAL";
+  | "MATERIAL"
+  | (string & {});
 
 export type FindingStatus = "OPEN" | "RESOLVED" | "CLOSED";
 
@@ -51,14 +52,17 @@ export interface Finding {
   status: FindingStatus;
   picResponse?: string | null;
   photoResolutionUrl?: string | null;
+  hasResolutionPhoto?: boolean;
+  noPhotoReason?: string | null;
   rejectionNote?: string | null;
+  inspectionDate?: string | Date | null;
   createdAt: string | Date;
   dueDate?: string | Date | null;
   resolvedAt?: string | Date | null;
   closedAt?: string | Date | null;
 }
 
-export const CATEGORY_LABELS: Record<Category, { label: string; icon: string; description: string }> = {
+export const CATEGORY_LABELS: Record<string, { label: string; icon: string; description: string }> = {
   K3_SAFETY: {
     label: "K3 / Keselamatan",
     icon: "ShieldAlert",
@@ -98,19 +102,19 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     description: "Akses Terisolasi Khusus Proyek Sendiri: Hanya dapat melihat & merespon tugas proyeknya.",
   },
   SM: {
-    label: "Site Manager (SM)",
+    label: "SM / PM (Site Manager / Project Manager)",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
     description: "Akses Multi-Proyek Lapangan: Mengawasi & mengkoordinasikan PIC di beberapa site proyek.",
   },
   PM: {
-    label: "Project Manager (PM)",
+    label: "GM / DivHead / DepMan",
     badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
-    description: "Akses Multi-Proyek: Evaluasi SLA, memvalidasi dan menyetujui penutupan temuan.",
+    description: "Akses Manajemen Divisi / Departemen: Evaluasi SLA, monitoring kepatuhan dan pencapaian target proyek.",
   },
   GM: {
-    label: "General Manager (GM)",
+    label: "SecMan (Section Manager)",
     badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
-    description: "Akses Divisi / Wilayah: Supervisi PM & PIC, pemantauan eskalasi dan kepatuhan patroli.",
+    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan patroli.",
   },
   BOD: {
     label: "Board of Directors (BOD)",

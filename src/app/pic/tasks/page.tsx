@@ -30,6 +30,8 @@ export default function PicTasksPage() {
 
   // Active form state for responding to a task
   const [activeTask, setActiveTask] = useState<Finding | null>(null);
+  const [hasPhoto, setHasPhoto] = useState(true);
+  const [noPhotoReason, setNoPhotoReason] = useState("");
   const [picResponse, setPicResponse] = useState("");
   const [photoResolutionUrl, setPhotoResolutionUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -82,6 +84,8 @@ export default function PicTasksPage() {
 
   const handleOpenResponseForm = (task: Finding) => {
     setActiveTask(task);
+    setHasPhoto(true);
+    setNoPhotoReason("");
     setPicResponse("");
     setPhotoResolutionUrl("");
     setErrorMsg(null);
@@ -92,12 +96,18 @@ export default function PicTasksPage() {
     if (!activeTask) return;
     setErrorMsg(null);
 
-    if (!picResponse.trim()) {
-      setErrorMsg("Mohon tuliskan penjelasan perbaikan yang telah dilakukan.");
+    if (hasPhoto && !photoResolutionUrl) {
+      setErrorMsg("Mohon lampirkan foto bukti hasil perbaikan.");
       return;
     }
-    if (!photoResolutionUrl) {
-      setErrorMsg("Mohon unggah foto bukti hasil perbaikan.");
+
+    if (!hasPhoto && !noPhotoReason.trim()) {
+      setErrorMsg("Mohon jelaskan alasan mengapa tidak melampirkan foto.");
+      return;
+    }
+
+    if (!picResponse.trim()) {
+      setErrorMsg("Mohon tuliskan penjelasan perbaikan yang telah dilakukan.");
       return;
     }
 
@@ -107,7 +117,9 @@ export default function PicTasksPage() {
       const res = await resolveFinding({
         findingId: activeTask.id,
         picResponse,
-        photoResolutionUrl,
+        photoResolutionUrl: hasPhoto ? photoResolutionUrl : undefined,
+        hasResolutionPhoto: hasPhoto,
+        noPhotoReason: !hasPhoto ? noPhotoReason : undefined,
       });
 
       if (res.success) {
@@ -374,10 +386,75 @@ export default function PicTasksPage() {
                 </p>
               </div>
 
-              {/* Input Respon / Keterangan */}
+              {/* Pilihan: Ada Foto / Tidak Ada Foto (Poin 8: Default Ada Foto) */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Respon & Rincian Perbaikan Lapangan <span className="text-red-500">*</span>
+                  Bukti Foto Perbaikan Lapangan <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setHasPhoto(true)}
+                    className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                      hasPhoto
+                        ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${hasPhoto ? "border-violet-600 bg-violet-600" : "border-slate-400"}`}>
+                      {hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span>📷 Ada Foto (Default)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHasPhoto(false)}
+                    className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                      !hasPhoto
+                        ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${!hasPhoto ? "border-amber-600 bg-amber-600" : "border-slate-400"}`}>
+                      {!hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span>🚫 Tidak Ada Foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. UPLOAD FOTO ATAU ALASAN TANPA FOTO (URUTAN FOTO DULU BARU DESKRIPSI) */}
+              {hasPhoto ? (
+                <div className="pt-1">
+                  <PhotoUploader
+                    label="Foto Bukti Perbaikan (Foto Sesudah) *"
+                    description="Ambil foto atau unggah gambar bukti perbaikan yang selesai dikerjakan."
+                    value={photoResolutionUrl}
+                    onChange={(url) => setPhotoResolutionUrl(url)}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border-2 border-amber-300 dark:border-amber-800">
+                  <label className="block text-sm font-bold text-amber-900 dark:text-amber-200">
+                    Alasan Tidak Melampirkan Foto <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={noPhotoReason}
+                    onChange={(e) => setNoPhotoReason(e.target.value)}
+                    placeholder="Contoh: Perbaikan administratif / sistem / area sensitif terlarang kamera..."
+                    required
+                    className="w-full px-4 py-3 text-sm rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {/* 2. DESKRIPSI / RINCIAN PERBAIKAN LAPANGAN */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Deskripsi & Tindakan Perbaikan Lapangan <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={picResponse}
@@ -388,15 +465,6 @@ export default function PicTasksPage() {
                   className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                 />
               </div>
-
-              {/* Upload Foto Hasil Perbaikan */}
-              <PhotoUploader
-                label="Foto Bukti Perbaikan (Foto Sesudah)"
-                description="Ambil foto atau unggah gambar bukti perbaikan yang selesai dikerjakan."
-                value={photoResolutionUrl}
-                onChange={(url) => setPhotoResolutionUrl(url)}
-                required
-              />
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -412,8 +480,8 @@ export default function PicTasksPage() {
                   disabled={submitting}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <Send size={18} />
-                  <span>{submitting ? "Mengirim..." : "Kirim Bukti Perbaikan (Ubah ke RESOLVED)"}</span>
+                  <CheckCircle2 size={18} />
+                  <span>{submitting ? "Menyimpan..." : "Kirim Respon & Selesaikan Tiket (CLOSED)"}</span>
                 </button>
               </div>
             </form>

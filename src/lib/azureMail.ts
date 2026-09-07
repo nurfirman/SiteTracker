@@ -231,12 +231,12 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 </tr>` : ""}
                 ${options.pmName ? `
                 <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Project Manager (PM):</td>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">GM / DivHead / DepMan:</td>
                   <td style="padding: 6px 10px; color: #059669; font-weight: 800;">${options.pmName}</td>
                 </tr>` : ""}
                 ${options.gmName ? `
                 <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">General Manager (GM):</td>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">SecMan (Section Manager):</td>
                   <td style="padding: 6px 10px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
                 </tr>` : ""}
                 <tr>
@@ -244,7 +244,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Lapangan"}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Site Manager (SM):</td>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">SM / PM (Site/Project Manager):</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.siteManagerName || "Site Manager Proyek"}</td>
                 </tr>
                 <tr>

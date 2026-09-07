@@ -85,9 +85,16 @@ export function SideBySideModal({
           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CategoryBadge category={finding.category} />
-              <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Calendar size={14} /> Dilaporkan: {formatDate(finding.createdAt)}
-              </span>
+              <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
+                {finding.inspectionDate && (
+                  <span className="font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/50 px-2 py-0.5 rounded">
+                    Tgl Inspeksi: {formatDate(finding.inspectionDate).replace(" WIB", "")}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Calendar size={14} /> Dilaporkan: {formatDate(finding.createdAt)}
+                </span>
+              </div>
             </div>
 
             <div>
@@ -185,6 +192,14 @@ export function SideBySideModal({
                       alt="Foto Hasil Perbaikan"
                       className="w-full h-full object-cover"
                     />
+                  ) : (finding.status === "CLOSED" || finding.status === "RESOLVED") ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-amber-500 p-4 text-center bg-amber-950/20">
+                      <CheckCircle2 className="w-10 h-10 mb-2 text-amber-500" />
+                      <span className="text-sm font-bold text-amber-900 dark:text-amber-200">Diselesaikan Tanpa Foto</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+                        {finding.noPhotoReason || finding.rejectionNote || "Perbaikan diselesaikan secara administratif/sistem"}
+                      </span>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-4 text-center">
                       <AlertCircle className="w-10 h-10 mb-2 opacity-50 text-amber-500" />

@@ -51,15 +51,28 @@ export function generateTicketCode(existingCount: number = 0): string {
   return `CMD-${year}-${sequence}-${randomSuffix}`;
 }
 
-export function calculateDueDate(category: string, createdAtDate: Date = new Date()): Date {
-  const due = new Date(createdAtDate.getTime());
-  // K3 Safety has strict 24-hour SLA; Quality & others get 48 hours
-  if (category === "K3_SAFETY") {
-    due.setHours(due.getHours() + 24);
-  } else {
-    due.setHours(due.getHours() + 48);
+/**
+ * Menambahkan hari kerja (business days) dengan melewatkan Sabtu dan Minggu
+ */
+export function addBusinessDays(startDate: Date, daysToAdd: number): Date {
+  const result = new Date(startDate.getTime());
+  let added = 0;
+  while (added < daysToAdd) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay();
+    // 0 = Minggu, 6 = Sabtu
+    if (day !== 0 && day !== 6) {
+      added++;
+    }
   }
-  return due;
+  return result;
+}
+
+/**
+ * Deadline respon temuan: 14 hari kerja dari tanggal inspeksi / pembuatan laporan
+ */
+export function calculateDueDate(category: string, createdAtDate: Date = new Date()): Date {
+  return addBusinessDays(createdAtDate, 14);
 }
 
 export function getSlaStatus(dueDateInput?: string | Date | null, status?: string) {

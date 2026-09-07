@@ -1399,6 +1399,7 @@ export async function createFinding(payload: {
   category: Category;
   description: string;
   photoFindingUrl: string;
+  inspectionDate?: string;
 }): Promise<{ success: boolean; finding?: Finding; message?: string }> {
   try {
     // 0. Enforce role authorization (CMD, PM, BOD, ADMIN are authorized to create findings)
@@ -1427,7 +1428,10 @@ export async function createFinding(payload: {
     const existing = await getFindings({ limit: 1000 });
     const ticketCode = generateTicketCode(existing.length);
     const now = new Date();
-    const dueDate = calculateDueDate(payload.category, now);
+    
+    // Parse inspection date (default today if not provided)
+    const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
+    const dueDate = calculateDueDate(payload.category, inspectionDateObj);
 
     if (hasValidDatabaseUrl()) {
       try {
@@ -1439,7 +1443,7 @@ export async function createFinding(payload: {
             reporterId: payload.reporterId,
             locationDetail: cleanLocation,
             coordinates: payload.coordinates ? sanitizeText(payload.coordinates) : null,
-            category: payload.category,
+            category: payload.category as any,
             description: cleanDescription,
             photoFindingUrl: payload.photoFindingUrl,
             status: "OPEN",
@@ -1470,6 +1474,7 @@ export async function createFinding(payload: {
             description: created.description,
             photoFindingUrl: created.photoFindingUrl,
             status: created.status as FindingStatus,
+            inspectionDate: payload.inspectionDate || now.toISOString().split("T")[0],
             createdAt: created.createdAt.toISOString(),
             dueDate: created.dueDate ? created.dueDate.toISOString() : null,
           },
@@ -1499,6 +1504,7 @@ export async function createFinding(payload: {
       description: payload.description,
       photoFindingUrl: payload.photoFindingUrl,
       status: "OPEN",
+      inspectionDate: payload.inspectionDate || now.toISOString().split("T")[0],
       createdAt: now.toISOString(),
       dueDate: dueDate.toISOString(),
     };
@@ -1518,7 +1524,9 @@ export async function createFinding(payload: {
 export async function resolveFinding(payload: {
   findingId: string;
   picResponse: string;
-  photoResolutionUrl: string;
+  photoResolutionUrl?: string;
+  hasResolutionPhoto?: boolean;
+  noPhotoReason?: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
     // 0. Enforce role authorization (PIC, SM, PM, BOD, ADMIN can resolve findings)
@@ -1569,22 +1577,38 @@ export async function resolveFinding(payload: {
       return { success: false, message: "Keterangan tindakan perbaikan wajib diisi (minimal 5 karakter)." };
     }
 
-    const imgValidation = validateImagePayload(payload.photoResolutionUrl);
-    if (!imgValidation.isValid) {
-      return { success: false, message: imgValidation.error || "Foto bukti perbaikan tidak valid." };
+    const hasPhoto = payload.hasResolutionPhoto !== false;
+    let finalPhotoUrl = payload.photoResolutionUrl || "";
+    let cleanNoPhotoReason = payload.noPhotoReason ? sanitizeText(payload.noPhotoReason) : null;
+
+    if (hasPhoto) {
+      if (!finalPhotoUrl) {
+        return { success: false, message: "Foto bukti perbaikan wajib dilampirkan jika memilih opsi 'Ada Foto'." };
+      }
+      const imgValidation = validateImagePayload(finalPhotoUrl);
+      if (!imgValidation.isValid) {
+        return { success: false, message: imgValidation.error || "Foto bukti perbaikan tidak valid." };
+      }
+    } else {
+      if (!cleanNoPhotoReason || cleanNoPhotoReason.length < 5) {
+        return { success: false, message: "Mohon isi alasan mengapa tidak ada foto bukti perbaikan (minimal 5 karakter)." };
+      }
+      finalPhotoUrl = "";
     }
 
     const now = new Date();
+    // Poin 6: Verifikasi dari PM sementara ditiadakan, cukup feedback PIC -> status langsung CLOSED / Tuntas
     if (hasValidDatabaseUrl()) {
       try {
         await prisma.finding.update({
           where: { id: payload.findingId },
           data: {
-            status: "RESOLVED",
+            status: "CLOSED",
             picResponse: cleanResponse,
-            photoResolutionUrl: payload.photoResolutionUrl,
+            photoResolutionUrl: finalPhotoUrl || null,
             resolvedAt: now,
-            rejectionNote: null,
+            closedAt: now,
+            rejectionNote: cleanNoPhotoReason ? `[Tanpa Foto: ${cleanNoPhotoReason}]` : null,
           },
         });
 
@@ -1602,11 +1626,14 @@ export async function resolveFinding(payload: {
     if (index !== -1) {
       inMemoryFindings[index] = {
         ...inMemoryFindings[index],
-        status: "RESOLVED",
+        status: "CLOSED",
         picResponse: cleanResponse,
-        photoResolutionUrl: payload.photoResolutionUrl,
+        photoResolutionUrl: finalPhotoUrl || null,
+        hasResolutionPhoto: hasPhoto,
+        noPhotoReason: cleanNoPhotoReason,
         resolvedAt: now.toISOString(),
-        rejectionNote: null,
+        closedAt: now.toISOString(),
+        rejectionNote: cleanNoPhotoReason ? `[Tanpa Foto: ${cleanNoPhotoReason}]` : null,
       };
     }
 
@@ -1725,7 +1752,7 @@ export async function seedDatabase(): Promise<{ success: boolean; message: strin
             reporterId: f.reporterId,
             locationDetail: f.locationDetail,
             coordinates: f.coordinates,
-            category: f.category,
+            category: f.category as any,
             description: f.description,
             photoFindingUrl: f.photoFindingUrl,
             status: f.status,

@@ -36,6 +36,8 @@ export default function FindingDetailPage() {
 
   // PIC inline form state
   const [showPicForm, setShowPicForm] = useState(false);
+  const [hasPhoto, setHasPhoto] = useState(true);
+  const [noPhotoReason, setNoPhotoReason] = useState("");
   const [picResponse, setPicResponse] = useState("");
   const [photoResolutionUrl, setPhotoResolutionUrl] = useState("");
   const [submittingPic, setSubmittingPic] = useState(false);
@@ -65,13 +67,17 @@ export default function FindingDetailPage() {
   const handlePicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!finding) return;
-    if (!picResponse.trim() || !photoResolutionUrl) return;
+    if (!picResponse.trim()) return;
+    if (hasPhoto && !photoResolutionUrl) return;
+    if (!hasPhoto && !noPhotoReason.trim()) return;
 
     setSubmittingPic(true);
     await resolveFinding({
       findingId: finding.id,
       picResponse,
-      photoResolutionUrl,
+      photoResolutionUrl: hasPhoto ? photoResolutionUrl : undefined,
+      hasResolutionPhoto: hasPhoto,
+      noPhotoReason: !hasPhoto ? noPhotoReason : undefined,
     });
     setSubmittingPic(false);
     setShowPicForm(false);
@@ -146,9 +152,16 @@ export default function FindingDetailPage() {
         <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CategoryBadge category={finding.category} />
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-              <Calendar size={14} /> Dilaporkan: {formatDate(finding.createdAt)}
-            </span>
+            <div className="flex items-center gap-3 flex-wrap text-xs font-semibold text-slate-500">
+              {finding.inspectionDate && (
+                <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400 font-bold bg-violet-50 dark:bg-violet-950/60 px-2.5 py-1 rounded-lg">
+                  <Calendar size={13} /> Tanggal Inspeksi: {formatDate(finding.inspectionDate).replace(" WIB", "")}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Calendar size={13} /> Dibuat: {formatDate(finding.createdAt)}
+              </span>
+            </div>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -261,6 +274,16 @@ export default function FindingDetailPage() {
                     alt="Foto Perbaikan PIC"
                     className="w-full h-full object-cover"
                   />
+                ) : finding.status === "CLOSED" || finding.status === "RESOLVED" ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-amber-500 p-6 text-center bg-amber-950/20">
+                    <CheckCircle2 className="w-10 h-10 mb-2 text-amber-500" />
+                    <span className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                      Diselesaikan Tanpa Foto
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+                      {finding.noPhotoReason || finding.rejectionNote || "Perbaikan diselesaikan secara administratif/sistem"}
+                    </span>
+                  </div>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
                     <Clock className="w-10 h-10 mb-2 opacity-40 text-amber-500" />
@@ -311,9 +334,72 @@ export default function FindingDetailPage() {
                 Form Tindak Lanjut Perbaikan Lapangan
               </h3>
 
+              {/* Pilihan: Ada Foto / Tidak Ada Foto (Poin 8: Default Ada Foto) */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Respon & Keterangan Perbaikan *
+                  Bukti Foto Perbaikan Lapangan <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setHasPhoto(true)}
+                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                      hasPhoto
+                        ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${hasPhoto ? "border-violet-600 bg-violet-600" : "border-slate-400"}`}>
+                      {hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span>📷 Ada Foto (Default)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHasPhoto(false)}
+                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                      !hasPhoto
+                        ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${!hasPhoto ? "border-amber-600 bg-amber-600" : "border-slate-400"}`}>
+                      {!hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span>🚫 Tidak Ada Foto</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. UPLOAD FOTO ATAU ALASAN TANPA FOTO (URUTAN FOTO DULU BARU DESKRIPSI) */}
+              {hasPhoto ? (
+                <PhotoUploader
+                  label="Foto Bukti Perbaikan *"
+                  value={photoResolutionUrl}
+                  onChange={(url) => setPhotoResolutionUrl(url)}
+                  required
+                />
+              ) : (
+                <div className="space-y-1.5 p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800">
+                  <label className="block text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Alasan Tidak Melampirkan Foto <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={noPhotoReason}
+                    onChange={(e) => setNoPhotoReason(e.target.value)}
+                    placeholder="Contoh: Pekerjaan administratif / sistem..."
+                    required
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {/* 2. DESKRIPSI PERBAIKAN LAPANGAN */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Respon & Keterangan Perbaikan <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={picResponse}
@@ -325,13 +411,6 @@ export default function FindingDetailPage() {
                 />
               </div>
 
-              <PhotoUploader
-                label="Foto Bukti Perbaikan *"
-                value={photoResolutionUrl}
-                onChange={(url) => setPhotoResolutionUrl(url)}
-                required
-              />
-
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -342,10 +421,10 @@ export default function FindingDetailPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingPic || !picResponse.trim() || !photoResolutionUrl}
+                  disabled={submittingPic || !picResponse.trim() || (hasPhoto && !photoResolutionUrl) || (!hasPhoto && !noPhotoReason.trim())}
                   className="px-6 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md disabled:opacity-50"
                 >
-                  {submittingPic ? "Mengirim..." : "Kirim Perbaikan (Ubah ke RESOLVED)"}
+                  {submittingPic ? "Menyimpan..." : "Kirim Respon & Selesaikan Tiket (CLOSED)"}
                 </button>
               </div>
             </form>

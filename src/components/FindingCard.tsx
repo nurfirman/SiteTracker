@@ -62,15 +62,20 @@ export function FindingCard({
             alt="Foto Temuan"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-          {finding.photoResolutionUrl && (
+          {finding.photoResolutionUrl ? (
             <div className="absolute top-2 right-2 px-2.5 py-1 bg-emerald-600/90 text-white text-xs font-extrabold rounded-lg backdrop-blur-md shadow-md flex items-center gap-1">
               <CheckCircle2 size={12} />
               <span>Ada Bukti Perbaikan</span>
             </div>
-          )}
+          ) : (finding.status === "CLOSED" || finding.status === "RESOLVED") ? (
+            <div className="absolute top-2 right-2 px-2.5 py-1 bg-amber-600/90 text-white text-xs font-extrabold rounded-lg backdrop-blur-md shadow-md flex items-center gap-1">
+              <CheckCircle2 size={12} />
+              <span>Selesai (Tanpa Foto)</span>
+            </div>
+          ) : null}
           {finding.project && (
             <div className="absolute bottom-2 left-2 right-2 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white text-xs font-semibold rounded-xl truncate">
-              {finding.project.name}
+              {finding.project.code ? `[${finding.project.code}] ` : ""}{finding.project.name}
             </div>
           )}
         </div>
@@ -79,7 +84,7 @@ export function FindingCard({
         <div className="pt-2 flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex justify-between items-center">
             <span className="flex items-center gap-1">
-              <Calendar size={13} /> {formatDate(finding.createdAt)}
+              <Calendar size={13} /> {finding.inspectionDate ? `Inspeksi: ${formatDate(finding.inspectionDate).replace(" WIB", "")}` : formatDate(finding.createdAt)}
             </span>
             <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
               <UserCheck size={13} className="text-blue-500" /> PIC: {finding.pic?.name.split(" ")[0] || "PIC"}
