@@ -10,7 +10,9 @@ import {
   getMailServiceStatus,
   runPatrolSlaReminderEngine,
   SlaReminderEngineResult,
+  getNextReportDocNumber,
 } from "@/lib/actions";
+import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
 import { formatDate, getSlaStatus, exportFindingsToCsv } from "@/lib/utils";
 import {
   Printer,
@@ -58,6 +60,7 @@ export default function ReportsPage() {
   const [customInspector, setCustomInspector] = useState<string>("");
   const [customSiteManager, setCustomSiteManager] = useState<string>("");
   const [customPicName, setCustomPicName] = useState<string>("");
+  const [customReportNumber, setCustomReportNumber] = useState<string>("");
   
   const [loading, setLoading] = useState(true);
 
@@ -136,10 +139,17 @@ export default function ReportsPage() {
   const activePicObj = users.find((u) => u.id === selectedPic);
 
   // Cari user CMD yang bertugas (pengawas patroli)
+  // Prioritaskan: reporter aktual dari temuan yang sedang ditampilkan -> current user jika CMD -> user bertugas
+  const findingsCmdReporter =
+    findings.find((f) => f.reporter?.name)?.reporter?.name ||
+    findings.find((f) => f.reporter?.role === "CMD")?.reporter?.name;
+
   const defaultCmdInspector =
+    findingsCmdReporter ||
+    (currentUser?.role === "CMD" ? currentUser.name : null) ||
+    users.find((u) => u.name.toLowerCase().includes("hadi"))?.name ||
     users.find((u) => u.role === "CMD")?.name ||
-    findings.find((f) => f.reporter?.role === "CMD")?.reporter?.name ||
-    "Hadi (CMD)";
+    "Hadi Pramono (CMD)";
 
   // Cari PM / SM proyek terkait
   const projectPmOrSm =
@@ -160,6 +170,11 @@ export default function ReportsPage() {
 
   const resolvedInspectorName = customInspector || defaultCmdInspector;
   const resolvedSiteManagerName = customSiteManager || projectPmOrSm;
+
+  // Penomoran Dokumen Laporan Resmi berdasarkan Divisi: DIV-YY-XXX (e.g. CMD-26-001)
+  const activeDivCode = getDivisionCode(activeProjectObj?.division);
+  const defaultReportNumber = formatReportDocNumber(activeDivCode, reportDate || new Date(), 1);
+  const resolvedReportNumber = customReportNumber.trim() ? customReportNumber.trim() : defaultReportNumber;
 
   // Statistics
   const totalFindings = findings.length;
@@ -216,7 +231,7 @@ export default function ReportsPage() {
     const projName = activeProjectObj
       ? `${activeProjectObj.name}${activeProjectObj.division ? ` (${activeProjectObj.division})` : ""}`
       : "Seluruh Proyek";
-    setEmailSubject(`[Laporan Patroli K3 & Mutu] ${projName} - ${reportDate}`);
+    setEmailSubject(`[${resolvedReportNumber}] Laporan Patroli K3 & Mutu - ${projName} (${reportDate})`);
 
     // Otomatis pre-select PIC, PM, GM sesuai divisi & proyek
     const initialRecipients: string[] = [];
@@ -275,6 +290,7 @@ export default function ReportsPage() {
         projectId: selectedProject,
         projectName: activeProjectObj ? activeProjectObj.name : "Seluruh Proyek",
         division: activeProjectObj?.division || undefined,
+        reportNumber: resolvedReportNumber,
         recipients: emailRecipients,
         subject: emailSubject,
         reportType: reportType,
@@ -545,9 +561,9 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Inspector, Site Manager, and PIC fields */}
+          {/* Inspector, Site Manager, PIC, and Report Document Number fields */}
           {reportType === "INTERNAL_PATROL" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Nama Inspector (Pengawas / CMD):
@@ -584,6 +600,19 @@ export default function ReportsPage() {
                   placeholder={`Otomatis: ${activePicObj?.name || findingsPicName || "Sesuai Data Temuan"}`}
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
+                  <span>Nomor Laporan / Dokumen:</span>
+                  <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 font-bold">DIV-YY-XXX ({activeDivCode})</span>
+                </label>
+                <input
+                  type="text"
+                  value={customReportNumber}
+                  onChange={(e) => setCustomReportNumber(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-800 dark:text-slate-200"
+                  placeholder={`Otomatis: ${defaultReportNumber}`}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -591,7 +620,10 @@ export default function ReportsPage() {
         {/* VIEW 1: INTERNAL PATROL STANDARD FORM */}
         {reportType === "INTERNAL_PATROL" && (
           <div className="bg-white text-black p-4 sm:p-8 md:p-10 rounded-2xl border border-slate-300 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 font-sans">
-            <div className="text-center pb-2">
+            <div className="relative text-center pb-2">
+              <div className="text-right text-[11px] font-mono font-bold text-slate-600 print:text-black mb-1 sm:absolute sm:right-0 sm:top-0">
+                No. Dok: <span className="bg-slate-100 print:bg-transparent px-1.5 py-0.5 border border-slate-300 print:border-none rounded font-black">{resolvedReportNumber}</span>
+              </div>
               <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase border-b-2 border-black pb-1.5 inline-block">
                 INTERNAL PATROL
               </h2>
@@ -602,8 +634,13 @@ export default function ReportsPage() {
                 <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
                   Project
                 </div>
-                <div className="col-span-10 sm:col-span-10 p-1.5 font-bold uppercase">
-                  {activeProjectObj ? activeProjectObj.name : "SEMUA PROYEK"} {activeProjectObj ? `(${activeProjectObj.location})` : ""}
+                <div className="col-span-10 sm:col-span-10 p-1.5 font-bold uppercase flex items-center justify-between gap-2 flex-wrap">
+                  <span>
+                    {activeProjectObj ? activeProjectObj.name : "SEMUA PROYEK"} {activeProjectObj ? `(${activeProjectObj.location})` : ""}
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 print:bg-transparent border border-black rounded">
+                    DIVISI: {activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
+                  </span>
                 </div>
               </div>
 
@@ -680,7 +717,7 @@ export default function ReportsPage() {
                 <table className="w-full border-collapse border-2 border-black text-xs">
                   <thead>
                     <tr className="border-b-2 border-black bg-slate-100 print:bg-slate-100 font-black text-center">
-                      <th className="w-10 border-r border-black p-2">NO</th>
+                      <th className="w-16 border-r border-black p-2">NO / ID</th>
                       <th className="w-1/2 border-r border-black p-2 uppercase tracking-wide">
                         Patrol Photograph
                       </th>
@@ -693,8 +730,11 @@ export default function ReportsPage() {
                     {findings.map((item, index) => {
                       return (
                         <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
-                          <td className="border-r border-black p-2 text-center font-black align-top">
-                            {index + 1}
+                          <td className="border-r border-black p-2 text-center align-top">
+                            <span className="text-base font-black block">{index + 1}</span>
+                            <span className="text-[9px] font-mono font-bold bg-slate-100 print:bg-transparent px-1 py-0.5 border border-slate-300 print:border-none rounded block mt-1 tracking-tight text-slate-700 print:text-black">
+                              {item.ticketCode}
+                            </span>
                           </td>
 
                           <td className="border-r border-black p-3 align-top space-y-2">
@@ -828,6 +868,12 @@ export default function ReportsPage() {
 
               <div className="text-right text-xs text-slate-600 dark:text-slate-400 print:text-slate-700 space-y-1">
                 <p className="font-bold text-slate-900 dark:text-white print:text-black">
+                  No. Dok: <span className="font-mono font-black text-violet-700 dark:text-violet-300 print:text-black">{resolvedReportNumber}</span>
+                </p>
+                <p>
+                  Divisi: <span className="font-bold font-mono text-sky-700 dark:text-sky-300 print:text-black">{activeDivCode}</span> ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
+                </p>
+                <p>
                   Tanggal Cetak: {formatDate(new Date())}
                 </p>
                 <p>
@@ -1291,9 +1337,13 @@ export default function ReportsPage() {
 
               {/* Summary of Report */}
               <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
-                <p className="font-bold text-slate-800 dark:text-white">
-                  Ringkasan Lampiran Dokumen:
-                </p>
+                <div className="flex items-center justify-between font-bold text-slate-800 dark:text-white">
+                  <span>Ringkasan Lampiran Dokumen:</span>
+                  <span className="font-mono text-violet-600 dark:text-violet-400 px-2 py-0.5 bg-violet-50 dark:bg-violet-950/60 rounded border border-violet-200 dark:border-violet-900">
+                    {resolvedReportNumber}
+                  </span>
+                </div>
+                <p>Divisi: <strong>{activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})</strong></p>
                 <p>Format: <strong>{reportType === "INTERNAL_PATROL" ? "Form Standar Internal Patrol" : "Rekapitulasi Eksekutif"}</strong></p>
                 <p>Total Temuan Terlampir: <strong>{totalFindings} Tiket</strong> (Open: {totalOpen}, Resolved: {totalResolved}, Closed: {totalClosed})</p>
               </div>

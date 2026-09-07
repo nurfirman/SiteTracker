@@ -15,6 +15,7 @@ import {
   sendPasswordResetMail,
 } from "./azureMail";
 import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
+import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "../constants/divisions";
 
 function safeRevalidate(path: string) {
   try {
@@ -1804,6 +1805,7 @@ export interface EmailReportPayload {
   projectId: string;
   projectName: string;
   division?: string;
+  reportNumber?: string;
   recipients: string[];
   subject: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
@@ -1859,6 +1861,7 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         subject: payload.subject,
         projectName: payload.projectName,
         division: payload.division,
+        reportNumber: payload.reportNumber,
         reportType: payload.reportType,
         messageNote: payload.messageNote,
         findingsCount: payload.findingsCount,
@@ -2233,6 +2236,78 @@ export async function runPatrolSlaReminderEngine(options?: {
       details: [],
     };
   }
+}
+
+/**
+ * Global sequence store per (divisionCode-YY) untuk penomoran dokumen laporan:
+ * DIV-YY-XXX (reset setiap tahun)
+ */
+const reportSequenceStore = new Map<string, number>();
+
+/**
+ * Server action untuk mengambil nomor dokumen laporan berikutnya berdasarkan Divisi dan Tanggal Laporan.
+ * Format: DIV-YY-XXX (e.g. CMD-26-001, ME-26-002)
+ * Nomor urut di-reset setiap tahun (berdasarkan 2 digit tahun tanggal laporan).
+ */
+export async function getNextReportDocNumber(
+  rawDivision?: string | null,
+  reportDateStr?: string | null
+): Promise<string> {
+  const divCode = getDivisionCode(rawDivision);
+
+  let yearTwoDigits = "26";
+  if (reportDateStr && reportDateStr.trim()) {
+    const parts = reportDateStr.split("-");
+    if (parts.length >= 1 && parts[0].length === 4) {
+      yearTwoDigits = parts[0].slice(-2);
+    } else {
+      const d = new Date(reportDateStr);
+      if (!isNaN(d.getTime())) {
+        yearTwoDigits = d.getFullYear().toString().slice(-2);
+      }
+    }
+  } else {
+    yearTwoDigits = new Date().getFullYear().toString().slice(-2);
+  }
+
+  const key = `${divCode}-${yearTwoDigits}`;
+  const currentCount = reportSequenceStore.get(key) || 0;
+  const nextSeq = currentCount + 1;
+  // Simpan sequence
+  reportSequenceStore.set(key, nextSeq);
+
+  return formatReportDocNumber(divCode, reportDateStr || new Date(), nextSeq);
+}
+
+/**
+ * Peek atau pratinjau nomor dokumen laporan berikutnya tanpa menaikkan counter sequence.
+ */
+export async function previewNextReportDocNumber(
+  rawDivision?: string | null,
+  reportDateStr?: string | null
+): Promise<string> {
+  const divCode = getDivisionCode(rawDivision);
+
+  let yearTwoDigits = "26";
+  if (reportDateStr && reportDateStr.trim()) {
+    const parts = reportDateStr.split("-");
+    if (parts.length >= 1 && parts[0].length === 4) {
+      yearTwoDigits = parts[0].slice(-2);
+    } else {
+      const d = new Date(reportDateStr);
+      if (!isNaN(d.getTime())) {
+        yearTwoDigits = d.getFullYear().toString().slice(-2);
+      }
+    }
+  } else {
+    yearTwoDigits = new Date().getFullYear().toString().slice(-2);
+  }
+
+  const key = `${divCode}-${yearTwoDigits}`;
+  const currentCount = reportSequenceStore.get(key) || 0;
+  const peekSeq = currentCount + 1;
+
+  return formatReportDocNumber(divCode, reportDateStr || new Date(), peekSeq);
 }
 
 

@@ -20,6 +20,7 @@ import {
   ImportProjectPicReport,
   adminResetUserPassword,
 } from "@/lib/actions";
+import { MASTER_DIVISIONS, getDivisionCode } from "@/constants/divisions";
 import {
   Sliders,
   ShieldCheck,
@@ -68,7 +69,7 @@ interface CategoryConfig {
 
 export default function AdminSettingsPage() {
   const { currentUser } = useRole();
-  const [activeTab, setActiveTab] = useState<"projects_pics" | "categories" | "matrix" | "users" | "settings">("projects_pics");
+  const [activeTab, setActiveTab] = useState<"projects_pics" | "divisions" | "categories" | "matrix" | "users" | "settings">("projects_pics");
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -558,6 +559,18 @@ export default function AdminSettingsPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab("divisions")}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
+            activeTab === "divisions"
+              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+          }`}
+        >
+          <Layers size={18} />
+          <span>Kode Divisi ({MASTER_DIVISIONS.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab("categories")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
             activeTab === "categories"
@@ -790,6 +803,95 @@ export default function AdminSettingsPage() {
                       <UserPlus size={13} />
                       <span>+ PIC Proyek</span>
                     </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB MASTER: KELOLA KODE DIVISI & FORMAT PENOMORAN */}
+      {activeTab === "divisions" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Daftar Master Divisi & Standardisasi Dokumen</span>
+                <span className="px-2.5 py-0.5 text-xs font-mono font-black bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 rounded-lg border border-violet-300 dark:border-violet-800">
+                  DIV-YY-XXX
+                </span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Setiap proyek terafiliasi dengan divisi di bawah ini. Format penomoran laporan otomatis mengadopsi kode divisi, 2 digit tahun, dan 3 digit nomor urut tahunan.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Info Box */}
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-violet-900/10 via-indigo-900/10 to-blue-900/10 border border-violet-300 dark:border-violet-800 rounded-3xl text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-violet-800 dark:text-violet-300">
+              <Info size={16} />
+              <span>Ketentuan Penomoran Laporan Patroli Resmi:</span>
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-mono">
+              <strong>DIV-YY-XXX</strong> &rarr; <span className="text-violet-600 dark:text-violet-400 font-bold">DIV</span>: Kode Divisi (CMD, ME, SQCD, PLAN, JOIN, BM) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">YY</span>: 2 Digit Tahun Tanggal Laporan (e.g. 26) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">XXX</span>: 3 Digit Nomor Urut Tahunan (001, 002, dst, reset setiap pergantian tahun).
+            </p>
+          </div>
+
+          {/* Division Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {MASTER_DIVISIONS.map((div, idx) => {
+              const assignedProjects = projects.filter((p) => getDivisionCode(p.division) === div.code);
+              return (
+                <div
+                  key={div.code}
+                  className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between space-y-4 hover:border-violet-500/50 transition-all"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-mono font-black px-2.5 py-1 bg-violet-600 text-white rounded-lg shadow-sm">
+                            {div.code}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md">
+                            No. {idx + 1}
+                          </span>
+                        </div>
+                        <h3 className="font-black text-base text-slate-900 dark:text-white mt-2">
+                          {div.name}
+                        </h3>
+                      </div>
+                      <div className="p-2.5 bg-violet-50 dark:bg-violet-950 text-violet-600 rounded-xl shrink-0 font-mono font-black text-xs">
+                        {div.code}-26-001
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {div.description}
+                    </p>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                      <div className="flex items-center justify-between text-slate-500 mb-1.5 font-bold">
+                        <span>Proyek Terafiliasi:</span>
+                        <span className="text-violet-600 dark:text-violet-400">{assignedProjects.length} Proyek</span>
+                      </div>
+                      {assignedProjects.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic">Belum ada proyek dengan divisi ini</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {assignedProjects.map((p) => (
+                            <span
+                              key={p.id}
+                              className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded"
+                            >
+                              {p.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1379,16 +1481,24 @@ export default function AdminSettingsPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Divisi / Unit Bisnis</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Opsional</span>
+                  <span>Divisi / Unit Bisnis Proyek</span>
+                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-bold">Penomoran DIV-YY-XXX</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={newProjectDivision}
                   onChange={(e) => setNewProjectDivision(e.target.value)}
-                  placeholder="e.g. Divisi 1 (Gedung & Komersial)"
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                />
+                >
+                  <option value="">-- Pilih Kode Divisi Resmi --</option>
+                  {MASTER_DIVISIONS.map((div) => (
+                    <option key={div.code} value={div.code}>
+                      [{div.code}] {div.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Kode divisi ini akan digunakan otomatis pada penomoran dokumen laporan: <code className="text-violet-600 dark:text-violet-400 font-mono font-bold">DIV-YY-XXX</code>
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1482,16 +1592,25 @@ export default function AdminSettingsPage() {
 
             <form onSubmit={handleUpdateProjectAssignmentSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Divisi / Unit Bisnis Proyek
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Divisi / Unit Bisnis Proyek</span>
+                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-bold">Penomoran DIV-YY-XXX</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={editDivision}
                   onChange={(e) => setEditDivision(e.target.value)}
-                  placeholder="e.g. Divisi 1 (Gedung & Komersial)"
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                />
+                >
+                  <option value="">-- Belum Ditentukan / Tidak Ada Divisi --</option>
+                  {MASTER_DIVISIONS.map((div) => (
+                    <option key={div.code} value={div.code}>
+                      [{div.code}] {div.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Pilih kode divisi untuk standardisasi penomoran laporan: <code className="text-violet-600 dark:text-violet-400 font-mono font-bold">DIV-YY-XXX</code>
+                </p>
               </div>
 
               <div className="space-y-1.5">

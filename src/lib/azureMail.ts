@@ -10,6 +10,7 @@ export interface SendAzureMailOptions {
   subject: string;
   projectName: string;
   division?: string;
+  reportNumber?: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
   messageNote?: string;
   findingsCount: number;
@@ -207,6 +208,13 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
 
               <!-- Meta Table Details -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 24px; font-size: 13px;">
+                ${options.reportNumber ? `
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600; width: 35%;">No. Dokumen:</td>
+                  <td style="padding: 6px 10px; color: #6d28d9; font-weight: 900; font-family: monospace; font-size: 14px;">
+                    <span style="background-color: #ede9fe; padding: 2px 8px; border-radius: 6px; border: 1px solid #ddd6fe;">${options.reportNumber}</span>
+                  </td>
+                </tr>` : ""}
                 <tr>
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600; width: 35%;">Tanggal Inspeksi:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${inspectionDateFormatted}</td>
