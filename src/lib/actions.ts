@@ -1140,6 +1140,32 @@ export async function getProjects(): Promise<Project[]> {
 export async function getUsers(projectId?: string, role?: Role): Promise<User[]> {
   if (hasValidDatabaseUrl()) {
     try {
+      // Otomatis sinkronisasi akun dari neon_auth.user jika dibuat via Neon Console / Neon Auth
+      try {
+        const missingAuthUsers: any[] = await prisma.$queryRaw`
+          SELECT u.id, u.name, u.email 
+          FROM "neon_auth"."user" u 
+          LEFT JOIN "public"."users" p ON LOWER(u.email) = LOWER(p.email) 
+          WHERE p.id IS NULL;
+        `;
+        if (missingAuthUsers && missingAuthUsers.length > 0) {
+          for (const mau of missingAuthUsers) {
+            await prisma.user.create({
+              data: {
+                id: mau.id,
+                name: mau.name || mau.email.split("@")[0],
+                email: mau.email.toLowerCase().trim(),
+                role: "PENDING",
+                phoneNumber: "0812-0000-0000",
+                projectId: null,
+              },
+            });
+          }
+        }
+      } catch (syncErr) {
+        // Abaikan jika neon_auth belum aktif atau permission terbatas
+      }
+
       const whereClause: any = {};
       if (role) whereClause.role = role;
       if (projectId) {
@@ -1160,6 +1186,7 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
       const dbUsers = await prisma.user.findMany({
         where: whereClause,
         include: { project: true },
+        orderBy: { name: "asc" },
       });
 
       return dbUsers.map((u) => ({
