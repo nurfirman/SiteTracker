@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Finding, Project, User } from "@/types";
+import { Finding, Project, User, PatrolReport, InspectionType } from "@/types";
 import {
   getFindings,
   getProjects,
   getUsers,
   sendReportEmail,
+  savePatrolReport,
+  getPatrolReports,
+  deletePatrolReport,
   getMailServiceStatus,
   runPatrolSlaReminderEngine,
   SlaReminderEngineResult,
@@ -44,6 +47,12 @@ import {
   QrCode,
   ShieldCheck,
   ExternalLink,
+  FolderClock,
+  BookmarkCheck,
+  Search,
+  Trash2,
+  RotateCcw,
+  FolderOpen,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useRole } from "@/components/RoleContext";
@@ -59,7 +68,7 @@ export default function ReportsPage() {
   // Filters
   const [selectedProject, setSelectedProject] = useState<string>("ALL");
   const [selectedPic, setSelectedPic] = useState<string>("ALL");
-  const [inspectionType, setInspectionType] = useState<"ROUTINE" | "MIDDLE" | "FINAL">("ROUTINE");
+  const [inspectionType, setInspectionType] = useState<InspectionType>("ROUTINE");
   
   // Period & Date Filter Mode: "DAILY" (Single inspection date) | "MONTHLY" (Month selection) | "PERIODICAL" (Date range)
   const [periodMode, setPeriodMode] = useState<"DAILY" | "MONTHLY" | "PERIODICAL">("DAILY");
@@ -76,11 +85,20 @@ export default function ReportsPage() {
   const [customSiteManager, setCustomSiteManager] = useState<string>("");
   const [customPicName, setCustomPicName] = useState<string>("");
   const [customReportNumber, setCustomReportNumber] = useState<string>("");
+  const [presentInspectors, setPresentInspectors] = useState<string>("");
+  const [recalledReportNumber, setRecalledReportNumber] = useState<string | null>(null);
   
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [reportShareUrl, setReportShareUrl] = useState<string>("");
   
   const [loading, setLoading] = useState(true);
+
+  // Archive & History Modal State
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [savedReports, setSavedReports] = useState<PatrolReport[]>([]);
+  const [loadingArchive, setLoadingArchive] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [savingReport, setSavingReport] = useState(false);
 
   // Email Modal State
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -105,10 +123,16 @@ export default function ReportsPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [pList, uList, mStatus] = await Promise.all([getProjects(), getUsers(), getMailServiceStatus()]);
+        const [pList, uList, mStatus, repList] = await Promise.all([
+          getProjects(),
+          getUsers(),
+          getMailServiceStatus(),
+          getPatrolReports({ limit: 100 }),
+        ]);
         setProjects(pList);
         setUsers(uList);
         setMailStatus(mStatus);
+        setSavedReports(repList);
         if (pList.length > 0 && selectedProject === "ALL") {
           setSelectedProject(pList[0].id);
         }
@@ -124,6 +148,16 @@ export default function ReportsPage() {
     async function loadData() {
       setLoading(true);
       try {
+        // Jika sedang me-recall laporan spesifik berdasarkan nomor dokumen laporan:
+        if (recalledReportNumber) {
+          const reportFindings = await getFindings({ reportNumber: recalledReportNumber, limit: 1000 });
+          if (reportFindings.length > 0) {
+            setFindings(reportFindings);
+            setLoading(false);
+            return;
+          }
+        }
+
         const filters: any = { limit: 1000 };
         if (selectedProject !== "ALL") {
           filters.projectId = selectedProject;
@@ -169,7 +203,7 @@ export default function ReportsPage() {
       }
     }
     loadData();
-  }, [selectedProject, selectedPic, periodMode, reportDate, reportMonth, startDate, endDate]);
+  }, [selectedProject, selectedPic, periodMode, reportDate, reportMonth, startDate, endDate, recalledReportNumber]);
 
   // Filtered PIC options
   const availablePics = users.filter((u) => {
@@ -491,6 +525,10 @@ export default function ReportsPage() {
         inspectorName: resolvedInspectorName,
         siteManagerName: resolvedSiteManagerName,
         picName: resolvedPicName || picDisplay,
+        picId: selectedPic !== "ALL" ? selectedPic : undefined,
+        inspectionType: inspectionType,
+        presentInspectors: presentInspectors,
+        findingIds: findings.map((f) => f.id),
         pmName: activePmUser?.name || undefined,
         gmName: activeGmUser?.name || undefined,
         reportDate: reportDate,
@@ -499,6 +537,7 @@ export default function ReportsPage() {
       if (res.success) {
         showEmailToast(res.message);
         setShowEmailModal(false);
+        loadArchiveReports();
       } else {
         showEmailToast(res.message, "error");
       }
@@ -506,6 +545,97 @@ export default function ReportsPage() {
       showEmailToast(err.message || "Gagal mengirim email", "error");
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const loadArchiveReports = async () => {
+    setLoadingArchive(true);
+    try {
+      const list = await getPatrolReports();
+      setSavedReports(list);
+    } catch (e) {
+      console.error("Gagal memuat arsip laporan:", e);
+    } finally {
+      setLoadingArchive(false);
+    }
+  };
+
+  const handleOpenArchiveModal = () => {
+    setShowArchiveModal(true);
+    loadArchiveReports();
+  };
+
+  const handleSaveReportManual = async () => {
+    setSavingReport(true);
+    try {
+      const picDisplay =
+        activePicObj?.name ||
+        (activeProjectPics.length > 0 ? activeProjectPics.map((p) => p.name).join(", ") : undefined);
+
+      const res = await savePatrolReport({
+        reportNumber: resolvedReportNumber,
+        inspectorName: resolvedInspectorName,
+        reportDate: reportDate,
+        projectName: activeProjectObj ? activeProjectObj.name : "Seluruh Proyek",
+        projectId: selectedProject,
+        siteManagerName: resolvedSiteManagerName,
+        picName: resolvedPicName || picDisplay || "-",
+        picId: selectedPic !== "ALL" ? selectedPic : undefined,
+        inspectionType: inspectionType,
+        presentInspectors: presentInspectors,
+        findingsCount: totalFindings,
+        findingIds: findings.map((f) => f.id),
+      });
+
+      if (res.success) {
+        showEmailToast(`Laporan [${resolvedReportNumber}] berhasil disimpan ke database Neon!`);
+        loadArchiveReports();
+      } else {
+        showEmailToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showEmailToast(err.message || "Gagal menyimpan laporan", "error");
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  const handleRecallReport = (rep: PatrolReport) => {
+    if (rep.projectId) setSelectedProject(rep.projectId);
+    if (rep.picId) setSelectedPic(rep.picId);
+    else setSelectedPic("ALL");
+
+    if (rep.inspectionType) setInspectionType(rep.inspectionType as InspectionType);
+    if (rep.reportDate) {
+      setPeriodMode("DAILY");
+      setReportDate(rep.reportDate);
+    }
+    if (rep.inspectorName) setCustomInspector(rep.inspectorName);
+    if (rep.siteManagerName) setCustomSiteManager(rep.siteManagerName);
+    if (rep.picName) setCustomPicName(rep.picName);
+    if (rep.reportNumber) {
+      setCustomReportNumber(rep.reportNumber);
+      setRecalledReportNumber(rep.reportNumber);
+    }
+    if (rep.presentInspectors) setPresentInspectors(rep.presentInspectors);
+    else setPresentInspectors("");
+
+    setShowArchiveModal(false);
+    showEmailToast(`Laporan [${rep.reportNumber}] berhasil dipanggil ke form aktif!`);
+  };
+
+  const handleDeleteReport = async (id: string, docNum: string) => {
+    if (!window.confirm(`Yakin ingin menghapus arsip laporan ${docNum}?`)) return;
+    try {
+      const res = await deletePatrolReport(id);
+      if (res.success) {
+        showEmailToast(`Arsip ${docNum} berhasil dihapus.`);
+        setSavedReports((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        showEmailToast(res.message, "error");
+      }
+    } catch (e: any) {
+      showEmailToast(e.message || "Gagal menghapus arsip", "error");
     }
   };
 
@@ -609,8 +739,34 @@ export default function ReportsPage() {
               </p>
             </div>
 
-            {/* Print, Export, Email & Cron SLA Actions */}
+            {/* Print, Export, Email, Save to DB, Archive & Cron SLA Actions */}
             <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={handleOpenArchiveModal}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
+                title="Lihat daftar arsip laporan patroli yang pernah disimpan di database & panggil kembali sewaktu-waktu"
+              >
+                <FolderClock size={16} />
+                <span>Arsip Laporan CMD</span>
+                {savedReports.length > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-white/25 rounded-full">
+                    {savedReports.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveReportManual}
+                disabled={savingReport || findings.length === 0}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                title="Simpan konfigurasi laporan aktif ke database Neon"
+              >
+                <BookmarkCheck size={16} className={savingReport ? "animate-spin" : ""} />
+                <span>{savingReport ? "Menyimpan..." : "Simpan ke DB"}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleTriggerCronReminder}
@@ -626,6 +782,7 @@ export default function ReportsPage() {
                 onClick={handleOpenEmailModal}
                 disabled={findings.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                title="Kirim email laporan resmi dan otomatis simpan arsip ke database"
               >
                 <Mail size={16} />
                 <span>Kirim Email Laporan</span>
@@ -777,6 +934,7 @@ export default function ReportsPage() {
                   <option value="ROUTINE">Routine Inspection (Inspeksi Rutin)</option>
                   <option value="MIDDLE">Middle Inspection (Inspeksi Berkala)</option>
                   <option value="FINAL">Final Inspection (Inspeksi Akhir)</option>
+                  <option value="JOINT">Inspeksi Gabungan (Joint Inspection)</option>
                 </select>
               </div>
 
@@ -838,9 +996,9 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Inspector, Site Manager, PIC, and Report Document Number fields */}
+          {/* Inspector, Site Manager, PIC, Report Number, and Present Inspectors fields */}
           {reportType === "INTERNAL_PATROL" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Nama Inspector (Pengawas / CMD):
@@ -880,7 +1038,7 @@ export default function ReportsPage() {
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
                   <span>Nomor Laporan / Dokumen:</span>
-                  <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 font-bold">DIV-YY-XXX ({activeDivCode})</span>
+                  <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 font-bold">DIV-YY-XXX</span>
                 </label>
                 <input
                   type="text"
@@ -888,6 +1046,20 @@ export default function ReportsPage() {
                   onChange={(e) => setCustomReportNumber(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-800 dark:text-slate-200"
                   placeholder={`Otomatis: ${defaultReportNumber}`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
+                  <span>Inspektor yg Hadir (Manual):</span>
+                  <span className="text-[9px] text-violet-600 dark:text-violet-400 font-bold">Maks. 255</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={255}
+                  value={presentInspectors}
+                  onChange={(e) => setPresentInspectors(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                  placeholder="Contoh: Hadi P., Joko W., Budi S."
                 />
               </div>
             </div>
@@ -971,8 +1143,27 @@ export default function ReportsPage() {
                     )}
                     <span>Routine Inspection</span>
                   </span>
+                  <span className="inline-flex items-center gap-1">
+                    {inspectionType === "JOINT" ? (
+                      <CheckSquare size={13} className="stroke-[2.5]" />
+                    ) : (
+                      <Square size={13} />
+                    )}
+                    <span>Inspeksi Gabungan</span>
+                  </span>
                 </div>
               </div>
+
+              {presentInspectors && (
+                <div className="grid grid-cols-12 border-t border-black">
+                  <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                    Inspektor Hadir
+                  </div>
+                  <div className="col-span-10 sm:col-span-10 p-1.5 font-semibold text-slate-800 print:text-black">
+                    {presentInspectors}
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedPic !== "ALL" && (
@@ -1455,6 +1646,12 @@ export default function ReportsPage() {
                   <span className="text-slate-500 print:text-slate-700">Mengetahui (SM / PM Proyek): </span>
                   <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedSiteManagerName}</span>
                 </div>
+                {presentInspectors && (
+                  <div>
+                    <span className="text-slate-500 print:text-slate-700">Inspektor Hadir Patroli: </span>
+                    <span className="font-extrabold text-slate-900 dark:text-white print:text-black">{presentInspectors}</span>
+                  </div>
+                )}
                 {reportShareUrl && (
                   <div className="pt-1 print:hidden">
                     <a
@@ -1934,6 +2131,200 @@ export default function ReportsPage() {
                 className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Arsip & Riwayat Laporan Patroli Lapangan (CMD) */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 my-6 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4 shrink-0">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black text-[11px] rounded-full uppercase mb-1.5">
+                  <FolderClock size={13} />
+                  <span>Database Arsip Laporan Patroli CMD</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                  Riwayat Laporan Terbit & Pemanggilan Ulang
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Seluruh laporan yang pernah dikirim/disimpan tersimpan di database Neon. Klik <strong>Panggil Laporan</strong> untuk memuat kembali form & gambar temuan secara utuh sewaktu-waktu.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search and Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="relative w-full sm:w-80">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={archiveSearch}
+                  onChange={(e) => setArchiveSearch(e.target.value)}
+                  placeholder="Cari No. Dokumen, Proyek, PIC, Inspector..."
+                  className="w-full pl-9 pr-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <span className="text-xs font-bold text-slate-500">
+                  Total Tersimpan: <strong>{savedReports.length} Dokumen</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={loadArchiveReports}
+                  disabled={loadingArchive}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-all"
+                >
+                  {loadingArchive ? "Menyegarkan..." : "Segarkan"}
+                </button>
+              </div>
+            </div>
+
+            {/* List Table Content */}
+            <div className="overflow-y-auto flex-1 border border-slate-200 dark:border-slate-800 rounded-2xl">
+              {loadingArchive ? (
+                <div className="py-20 text-center text-slate-500 font-bold text-xs">
+                  Memuat arsip laporan dari database Neon...
+                </div>
+              ) : savedReports.length === 0 ? (
+                <div className="py-20 px-6 text-center space-y-3">
+                  <FolderOpen size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+                  <h4 className="font-black text-sm text-slate-800 dark:text-slate-200">Belum Ada Laporan Tersimpan</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Laporan patroli akan otomatis tersimpan ke database ketika tombol <strong>Kirim Email Laporan</strong> dijalankan atau melalui tombol <strong>Simpan ke DB</strong>.
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700 z-10">
+                    <tr>
+                      <th className="p-3">No. Dokumen</th>
+                      <th className="p-3">Tanggal</th>
+                      <th className="p-3">Proyek & Divisi</th>
+                      <th className="p-3">Jenis Inspeksi</th>
+                      <th className="p-3">Pengawas CMD & Yang Hadir</th>
+                      <th className="p-3">SM & PIC</th>
+                      <th className="p-3 text-center">Temuan</th>
+                      <th className="p-3 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {savedReports
+                      .filter((r) => {
+                        if (!archiveSearch.trim()) return true;
+                        const q = archiveSearch.toLowerCase();
+                        return (
+                          r.reportNumber?.toLowerCase().includes(q) ||
+                          r.projectName?.toLowerCase().includes(q) ||
+                          r.inspectorName?.toLowerCase().includes(q) ||
+                          r.picName?.toLowerCase().includes(q) ||
+                          r.siteManagerName?.toLowerCase().includes(q) ||
+                          (r.presentInspectors && r.presentInspectors.toLowerCase().includes(q)) ||
+                          r.inspectionType?.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((rep) => (
+                        <tr
+                          key={rep.id}
+                          className="hover:bg-violet-50/40 dark:hover:bg-violet-950/20 transition-colors"
+                        >
+                          <td className="p-3 font-mono font-black text-violet-700 dark:text-violet-400 whitespace-nowrap">
+                            {rep.reportNumber}
+                          </td>
+                          <td className="p-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
+                            {rep.reportDate}
+                          </td>
+                          <td className="p-3 max-w-xs font-bold text-slate-900 dark:text-white">
+                            <p className="truncate">{rep.projectName}</p>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                rep.inspectionType === "FINAL"
+                                  ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
+                                  : rep.inspectionType === "MIDDLE"
+                                  ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
+                                  : rep.inspectionType === "JOINT"
+                                  ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                  : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                              }`}
+                            >
+                              {rep.inspectionType === "JOINT"
+                                ? "Inspeksi Gabungan"
+                                : rep.inspectionType === "FINAL"
+                                ? "Final Inspection"
+                                : rep.inspectionType === "MIDDLE"
+                                ? "Middle Inspection"
+                                : "Routine Inspection"}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300">
+                            <p className="font-bold text-slate-900 dark:text-white">{rep.inspectorName}</p>
+                            {rep.presentInspectors && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                                <span className="font-semibold text-violet-600 dark:text-violet-400">Hadir:</span> {rep.presentInspectors}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300">
+                            <p className="font-semibold text-[11px]">SM: {rep.siteManagerName}</p>
+                            <p className="text-[10px] text-slate-500">PIC: {rep.picName}</p>
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap font-black">
+                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300">
+                              {rep.findingsCount || 0}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleRecallReport(rep)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95"
+                                title="Panggil seluruh konfigurasi & temuan laporan ini ke layar kerja"
+                              >
+                                <RotateCcw size={12} />
+                                <span>Panggil Laporan</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReport(rep.id, rep.reportNumber)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-all"
+                                title="Hapus arsip laporan ini"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                💡 Tip: Laporan yang dipanggil akan mengembalikan proyek, PIC, jenis inspeksi, tanggal, serta nomor dokumen secara presisi.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowArchiveModal(false)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all"
+              >
+                Tutup Arsip
               </button>
             </div>
           </div>

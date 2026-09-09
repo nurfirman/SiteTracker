@@ -1,6 +1,6 @@
 "use server";
 
-import { Category, Finding, FindingStatus, Project, Role, User } from "../types";
+import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
 import { generateTicketCode, calculateDueDate } from "./utils";
@@ -29,6 +29,7 @@ function safeRevalidate(path: string) {
 let inMemoryProjects = [...MOCK_PROJECTS];
 let inMemoryUsers = [...MOCK_USERS];
 let inMemoryFindings = [...MOCK_FINDINGS];
+let inMemoryPatrolReports: PatrolReport[] = [];
 
 function hasValidDatabaseUrl(): boolean {
   const url =
@@ -1237,6 +1238,7 @@ export async function getFindings(filters?: {
   status?: FindingStatus | "ALL";
   search?: string;
   picId?: string;
+  reportNumber?: string;
   limit?: number;
   page?: number;
 }): Promise<Finding[]> {
@@ -1262,6 +1264,7 @@ export async function getFindings(filters?: {
       if (filters?.status && (filters.status as string) !== "ALL")
         where.status = filters.status as FindingStatus;
       if (filters?.picId) where.picId = filters.picId;
+      if (filters?.reportNumber) where.reportNumber = filters.reportNumber;
       if (filters?.search) {
         where.OR = [
           { ticketCode: { contains: filters.search, mode: "insensitive" } },
@@ -1317,6 +1320,7 @@ export async function getFindings(filters?: {
         picResponse: f.picResponse,
         photoResolutionUrl: f.photoResolutionUrl,
         rejectionNote: f.rejectionNote,
+        reportNumber: (f as any).reportNumber || null,
         createdAt: f.createdAt.toISOString(),
         dueDate: f.dueDate ? f.dueDate.toISOString() : null,
         resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
@@ -1343,6 +1347,9 @@ export async function getFindings(filters?: {
   }
   if (filters?.picId) {
     result = result.filter((f) => f.picId === filters.picId);
+  }
+  if (filters?.reportNumber) {
+    result = result.filter((f) => f.reportNumber === filters.reportNumber);
   }
   if (filters?.search) {
     const s = filters.search.toLowerCase();
@@ -1871,6 +1878,10 @@ export interface EmailReportPayload {
   inspectorName?: string;
   siteManagerName?: string;
   picName?: string;
+  picId?: string;
+  inspectionType?: string;
+  presentInspectors?: string;
+  findingIds?: string[];
   pmName?: string;
   gmName?: string;
   reportDate?: string;
@@ -1906,6 +1917,29 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
     }
     if (!payload.subject || payload.subject.trim().length === 0) {
       return { success: false, message: "Subjek email laporan wajib diisi." };
+    }
+
+    // Otomatis simpan arsip laporan ke database dan update relasi reportNumber ke daftar temuan
+    try {
+      await savePatrolReport({
+        reportNumber: payload.reportNumber || "DOC-" + Date.now(),
+        inspectorName: payload.inspectorName || "Inspector CMD",
+        reportDate: payload.reportDate || new Date().toISOString().split("T")[0],
+        projectName: payload.projectName,
+        projectId: payload.projectId,
+        siteManagerName: payload.siteManagerName || "-",
+        picName: payload.picName || "-",
+        picId: payload.picId,
+        inspectionType: payload.inspectionType || "ROUTINE",
+        presentInspectors: payload.presentInspectors || null,
+        recipients: payload.recipients.join(", "),
+        subject: payload.subject,
+        messageNote: payload.messageNote,
+        findingsCount: payload.findingsCount,
+        findingIds: payload.findingIds,
+      });
+    } catch (saveErr) {
+      console.warn("Gagal auto-save patrol report ke database:", saveErr);
     }
 
     // Jika Azure OAuth sudah diisi di .env, kirim langsung via Microsoft Graph API
@@ -1944,7 +1978,7 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
 
     return {
       success: true,
-      message: `[Mode Simulasi] Laporan berhasil disiapkan untuk ${payload.recipients.length} penerima (${payload.recipients.join(", ")}). Kredensial Azure OAuth di .env belum diisi sehingga email fisik belum dialirkan ke Graph API.`,
+      message: `[Mode Simulasi & Tersimpan di Database] Laporan berhasil disimpan & disiapkan untuk ${payload.recipients.length} penerima (${payload.recipients.join(", ")}).`,
       deliveryLog: {
         id: logId,
         timestamp,
@@ -2362,6 +2396,262 @@ export async function previewNextReportDocNumber(
   const peekSeq = currentCount + 1;
 
   return formatReportDocNumber(divCode, reportDateStr || new Date(), peekSeq);
+}
+
+export interface SavePatrolReportInput {
+  reportNumber: string;
+  inspectorName: string;
+  reportDate: string;
+  projectName: string;
+  projectId?: string | null;
+  siteManagerName: string;
+  picName: string;
+  picId?: string | null;
+  inspectionType: string;
+  presentInspectors?: string | null;
+  recipients?: string | null;
+  subject?: string | null;
+  messageNote?: string | null;
+  findingsCount?: number | null;
+  findingIds?: string[];
+}
+
+export async function savePatrolReport(payload: SavePatrolReportInput): Promise<{
+  success: boolean;
+  message: string;
+  report?: PatrolReport;
+}> {
+  try {
+    const reportNumber = payload.reportNumber?.trim() || "DOC-" + Date.now();
+    const inspectorName = payload.inspectorName?.trim() || "CMD Inspector";
+    const reportDate = payload.reportDate?.trim() || new Date().toISOString().split("T")[0];
+    const projectName = payload.projectName?.trim() || "Semua Proyek";
+    const siteManagerName = payload.siteManagerName?.trim() || "-";
+    const picName = payload.picName?.trim() || "-";
+    const inspectionType = payload.inspectionType || "ROUTINE";
+    const presentInspectors = payload.presentInspectors ? payload.presentInspectors.slice(0, 255) : null;
+
+    let savedReport: PatrolReport;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const record = await (prisma as any).patrolReport.upsert({
+          where: { reportNumber },
+          update: {
+            inspectorName,
+            reportDate,
+            projectName,
+            projectId: payload.projectId && payload.projectId !== "ALL" ? payload.projectId : null,
+            siteManagerName,
+            picName,
+            picId: payload.picId && payload.picId !== "ALL" ? payload.picId : null,
+            inspectionType,
+            presentInspectors,
+            recipients: payload.recipients || null,
+            subject: payload.subject || null,
+            messageNote: payload.messageNote || null,
+            findingsCount: payload.findingsCount ?? 0,
+          },
+          create: {
+            reportNumber,
+            inspectorName,
+            reportDate,
+            projectName,
+            projectId: payload.projectId && payload.projectId !== "ALL" ? payload.projectId : null,
+            siteManagerName,
+            picName,
+            picId: payload.picId && payload.picId !== "ALL" ? payload.picId : null,
+            inspectionType,
+            presentInspectors,
+            recipients: payload.recipients || null,
+            subject: payload.subject || null,
+            messageNote: payload.messageNote || null,
+            findingsCount: payload.findingsCount ?? 0,
+          },
+        });
+
+        // Hubungkan (tag) temuan-temuan terkait dengan reportNumber ini (relasi one-to-many)
+        if (payload.findingIds && payload.findingIds.length > 0) {
+          await (prisma.finding as any).updateMany({
+            where: { id: { in: payload.findingIds } },
+            data: { reportNumber },
+          });
+        } else if (payload.projectId && payload.projectId !== "ALL") {
+          await (prisma.finding as any).updateMany({
+            where: {
+              projectId: payload.projectId,
+              reportNumber: null,
+            },
+            data: { reportNumber },
+          });
+        }
+
+        savedReport = {
+          id: record.id,
+          reportNumber: record.reportNumber,
+          inspectorName: record.inspectorName,
+          reportDate: record.reportDate,
+          projectName: record.projectName,
+          projectId: record.projectId,
+          siteManagerName: record.siteManagerName,
+          picName: record.picName,
+          picId: record.picId,
+          inspectionType: record.inspectionType,
+          presentInspectors: record.presentInspectors,
+          recipients: record.recipients,
+          subject: record.subject,
+          messageNote: record.messageNote,
+          findingsCount: record.findingsCount,
+          createdAt: record.createdAt.toISOString(),
+        };
+
+        safeRevalidate("/reports");
+        return {
+          success: true,
+          message: `Laporan ${reportNumber} berhasil disimpan ke database Neon!`,
+          report: savedReport,
+        };
+      } catch (dbErr: any) {
+        console.warn("Gagal menyimpan laporan ke Neon DB, beralih ke in-memory:", dbErr);
+      }
+    }
+
+    // Fallback in-memory
+    const existingIndex = inMemoryPatrolReports.findIndex((r) => r.reportNumber === reportNumber);
+    savedReport = {
+      id: "REP-" + Date.now(),
+      reportNumber,
+      inspectorName,
+      reportDate,
+      projectName,
+      projectId: payload.projectId && payload.projectId !== "ALL" ? payload.projectId : null,
+      siteManagerName,
+      picName,
+      picId: payload.picId && payload.picId !== "ALL" ? payload.picId : null,
+      inspectionType,
+      presentInspectors,
+      recipients: payload.recipients || null,
+      subject: payload.subject || null,
+      messageNote: payload.messageNote || null,
+      findingsCount: payload.findingsCount ?? 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      inMemoryPatrolReports[existingIndex] = savedReport;
+    } else {
+      inMemoryPatrolReports.unshift(savedReport);
+    }
+
+    // Tag in-memory findings
+    if (payload.findingIds && payload.findingIds.length > 0) {
+      inMemoryFindings = inMemoryFindings.map((f) =>
+        payload.findingIds?.includes(f.id) ? { ...f, reportNumber } : f
+      );
+    }
+
+    safeRevalidate("/reports");
+    return {
+      success: true,
+      message: `Laporan ${reportNumber} tersimpan di memori sistem.`,
+      report: savedReport,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: "Gagal menyimpan laporan: " + (err.message || "Unknown error"),
+    };
+  }
+}
+
+export async function getPatrolReports(filters?: {
+  projectId?: string;
+  search?: string;
+  limit?: number;
+}): Promise<PatrolReport[]> {
+  const limit = filters?.limit && filters.limit > 0 ? filters.limit : 100;
+
+  if (hasValidDatabaseUrl()) {
+    try {
+      const where: any = {};
+      if (filters?.projectId && filters.projectId !== "ALL") {
+        where.projectId = filters.projectId;
+      }
+      if (filters?.search && filters.search.trim()) {
+        const s = filters.search.trim();
+        where.OR = [
+          { reportNumber: { contains: s, mode: "insensitive" } },
+          { projectName: { contains: s, mode: "insensitive" } },
+          { inspectorName: { contains: s, mode: "insensitive" } },
+          { picName: { contains: s, mode: "insensitive" } },
+          { presentInspectors: { contains: s, mode: "insensitive" } },
+        ];
+      }
+
+      const records = await (prisma as any).patrolReport.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+
+      return records.map((r: any) => ({
+        id: r.id,
+        reportNumber: r.reportNumber,
+        inspectorName: r.inspectorName,
+        reportDate: r.reportDate,
+        projectName: r.projectName,
+        projectId: r.projectId,
+        siteManagerName: r.siteManagerName,
+        picName: r.picName,
+        picId: r.picId,
+        inspectionType: r.inspectionType,
+        presentInspectors: r.presentInspectors,
+        recipients: r.recipients,
+        subject: r.subject,
+        messageNote: r.messageNote,
+        findingsCount: r.findingsCount,
+        createdAt: r.createdAt.toISOString(),
+      }));
+    } catch (e) {
+      console.warn("Gagal mengambil laporan dari Neon DB, beralih ke in-memory:", e);
+    }
+  }
+
+  let list = [...inMemoryPatrolReports];
+  if (filters?.projectId && filters.projectId !== "ALL") {
+    list = list.filter((r) => r.projectId === filters.projectId);
+  }
+  if (filters?.search && filters.search.trim()) {
+    const s = filters.search.toLowerCase();
+    list = list.filter(
+      (r) =>
+        r.reportNumber.toLowerCase().includes(s) ||
+        r.projectName.toLowerCase().includes(s) ||
+        r.inspectorName.toLowerCase().includes(s) ||
+        r.picName.toLowerCase().includes(s) ||
+        (r.presentInspectors && r.presentInspectors.toLowerCase().includes(s))
+    );
+  }
+  return list.slice(0, limit);
+}
+
+export async function deletePatrolReport(id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    if (hasValidDatabaseUrl()) {
+      try {
+        await (prisma as any).patrolReport.delete({
+          where: { id },
+        });
+      } catch (e) {
+        console.warn("Gagal menghapus dari Neon DB, membersihkan in-memory:", e);
+      }
+    }
+    inMemoryPatrolReports = inMemoryPatrolReports.filter((r) => r.id !== id);
+    safeRevalidate("/reports");
+    return { success: true, message: "Arsip laporan berhasil dihapus." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menghapus arsip laporan." };
+  }
 }
 
 

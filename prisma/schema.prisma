@@ -89,6 +89,7 @@ model Finding {
   picResponse        String?       @map("pic_response") @db.Text
   photoResolutionUrl String?       @map("photo_resolution_url") @db.Text
   rejectionNote      String?       @map("rejection_note") @db.Text
+  reportNumber       String?       @map("report_number") @db.VarChar(100)
   createdAt          DateTime      @default(now()) @map("created_at")
   dueDate            DateTime?     @map("due_date")
   resolvedAt         DateTime?     @map("resolved_at")
@@ -98,6 +99,31 @@ model Finding {
   @@index([picId])
   @@index([status])
   @@index([category])
+  @@index([reportNumber])
   @@map("findings")
+}
+
+model PatrolReport {
+  id                String   @id @default(uuid())
+  reportNumber      String   @unique @map("report_number") @db.VarChar(100)
+  inspectorName     String   @map("inspector_name") @db.VarChar(255)
+  reportDate        String   @map("report_date") @db.VarChar(50)
+  projectName       String   @map("project_name") @db.VarChar(255)
+  projectId         String?  @map("project_id")
+  siteManagerName   String   @map("site_manager_name") @db.VarChar(255)
+  picName           String   @map("pic_name") @db.VarChar(255)
+  picId             String?  @map("pic_id")
+  inspectionType    String   @map("inspection_type") @db.VarChar(100)
+  presentInspectors String?  @map("present_inspectors") @db.VarChar(255)
+  recipients        String?  @db.Text
+  subject           String?  @db.VarChar(255)
+  messageNote       String?  @map("message_note") @db.Text
+  findingsCount     Int?     @default(0) @map("findings_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([reportNumber])
+  @@index([reportDate])
+  @@index([projectId])
+  @@map("patrol_reports")
 }
 

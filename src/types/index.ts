@@ -55,11 +55,33 @@ export interface Finding {
   hasResolutionPhoto?: boolean;
   noPhotoReason?: string | null;
   rejectionNote?: string | null;
+  reportNumber?: string | null;
   inspectionDate?: string | Date | null;
   createdAt: string | Date;
   dueDate?: string | Date | null;
   resolvedAt?: string | Date | null;
   closedAt?: string | Date | null;
+}
+
+export type InspectionType = "ROUTINE" | "MIDDLE" | "FINAL" | "JOINT";
+
+export interface PatrolReport {
+  id: string;
+  reportNumber: string;
+  inspectorName: string;
+  reportDate: string;
+  projectName: string;
+  projectId?: string | null;
+  siteManagerName: string;
+  picName: string;
+  picId?: string | null;
+  inspectionType: string;
+  presentInspectors?: string | null;
+  recipients?: string | null;
+  subject?: string | null;
+  messageNote?: string | null;
+  findingsCount?: number | null;
+  createdAt: string | Date;
 }
 
 export const CATEGORY_LABELS: Record<string, { label: string; icon: string; description: string }> = {
