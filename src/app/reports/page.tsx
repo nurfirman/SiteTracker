@@ -83,6 +83,7 @@ export default function ReportsPage() {
   );
 
   const [customInspector, setCustomInspector] = useState<string>("");
+  const [customFindingInspectors, setCustomFindingInspectors] = useState<string>("");
   const [customSiteManager, setCustomSiteManager] = useState<string>("");
   const [customPicName, setCustomPicName] = useState<string>("");
   const [customReportNumber, setCustomReportNumber] = useState<string>("");
@@ -237,11 +238,27 @@ export default function ReportsPage() {
   const activeProjectObj = projects.find((p) => p.id === selectedProject);
   const activePicObj = users.find((u) => u.id === selectedPic);
 
-  // Nama Pelapor di laporan patroli: default adalah user yang sedang membuat/membuka laporan (currentUser)
+  // 1. Nama Pelapor (User yang membuat laporan / login saat ini)
   const defaultReporterName =
     currentUser?.name ||
     (findings.length > 0 && findings[0].reporter?.name ? findings[0].reporter.name : null) ||
     "Petugas Patroli";
+  const resolvedReporterName = customInspector || defaultReporterName;
+  const resolvedInspectorName = resolvedReporterName;
+
+  // 2. Nama Inspektor (Semua pelapor yang tercatat pada item temuan di laporan ini)
+  const uniqueItemReporters = Array.from(
+    new Set(
+      findings
+        .map((f) => f.reporter?.name)
+        .filter((name): name is string => Boolean(name && name.trim()))
+    )
+  );
+  const defaultItemInspectors =
+    uniqueItemReporters.length > 0
+      ? uniqueItemReporters.join(", ")
+      : "-";
+  const resolvedItemInspectors = customFindingInspectors || defaultItemInspectors;
 
   // Cari PM / SM proyek terkait
   const projectPmOrSm =
@@ -260,7 +277,6 @@ export default function ReportsPage() {
     findingsPicName ||
     "Chairul Muttaqin";
 
-  const resolvedInspectorName = customInspector || defaultReporterName;
   const resolvedSiteManagerName = customSiteManager || projectPmOrSm;
 
   // Penomoran Dokumen Laporan Resmi berdasarkan Divisi: DIV-YY-XXX (e.g. CMD-26-001)
@@ -1010,7 +1026,7 @@ export default function ReportsPage() {
 
           {/* Inspector, Site Manager, PIC, Report Number, and Present Inspectors fields */}
           {reportType === "INTERNAL_PATROL" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                   Nama Pelapor:
@@ -1021,6 +1037,18 @@ export default function ReportsPage() {
                   onChange={(e) => setCustomInspector(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
                   placeholder={`Otomatis: ${defaultReporterName}`}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                  Inspektor (Item Temuan):
+                </label>
+                <input
+                  type="text"
+                  value={customFindingInspectors}
+                  onChange={(e) => setCustomFindingInspectors(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                  placeholder={`Otomatis: ${defaultItemInspectors}`}
                 />
               </div>
               <div>
@@ -1141,12 +1169,12 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-12">
+              <div className="grid grid-cols-12 border-b border-black">
                 <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
                   Pelapor
                 </div>
                 <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-bold">
-                  {resolvedInspectorName}
+                  {resolvedReporterName}
                 </div>
                 <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
                   Status
@@ -1184,6 +1212,16 @@ export default function ReportsPage() {
                     )}
                     <span>Inspeksi Gabungan</span>
                   </span>
+                </div>
+              </div>
+
+              {/* Baris baru di bawah Pelapor: Inspektor (semua pelapor yang ada di item temuan) */}
+              <div className="grid grid-cols-12">
+                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                  Inspektor
+                </div>
+                <div className="col-span-10 sm:col-span-10 p-1.5 font-bold">
+                  {resolvedItemInspectors}
                 </div>
               </div>
 
@@ -1376,7 +1414,11 @@ export default function ReportsPage() {
               <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200">
                 <div>
                   <span className="text-slate-500 print:text-slate-700">Pelapor: </span>
-                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedInspectorName}</span>
+                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedReporterName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
+                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedItemInspectors}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 print:text-slate-700">PIC Penanggung Jawab: </span>
@@ -1682,7 +1724,11 @@ export default function ReportsPage() {
               <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1.5 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200 dark:border-slate-800">
                 <div>
                   <span className="text-slate-500 print:text-slate-700">Pelapor (Pembuat Laporan): </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedInspectorName}</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedReporterName}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
+                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedItemInspectors}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 print:text-slate-700">Ditindaklanjuti (PIC Lapangan): </span>
