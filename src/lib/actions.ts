@@ -3200,111 +3200,45 @@ export async function getRolePermissions(): Promise<{
   roles: string[];
 }> {
   const settings = await getSystemSettings();
-  const defaultRoles = ["CMD", "PIC", "SM", "PM", "GM", "BOD", "ADMIN", "Advisor"];
+  const defaultRoles = ["CMD", "PIC", "SM", "PM", "GM", "BOD", "Advisor", "ADMIN"];
   const customRoles = settings.customRoles || [];
   const allRoles = Array.from(new Set([...defaultRoles, ...customRoles]));
 
-  const defaultMatrix: Record<string, Record<string, boolean>> = {
-    createFinding: {
-      CMD: true,
-      PIC: false, // Poin 11: Khusus PIC saja yang tidak boleh isi temuan
-      SM: true,
-      PM: true,
-      GM: true,
-      BOD: true,
-      ADMIN: true,
-      Advisor: true,
-    },
-    editFinding: {
-      CMD: true,
-      PIC: false,
-      SM: true,
-      PM: true,
-      GM: true,
-      BOD: true,
-      ADMIN: true,
-      Advisor: true,
-    },
-    resolveFinding: {
-      CMD: false,
-      PIC: true,
-      SM: true,
-      PM: false,
-      GM: false,
-      BOD: false,
-      ADMIN: true,
-      Advisor: false,
-    },
-    validateFinding: {
-      CMD: false,
-      PIC: false,
-      SM: false,
-      PM: true,
-      GM: true,
-      BOD: true,
-      ADMIN: true,
-      Advisor: true,
-    },
-    accessReports: {
-      CMD: true,
-      PIC: true,
-      SM: true,
-      PM: true,
-      GM: true,
-      BOD: true,
-      ADMIN: true,
-      Advisor: true,
-    },
-    accessAuditLog: {
-      CMD: false,
-      PIC: false,
-      SM: false,
-      PM: true,
-      GM: true,
-      BOD: true,
-      ADMIN: true,
-      Advisor: true,
-    },
-    manageProjects: {
-      CMD: false,
-      PIC: false,
-      SM: false,
-      PM: false,
-      GM: false,
-      BOD: false,
-      ADMIN: true,
-      Advisor: false,
-    },
-    manageUsers: {
-      CMD: false,
-      PIC: false,
-      SM: false,
-      PM: false,
-      GM: false,
-      BOD: false,
-      ADMIN: true,
-      Advisor: false,
-    },
+  const defaultMatrixByRole: Record<string, Record<string, boolean>> = {
+    CMD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    PIC: { canCreateFinding: false, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    SM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    PM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    GM: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    BOD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    Advisor: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    ADMIN: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: true },
   };
 
   const savedMatrix = settings.rbacPermissions || {};
   const mergedMatrix: Record<string, Record<string, boolean>> = {};
 
-  for (const [permKey, rolesMap] of Object.entries(defaultMatrix)) {
-    mergedMatrix[permKey] = { ...rolesMap };
-    if (savedMatrix[permKey]) {
-      mergedMatrix[permKey] = { ...mergedMatrix[permKey], ...savedMatrix[permKey] };
+  // Check if savedMatrix was previously stored with inverted keys (createFinding, editFinding, etc.)
+  const isOldInvertedFormat = "createFinding" in savedMatrix || "editFinding" in savedMatrix;
+
+  for (const role of allRoles) {
+    const defaultPerms = defaultMatrixByRole[role] || {
+      canCreateFinding: role !== "PIC",
+      canResolveFinding: false,
+      canVerifyFinding: false,
+      canDownloadReport: true,
+      canManageAdmin: false,
+    };
+
+    mergedMatrix[role] = { ...defaultPerms };
+
+    if (!isOldInvertedFormat && savedMatrix[role] && typeof savedMatrix[role] === "object") {
+      mergedMatrix[role] = { ...mergedMatrix[role], ...savedMatrix[role] };
     }
-    for (const r of allRoles) {
-      if (mergedMatrix[permKey][r] === undefined) {
-        if (permKey === "createFinding") {
-          mergedMatrix[permKey][r] = r !== "PIC";
-        } else if (permKey === "accessReports") {
-          mergedMatrix[permKey][r] = true;
-        } else {
-          mergedMatrix[permKey][r] = false;
-        }
-      }
+
+    // Strict rule: PIC cannot create findings
+    if (role === "PIC") {
+      mergedMatrix[role].canCreateFinding = false;
     }
   }
 

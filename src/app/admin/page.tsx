@@ -594,11 +594,10 @@ export default function AdminSettingsPage() {
       {/* Toast Notification */}
       {toastMsg && (
         <div
-          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${
-            toastMsg.type === "success"
+          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${toastMsg.type === "success"
               ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
               : "bg-red-950 text-red-300 border-red-800"
-          }`}
+            }`}
         >
           {toastMsg.type === "success" ? (
             <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
@@ -659,11 +658,10 @@ export default function AdminSettingsPage() {
       <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab("projects_pics")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "projects_pics"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "projects_pics"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <Building2 size={18} />
           <span>Kelola Proyek & PIC ({projects.length})</span>
@@ -671,11 +669,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("divisions")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "divisions"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "divisions"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <Layers size={18} />
           <span>Kode Divisi ({MASTER_DIVISIONS.length})</span>
@@ -683,11 +680,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("categories")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "categories"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "categories"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <Tag size={18} />
           <span>Kategori Temuan & SLA ({categories.length})</span>
@@ -695,11 +691,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("matrix")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "matrix"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "matrix"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <ShieldCheck size={18} />
           <span>Matriks Hak Akses (RBAC)</span>
@@ -707,11 +702,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "users"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "users"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <Users size={18} />
           <span>Semua Akun ({users.length})</span>
@@ -719,11 +713,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("audit_log")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "audit_log"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "audit_log"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <FileSpreadsheet size={18} />
           <span>Audit Log Aktivitas ({auditLogs.length})</span>
@@ -731,11 +724,10 @@ export default function AdminSettingsPage() {
 
         <button
           onClick={() => setActiveTab("settings")}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
-            activeTab === "settings"
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "settings"
               ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
               : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-          }`}
+            }`}
         >
           <Sliders size={18} />
           <span>Sistem & Logo Laporan</span>
@@ -1162,21 +1154,20 @@ export default function AdminSettingsPage() {
                   {Object.keys(rolePermissions).map((r) => (
                     <th
                       key={r}
-                      className={`p-4 text-center min-w-[120px] ${
-                        r === "ADMIN" ? "rounded-r-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 font-black" : ""
-                      }`}
+                      className={`p-4 text-center min-w-[120px] ${r === "ADMIN" ? "rounded-r-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 font-black" : ""
+                        }`}
                     >
                       <span className="block">{r}</span>
                       <span className="text-[10px] font-normal text-slate-400 block">
                         {r === "PIC"
                           ? "Subkontraktor"
                           : r === "Advisor"
-                          ? "Advisor Teknis"
-                          : r === "CMD"
-                          ? "Inspector"
-                          : r === "ADMIN"
-                          ? "SuperAdmin"
-                          : "Manajemen"}
+                            ? "Advisor Teknis"
+                            : r === "CMD"
+                              ? "Inspector"
+                              : r === "ADMIN"
+                                ? "SuperAdmin"
+                                : "Manajemen"}
                       </span>
                     </th>
                   ))}
@@ -1212,11 +1203,10 @@ export default function AdminSettingsPage() {
                           <button
                             type="button"
                             onClick={() => togglePermission(role, feat.key)}
-                            className={`p-2 rounded-xl border transition-all active:scale-95 ${
-                              isEnabled
+                            className={`p-2 rounded-xl border transition-all active:scale-95 ${isEnabled
                                 ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
                                 : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
-                            }`}
+                              }`}
                             title={`Ubah status izin '${feat.name}' untuk role '${role}'`}
                           >
                             {isEnabled ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
@@ -1682,7 +1672,7 @@ export default function AdminSettingsPage() {
                     />
                     <div className="border-l pl-3 border-slate-300 dark:border-slate-700 space-y-0.5">
                       <p className="text-[11px] font-black uppercase text-slate-900 dark:text-white leading-tight">
-                        PT. KONSTRUKSI NUSANTARA JAYA
+                        PT. TAIYO SINAR RAYA TEKNIK
                       </p>
                       <p className="text-[10px] text-slate-500">Quality, Health, Safety & Environment Division</p>
                     </div>

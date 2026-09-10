@@ -22,7 +22,7 @@ import { ThemeToggle } from "./ThemeToggle";
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, setCurrentUser, availableUsers } = useRole();
+  const { currentUser } = useRole();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>("");
 
@@ -222,35 +222,6 @@ export function Header() {
                       Tema Tampilan:
                     </p>
                     <ThemeToggle variant="pill" className="w-full justify-center !bg-slate-100 dark:!bg-slate-950 !border-slate-200 dark:!border-slate-800" />
-                  </div>
-
-                  {/* Presentation Demo Role Switcher */}
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
-                      Simulasi Peran Cepat (Demo):
-                    </p>
-                    <div className="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto pr-1">
-                      {availableUsers.map((u) => {
-                        const isSelected = currentUser.id === u.id;
-                        return (
-                          <button
-                            key={u.id}
-                            onClick={() => {
-                              setCurrentUser(u);
-                              setDropdownOpen(false);
-                            }}
-                            className={`p-1.5 rounded-lg text-[10px] font-bold text-center border transition-all truncate ${
-                              isSelected
-                                ? "bg-violet-600 text-white border-violet-500 font-black shadow-sm"
-                                : "bg-slate-100 dark:bg-slate-950/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800"
-                            }`}
-                            title={`${u.name} (${u.role})`}
-                          >
-                            {u.role}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
 
                   {/* Logout Button */}

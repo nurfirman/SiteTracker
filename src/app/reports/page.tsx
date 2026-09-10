@@ -237,22 +237,11 @@ export default function ReportsPage() {
   const activeProjectObj = projects.find((p) => p.id === selectedProject);
   const activePicObj = users.find((u) => u.id === selectedPic);
 
-  // Poin 17: "Nama Inspector (Pengawas / CMD):" diisi dengan semua pelapor yg muncul di laporan ini, jika ada 2 pelapor dipisah tanda koma
-  const uniqueReporters = Array.from(
-    new Set(
-      findings
-        .map((f) => f.reporter?.name)
-        .filter((name): name is string => Boolean(name && name.trim()))
-    )
-  );
-
-  const defaultCmdInspector =
-    uniqueReporters.length > 0
-      ? uniqueReporters.join(", ")
-      : (currentUser?.role === "CMD" ? currentUser.name : null) ||
-        users.find((u) => u.name.toLowerCase().includes("hadi"))?.name ||
-        users.find((u) => u.role === "CMD")?.name ||
-        "Hadi Pramono (CMD)";
+  // Nama Pelapor di laporan patroli: default adalah user yang sedang membuat/membuka laporan (currentUser)
+  const defaultReporterName =
+    currentUser?.name ||
+    (findings.length > 0 && findings[0].reporter?.name ? findings[0].reporter.name : null) ||
+    "Petugas Patroli";
 
   // Cari PM / SM proyek terkait
   const projectPmOrSm =
@@ -271,7 +260,7 @@ export default function ReportsPage() {
     findingsPicName ||
     "Chairul Muttaqin";
 
-  const resolvedInspectorName = customInspector || defaultCmdInspector;
+  const resolvedInspectorName = customInspector || defaultReporterName;
   const resolvedSiteManagerName = customSiteManager || projectPmOrSm;
 
   // Penomoran Dokumen Laporan Resmi berdasarkan Divisi: DIV-YY-XXX (e.g. CMD-26-001)
@@ -1024,14 +1013,14 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Nama Inspector (Pengawas / CMD):
+                  Nama Pelapor:
                 </label>
                 <input
                   type="text"
                   value={customInspector}
                   onChange={(e) => setCustomInspector(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${defaultCmdInspector}`}
+                  placeholder={`Otomatis: ${defaultReporterName}`}
                 />
               </div>
               <div>
@@ -1154,7 +1143,7 @@ export default function ReportsPage() {
 
               <div className="grid grid-cols-12">
                 <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Inspector
+                  Pelapor
                 </div>
                 <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-bold">
                   {resolvedInspectorName}
@@ -1386,7 +1375,7 @@ export default function ReportsPage() {
               {/* Detail Petugas & Pihak Terlibat */}
               <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200">
                 <div>
-                  <span className="text-slate-500 print:text-slate-700">Inspector CMD / K3: </span>
+                  <span className="text-slate-500 print:text-slate-700">Pelapor: </span>
                   <span className="font-black text-slate-900 print:text-black uppercase">{resolvedInspectorName}</span>
                 </div>
                 <div>
@@ -1692,7 +1681,7 @@ export default function ReportsPage() {
 
               <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1.5 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200 dark:border-slate-800">
                 <div>
-                  <span className="text-slate-500 print:text-slate-700">Disiapkan Oleh (Inspector CMD): </span>
+                  <span className="text-slate-500 print:text-slate-700">Pelapor (Pembuat Laporan): </span>
                   <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedInspectorName}</span>
                 </div>
                 <div>
