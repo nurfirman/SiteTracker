@@ -1,9 +1,9 @@
 "use server";
 
-import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport } from "../types";
+import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
-import { generateTicketCode, calculateDueDate } from "./utils";
+import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate } from "./utils";
 import { setSession, getSession, destroySession, requireAuth, SessionData } from "./auth";
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
@@ -30,6 +30,14 @@ let inMemoryProjects = [...MOCK_PROJECTS];
 let inMemoryUsers = [...MOCK_USERS];
 let inMemoryFindings = [...MOCK_FINDINGS];
 let inMemoryPatrolReports: PatrolReport[] = [];
+let inMemoryAuditLogs: AuditLogEntry[] = [];
+let inMemorySystemSettings: SystemSettingData = {
+  reportLogoUrl: "",
+  companyName: "SiteTracker CMD",
+  rbacPermissions: {},
+  customRoles: ["Advisor"],
+};
+let inMemoryLastSeq: number = MOCK_FINDINGS.length;
 
 function hasValidDatabaseUrl(): boolean {
   const url =
@@ -42,6 +50,214 @@ function hasValidDatabaseUrl(): boolean {
       !url.includes("your_password_here")
   );
 }
+
+/**
+ * Perekam Audit Log terpusat untuk setiap aksi pengguna
+ */
+export async function recordAuditLog(entry: {
+  userId?: string | null;
+  userName: string;
+  userRole: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  details?: string;
+  ipAddress?: string;
+}) {
+  try {
+    if (hasValidDatabaseUrl()) {
+      await prisma.auditLog.create({
+        data: {
+          userId: entry.userId || null,
+          userName: entry.userName || "System",
+          userRole: entry.userRole || "SYSTEM",
+          action: entry.action,
+          entityType: entry.entityType || null,
+          entityId: entry.entityId || null,
+          details: entry.details || null,
+          ipAddress: entry.ipAddress || null,
+        },
+      });
+    }
+  } catch (err) {
+    // Fallback quietly if DB is down
+  }
+
+  inMemoryAuditLogs.unshift({
+    id: "audit-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+    userId: entry.userId || null,
+    userName: entry.userName || "System",
+    userRole: entry.userRole || "SYSTEM",
+    action: entry.action,
+    entityType: entry.entityType || null,
+    entityId: entry.entityId || null,
+    details: entry.details || null,
+    ipAddress: entry.ipAddress || null,
+    createdAt: new Date().toISOString(),
+  });
+
+  if (inMemoryAuditLogs.length > 500) {
+    inMemoryAuditLogs = inMemoryAuditLogs.slice(0, 500);
+  }
+}
+
+/**
+ * Mengambil Audit Log Aktivitas dengan filter
+ */
+export async function getAuditLogs(filters?: {
+  search?: string;
+  action?: string;
+  userId?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  const limit = filters?.limit && filters.limit > 0 ? filters.limit : 100;
+  if (hasValidDatabaseUrl()) {
+    try {
+      const where: any = {};
+      if (filters?.action && filters.action !== "ALL") where.action = filters.action;
+      if (filters?.userId && filters.userId !== "ALL") where.userId = filters.userId;
+      if (filters?.search) {
+        where.OR = [
+          { userName: { contains: filters.search, mode: "insensitive" } },
+          { action: { contains: filters.search, mode: "insensitive" } },
+          { details: { contains: filters.search, mode: "insensitive" } },
+        ];
+      }
+      const logs = await prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+      return logs.map((l) => ({
+        id: l.id,
+        userId: l.userId,
+        userName: l.userName,
+        userRole: l.userRole,
+        action: l.action,
+        entityType: l.entityType,
+        entityId: l.entityId,
+        details: l.details,
+        ipAddress: l.ipAddress,
+        createdAt: l.createdAt.toISOString(),
+      }));
+    } catch (err) {
+      console.warn("Neon DB query failed for getAuditLogs, using in-memory fallback:", err);
+    }
+  }
+
+  let result = [...inMemoryAuditLogs];
+  if (filters?.action && filters.action !== "ALL") {
+    result = result.filter((l) => l.action === filters.action);
+  }
+  if (filters?.userId && filters.userId !== "ALL") {
+    result = result.filter((l) => l.userId === filters.userId);
+  }
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    result = result.filter(
+      (l) =>
+        l.userName.toLowerCase().includes(q) ||
+        l.action.toLowerCase().includes(q) ||
+        (l.details && l.details.toLowerCase().includes(q))
+    );
+  }
+  return result.slice(0, limit);
+}
+
+/**
+ * Mengambil Pengaturan Sistem (termasuk Custom Logo Laporan dan RBAC dinamis)
+ */
+export async function getSystemSettings(): Promise<SystemSettingData> {
+  if (hasValidDatabaseUrl()) {
+    try {
+      const dbSettings = await prisma.systemSetting.findMany();
+      const settingsMap: Record<string, any> = {};
+      for (const s of dbSettings) {
+        try {
+          settingsMap[s.key] = JSON.parse(s.value);
+        } catch {
+          settingsMap[s.key] = s.value;
+        }
+      }
+      return {
+        reportLogoUrl: settingsMap.reportLogoUrl || inMemorySystemSettings.reportLogoUrl || "",
+        companyName: settingsMap.companyName || inMemorySystemSettings.companyName || "SiteTracker CMD",
+        rbacPermissions: settingsMap.rbacPermissions || inMemorySystemSettings.rbacPermissions || {},
+        customRoles: settingsMap.customRoles || inMemorySystemSettings.customRoles || ["Advisor"],
+      };
+    } catch (err) {
+      console.warn("Neon DB query failed for getSystemSettings:", err);
+    }
+  }
+  return inMemorySystemSettings;
+}
+
+/**
+ * Memperbarui Pengaturan Sistem (Logo Laporan, RBAC, dll)
+ */
+export async function updateSystemSettings(
+  payload: Partial<SystemSettingData>
+): Promise<{ success: boolean; settings?: SystemSettingData; message?: string }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang dapat mengubah pengaturan sistem." };
+    }
+
+    inMemorySystemSettings = {
+      ...inMemorySystemSettings,
+      ...payload,
+    };
+
+    if (hasValidDatabaseUrl()) {
+      for (const [key, value] of Object.entries(payload)) {
+        const valStr = typeof value === "string" ? value : JSON.stringify(value);
+        await prisma.systemSetting.upsert({
+          where: { key },
+          update: { value: valStr },
+          create: { key, value: valStr },
+        });
+      }
+    }
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "UPDATE_SETTINGS",
+      entityType: "SYSTEM_SETTING",
+      details: `Memperbarui pengaturan sistem: ${Object.keys(payload).join(", ")}`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/reports");
+
+    return { success: true, settings: inMemorySystemSettings };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memperbarui pengaturan sistem." };
+  }
+}
+
+/**
+ * Nomor Urut Tiket Temuan tanpa reset
+ */
+async function getNextTicketSequence(): Promise<number> {
+  if (hasValidDatabaseUrl()) {
+    try {
+      const seq = await prisma.ticketSequence.upsert({
+        where: { id: "singleton" },
+        update: { lastSeq: { increment: 1 } },
+        create: { id: "singleton", lastSeq: 1 },
+      });
+      return seq.lastSeq;
+    } catch (err) {
+      console.warn("Neon DB ticketSequence failed, falling back to counter:", err);
+    }
+  }
+  inMemoryLastSeq += 1;
+  return inMemoryLastSeq;
+}
+
 
 export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode: string }> {
   const hasUrl = hasValidDatabaseUrl();
@@ -56,7 +272,7 @@ export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode:
   }
 }
 
-export async function loginUser(identifier: string, password?: string): Promise<{ success: boolean; session?: SessionData; message?: string }> {
+export async function loginUser(identifier: string, password?: string): Promise<{ success: boolean; session?: SessionData; user?: User; message?: string }> {
   const users = await getUsers();
   const targetUser = users.find(
     (u) =>
@@ -87,7 +303,16 @@ export async function loginUser(identifier: string, password?: string): Promise<
   }
 
   const session = await setSession(targetUser);
-  return { success: true, session };
+  await recordAuditLog({
+    userId: targetUser.id,
+    userName: targetUser.name,
+    userRole: targetUser.role,
+    action: "LOGIN",
+    entityType: "USER",
+    entityId: targetUser.id,
+    details: `Pengguna ${targetUser.name} (${targetUser.role}) berhasil masuk ke sistem`,
+  });
+  return { success: true, session, user: targetUser };
 }
 
 interface PasswordResetEntry {
@@ -368,7 +593,7 @@ export async function registerUser(payload: {
             id: assignedId,
             name: cleanName,
             email: cleanEmail,
-            role: role,
+            role: role as any,
             phoneNumber: cleanPhone,
             projectId: role === "PENDING" ? null : (payload.projectId || null),
           },
@@ -418,7 +643,7 @@ export async function updateUserRoleAndProject(
         const u = await prisma.user.update({
           where: { id: userId },
           data: {
-            role: role,
+            role: role as any,
             projectId: projectId || null,
           },
           include: { project: true },
@@ -466,6 +691,17 @@ export async function updateUserRoleAndProject(
     safeRevalidate("/pic/tasks");
     safeRevalidate("/");
 
+    const session = await getSession();
+    await recordAuditLog({
+      userId: session?.userId || "SYSTEM",
+      userName: session?.name || "Administrator",
+      userRole: session?.role || "ADMIN",
+      action: "UPDATE_USER_ROLE",
+      entityType: "USER",
+      entityId: userId,
+      details: `Mengubah peran akun ${updatedUser?.name || userId} menjadi [${role}] ${projectId ? "pada proyek terkait" : "(Lintas Proyek)"}`,
+    });
+
     return {
       success: true,
       message: `Berhasil mengubah wewenang personil menjadi [${role}] ${
@@ -484,6 +720,18 @@ export async function updateUserRoleAndProject(
 export { getNeonAuthServiceStatus };
 
 export async function logoutUser(): Promise<{ success: boolean }> {
+  const session = await getSession();
+  if (session) {
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "LOGOUT",
+      entityType: "USER",
+      entityId: session.userId,
+      details: `Pengguna ${session.name} keluar dari sistem`,
+    });
+  }
   await destroySession();
   return { success: true };
 }
@@ -1196,6 +1444,7 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
         email: u.email,
         role: u.role as Role,
         phoneNumber: u.phoneNumber,
+        employeeCode: (u as any).employeeCode || null,
         projectId: u.projectId,
         project: u.project
           ? {
@@ -1321,6 +1570,7 @@ export async function getFindings(filters?: {
         photoResolutionUrl: f.photoResolutionUrl,
         rejectionNote: f.rejectionNote,
         reportNumber: (f as any).reportNumber || null,
+        inspectionDate: (f as any).inspectionDate ? (f as any).inspectionDate.toISOString() : null,
         createdAt: f.createdAt.toISOString(),
         dueDate: f.dueDate ? f.dueDate.toISOString() : null,
         resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
@@ -1352,18 +1602,16 @@ export async function getFindings(filters?: {
     result = result.filter((f) => f.reportNumber === filters.reportNumber);
   }
   if (filters?.search) {
-    const s = filters.search.toLowerCase();
+    const q = filters.search.toLowerCase();
     result = result.filter(
       (f) =>
-        f.ticketCode.toLowerCase().includes(s) ||
-        f.locationDetail.toLowerCase().includes(s) ||
-        f.description.toLowerCase().includes(s)
+        f.ticketCode.toLowerCase().includes(q) ||
+        (f.locationDetail && f.locationDetail.toLowerCase().includes(q)) ||
+        (f.description && f.description.toLowerCase().includes(q))
     );
   }
 
-  return result
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(skip, skip + limit);
+  return result.slice(skip, skip + limit);
 }
 
 export async function getFindingById(id: string): Promise<Finding | null> {
@@ -1371,8 +1619,13 @@ export async function getFindingById(id: string): Promise<Finding | null> {
     try {
       const f = await prisma.finding.findUnique({
         where: { id },
-        include: { project: true, pic: true, reporter: true },
+        include: {
+          project: true,
+          pic: true,
+          reporter: true,
+        },
       });
+
       if (f) {
         return {
           id: f.id,
@@ -1409,6 +1662,8 @@ export async function getFindingById(id: string): Promise<Finding | null> {
           picResponse: f.picResponse,
           photoResolutionUrl: f.photoResolutionUrl,
           rejectionNote: f.rejectionNote,
+          reportNumber: (f as any).reportNumber || null,
+          inspectionDate: (f as any).inspectionDate ? (f as any).inspectionDate.toISOString() : null,
           createdAt: f.createdAt.toISOString(),
           dueDate: f.dueDate ? f.dueDate.toISOString() : null,
           resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
@@ -1428,44 +1683,67 @@ export async function createFinding(payload: {
   projectId: string;
   picId: string;
   reporterId: string;
-  locationDetail: string;
+  locationDetail?: string;
   coordinates?: string;
   category: Category;
-  description: string;
+  description?: string;
   photoFindingUrl: string;
   inspectionDate?: string;
 }): Promise<{ success: boolean; finding?: Finding; message?: string }> {
   try {
-    // 0. Enforce role authorization (CMD, PM, BOD, ADMIN are authorized to create findings)
-    const auth = await requireAuth(["CMD", "PM", "BOD", "ADMIN"]);
-    if (!auth.authorized) {
-      return { success: false, message: auth.error || "Akses ditolak: Anda tidak memiliki izin untuk mencatat temuan." };
+    // 0. Enforce role authorization: Khusus PIC dan PENDING yang dilarang membuat temuan
+    const session = await getSession();
+    if (!session || session.role === "PIC" || session.role === "PENDING") {
+      return {
+        success: false,
+        message: "Akses ditolak: PIC tidak diizinkan mencatat temuan. PIC bertugas menindaklanjuti temuan yang ditugaskan.",
+      };
     }
 
-    // 1. Sanitize text inputs against XSS
-    const cleanLocation = sanitizeText(payload.locationDetail);
-    const cleanDescription = sanitizeText(payload.description);
+    // 1. Sanitize text inputs (Lokasi dan Deskripsi tidak mandatori)
+    const cleanLocation = (payload.locationDetail && payload.locationDetail.trim().length > 0)
+      ? sanitizeText(payload.locationDetail)
+      : "-";
 
-    if (!cleanLocation || cleanLocation.length < 2) {
-      return { success: false, message: "Lokasi spesifik temuan harus diisi (minimal 2 karakter)." };
-    }
-    if (!cleanDescription || cleanDescription.length < 5) {
-      return { success: false, message: "Deskripsi temuan harus diisi (minimal 5 karakter)." };
-    }
+    // Poin 7: Jika Deskripsi kosong, isi dengan "Hanya Foto Patroli Lapangan"
+    const cleanDescription = (payload.description && payload.description.trim().length > 0)
+      ? sanitizeText(payload.description)
+      : "Hanya Foto Patroli Lapangan";
 
-    // 2. Validate image payload size and format
+    // 2. Validate image payload size and format (Foto tetap wajib)
+    if (!payload.photoFindingUrl) {
+      return { success: false, message: "Foto temuan patroli wajib dilampirkan/diambil." };
+    }
     const imgValidation = validateImagePayload(payload.photoFindingUrl);
     if (!imgValidation.isValid) {
       return { success: false, message: imgValidation.error || "Format gambar tidak valid." };
     }
 
-    const existing = await getFindings({ limit: 1000 });
-    const ticketCode = generateTicketCode(existing.length);
     const now = new Date();
-    
-    // Parse inspection date (default today if not provided)
+    // Poin 8: Tanggal Inspeksi Lapangan (default today jika tidak diisi)
     const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
     const dueDate = calculateDueDate(payload.category, inspectionDateObj);
+
+    // Poin 12 & 13: Penomoran temuan berurutan tanpa reset dengan format EEE-DDD-XXXX
+    // EEE: Kode Employee (PXXXXX)
+    let reporterEmpCode = "P00001";
+    const allUsers = await getUsers();
+    const reporterUser = allUsers.find(u => u.id === payload.reporterId || u.id === session.userId);
+    if (reporterUser?.employeeCode) {
+      reporterEmpCode = reporterUser.employeeCode;
+    } else {
+      const userIdx = allUsers.findIndex(u => u.id === (payload.reporterId || session.userId));
+      reporterEmpCode = formatEmployeeCode(userIdx >= 0 ? userIdx + 1 : 1);
+    }
+
+    // DDD: Kode Divisi Proyek
+    const projectList = await getProjects();
+    const targetProject = projectList.find(p => p.id === payload.projectId);
+    const divCode = getDivisionCode(targetProject?.division);
+
+    // XXXX: Counter 4-digit nomor urut terus berlanjut tanpa reset
+    const nextSeq = await getNextTicketSequence();
+    const ticketCode = formatTicketCode(reporterEmpCode, divCode, nextSeq);
 
     if (hasValidDatabaseUrl()) {
       try {
@@ -1474,17 +1752,28 @@ export async function createFinding(payload: {
             ticketCode,
             projectId: payload.projectId,
             picId: payload.picId,
-            reporterId: payload.reporterId,
+            reporterId: payload.reporterId || session.userId,
             locationDetail: cleanLocation,
             coordinates: payload.coordinates ? sanitizeText(payload.coordinates) : null,
             category: payload.category as any,
             description: cleanDescription,
             photoFindingUrl: payload.photoFindingUrl,
             status: "OPEN",
+            inspectionDate: inspectionDateObj,
             createdAt: now,
             dueDate: dueDate,
           },
           include: { project: true, pic: true, reporter: true },
+        });
+
+        await recordAuditLog({
+          userId: session.userId,
+          userName: session.name,
+          userRole: session.role,
+          action: "CREATE_FINDING",
+          entityType: "FINDING",
+          entityId: ticketCode,
+          details: `Membuat temuan ${ticketCode} (${payload.category}) di proyek ${targetProject?.name || payload.projectId}`,
         });
 
         safeRevalidate("/");
@@ -1508,7 +1797,7 @@ export async function createFinding(payload: {
             description: created.description,
             photoFindingUrl: created.photoFindingUrl,
             status: created.status as FindingStatus,
-            inspectionDate: payload.inspectionDate || now.toISOString().split("T")[0],
+            inspectionDate: inspectionDateObj.toISOString(),
             createdAt: created.createdAt.toISOString(),
             dueDate: created.dueDate ? created.dueDate.toISOString() : null,
           },
@@ -1521,7 +1810,7 @@ export async function createFinding(payload: {
     // In memory creation fallback
     const project = inMemoryProjects.find((p) => p.id === payload.projectId) || inMemoryProjects[0];
     const pic = inMemoryUsers.find((u) => u.id === payload.picId) || inMemoryUsers[1];
-    const reporter = inMemoryUsers.find((u) => u.id === payload.reporterId) || inMemoryUsers[0];
+    const reporter = inMemoryUsers.find((u) => u.id === (payload.reporterId || session.userId)) || inMemoryUsers[0];
 
     const newFinding: Finding = {
       id: "find-" + Date.now(),
@@ -1530,20 +1819,30 @@ export async function createFinding(payload: {
       project,
       picId: payload.picId,
       pic,
-      reporterId: payload.reporterId,
+      reporterId: payload.reporterId || session.userId,
       reporter,
-      locationDetail: payload.locationDetail,
+      locationDetail: cleanLocation,
       coordinates: payload.coordinates || null,
       category: payload.category,
-      description: payload.description,
+      description: cleanDescription,
       photoFindingUrl: payload.photoFindingUrl,
       status: "OPEN",
-      inspectionDate: payload.inspectionDate || now.toISOString().split("T")[0],
+      inspectionDate: inspectionDateObj.toISOString(),
       createdAt: now.toISOString(),
       dueDate: dueDate.toISOString(),
     };
 
     inMemoryFindings.unshift(newFinding);
+
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "CREATE_FINDING",
+      entityType: "FINDING",
+      entityId: ticketCode,
+      details: `Membuat temuan ${ticketCode} (${payload.category}) di proyek ${project.name}`,
+    });
 
     safeRevalidate("/");
     safeRevalidate("/findings");
@@ -1555,6 +1854,161 @@ export async function createFinding(payload: {
   }
 }
 
+/**
+ * Poin 1: Mengedit data temuan yang sudah ada
+ * Khusus pelapor, pengawas, atau manajemen (non-PIC)
+ */
+export async function updateFinding(payload: {
+  findingId: string;
+  category?: Category;
+  description?: string;
+  locationDetail?: string;
+  coordinates?: string;
+  photoFindingUrl?: string;
+  picId?: string;
+  inspectionDate?: string;
+  dueDate?: string;
+}): Promise<{ success: boolean; finding?: Finding; message?: string }> {
+  try {
+    const session = await getSession();
+    if (!session || session.role === "PIC" || session.role === "PENDING") {
+      return { success: false, message: "Akses ditolak: PIC tidak diizinkan mengedit tiket temuan." };
+    }
+
+    const targetFinding = await getFindingById(payload.findingId);
+    if (!targetFinding) {
+      return { success: false, message: "Tiket temuan tidak ditemukan." };
+    }
+
+    const cleanLocation = payload.locationDetail !== undefined
+      ? (payload.locationDetail.trim() ? sanitizeText(payload.locationDetail) : "-")
+      : targetFinding.locationDetail;
+
+    const cleanDescription = payload.description !== undefined
+      ? (payload.description.trim() ? sanitizeText(payload.description) : "Hanya Foto Patroli Lapangan")
+      : targetFinding.description;
+
+    let inspectionDateObj = targetFinding.inspectionDate
+      ? new Date(targetFinding.inspectionDate)
+      : new Date(targetFinding.createdAt);
+    if (payload.inspectionDate) {
+      inspectionDateObj = new Date(payload.inspectionDate);
+    }
+
+    let dueDateObj = targetFinding.dueDate
+      ? new Date(targetFinding.dueDate)
+      : calculateDueDate(targetFinding.category, inspectionDateObj);
+    if (payload.dueDate) {
+      dueDateObj = new Date(payload.dueDate);
+    } else if (payload.category && payload.category !== targetFinding.category) {
+      dueDateObj = calculateDueDate(payload.category, inspectionDateObj);
+    }
+
+    const updateData: any = {
+      locationDetail: cleanLocation,
+      description: cleanDescription,
+      inspectionDate: inspectionDateObj,
+      dueDate: dueDateObj,
+    };
+
+    if (payload.category) updateData.category = payload.category as any;
+    if (payload.coordinates !== undefined) updateData.coordinates = payload.coordinates ? sanitizeText(payload.coordinates) : null;
+    if (payload.photoFindingUrl) updateData.photoFindingUrl = payload.photoFindingUrl;
+    if (payload.picId) updateData.picId = payload.picId;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        const updated = await prisma.finding.update({
+          where: { id: payload.findingId },
+          data: updateData,
+          include: { project: true, pic: true, reporter: true },
+        });
+
+        await recordAuditLog({
+          userId: session.userId,
+          userName: session.name,
+          userRole: session.role,
+          action: "UPDATE_FINDING",
+          entityType: "FINDING",
+          entityId: targetFinding.ticketCode,
+          details: `Mengedit data tiket temuan ${targetFinding.ticketCode}`,
+        });
+
+        safeRevalidate("/");
+        safeRevalidate("/findings");
+        safeRevalidate(`/findings/${payload.findingId}`);
+        safeRevalidate("/pic/tasks");
+
+        return {
+          success: true,
+          finding: {
+            id: updated.id,
+            ticketCode: updated.ticketCode,
+            projectId: updated.projectId,
+            project: updated.project,
+            picId: updated.picId,
+            pic: updated.pic as any,
+            reporterId: updated.reporterId,
+            reporter: updated.reporter as any,
+            locationDetail: updated.locationDetail,
+            coordinates: updated.coordinates,
+            category: updated.category as Category,
+            description: updated.description,
+            photoFindingUrl: updated.photoFindingUrl,
+            status: updated.status as FindingStatus,
+            picResponse: updated.picResponse,
+            photoResolutionUrl: updated.photoResolutionUrl,
+            rejectionNote: updated.rejectionNote,
+            reportNumber: (updated as any).reportNumber || null,
+            inspectionDate: updated.inspectionDate ? updated.inspectionDate.toISOString() : null,
+            createdAt: updated.createdAt.toISOString(),
+            dueDate: updated.dueDate ? updated.dueDate.toISOString() : null,
+            resolvedAt: updated.resolvedAt ? updated.resolvedAt.toISOString() : null,
+            closedAt: updated.closedAt ? updated.closedAt.toISOString() : null,
+          },
+        };
+      } catch (dbErr: any) {
+        console.warn("Neon DB update failed for updateFinding:", dbErr);
+      }
+    }
+
+    // In-memory fallback
+    const idx = inMemoryFindings.findIndex((f) => f.id === payload.findingId);
+    if (idx !== -1) {
+      const existing = inMemoryFindings[idx];
+      inMemoryFindings[idx] = {
+        ...existing,
+        ...updateData,
+        inspectionDate: inspectionDateObj.toISOString(),
+        dueDate: dueDateObj.toISOString(),
+      };
+    }
+
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "UPDATE_FINDING",
+      entityType: "FINDING",
+      entityId: targetFinding.ticketCode,
+      details: `Mengedit data tiket temuan ${targetFinding.ticketCode}`,
+    });
+
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate(`/findings/${payload.findingId}`);
+    safeRevalidate("/pic/tasks");
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal mengedit tiket temuan." };
+  }
+}
+
+/**
+ * Poin 2: PIC menanggapi temuan.
+ * Status dialihkan menjadi RESOLVED (menunggu verifikasi PM atau Pelapor).
+ */
 export async function resolveFinding(payload: {
   findingId: string;
   picResponse: string;
@@ -1564,7 +2018,7 @@ export async function resolveFinding(payload: {
 }): Promise<{ success: boolean; message?: string }> {
   try {
     // 0. Enforce role authorization (PIC, SM, PM, BOD, ADMIN can resolve findings)
-    const auth = await requireAuth(["PIC", "SM", "PM", "BOD", "ADMIN"]);
+    const auth = await requireAuth(["PIC", "SM", "PM", "BOD", "ADMIN", "Advisor"]);
     if (!auth.authorized || !auth.user) {
       return { success: false, message: auth.error || "Akses ditolak: Hanya PIC / Pengawas Proyek yang dapat mengirimkan perbaikan." };
     }
@@ -1631,19 +2085,28 @@ export async function resolveFinding(payload: {
     }
 
     const now = new Date();
-    // Poin 6: Verifikasi dari PM sementara ditiadakan, cukup feedback PIC -> status langsung CLOSED / Tuntas
+    // Poin 2: Status menjadi RESOLVED (Menunggu Verifikasi PM / Pelapor)
     if (hasValidDatabaseUrl()) {
       try {
         await prisma.finding.update({
           where: { id: payload.findingId },
           data: {
-            status: "CLOSED",
+            status: "RESOLVED",
             picResponse: cleanResponse,
             photoResolutionUrl: finalPhotoUrl || null,
             resolvedAt: now,
-            closedAt: now,
             rejectionNote: cleanNoPhotoReason ? `[Tanpa Foto: ${cleanNoPhotoReason}]` : null,
           },
+        });
+
+        await recordAuditLog({
+          userId: sessionUser.userId,
+          userName: sessionUser.name,
+          userRole: sessionUser.role,
+          action: "RESOLVE_FINDING",
+          entityType: "FINDING",
+          entityId: targetFinding.ticketCode,
+          details: `PIC mengirim tindakan perbaikan untuk tiket ${targetFinding.ticketCode} (Status: RESOLVED)`,
         });
 
         safeRevalidate("/");
@@ -1660,16 +2123,25 @@ export async function resolveFinding(payload: {
     if (index !== -1) {
       inMemoryFindings[index] = {
         ...inMemoryFindings[index],
-        status: "CLOSED",
+        status: "RESOLVED",
         picResponse: cleanResponse,
         photoResolutionUrl: finalPhotoUrl || null,
         hasResolutionPhoto: hasPhoto,
         noPhotoReason: cleanNoPhotoReason,
         resolvedAt: now.toISOString(),
-        closedAt: now.toISOString(),
         rejectionNote: cleanNoPhotoReason ? `[Tanpa Foto: ${cleanNoPhotoReason}]` : null,
       };
     }
+
+    await recordAuditLog({
+      userId: sessionUser.userId,
+      userName: sessionUser.name,
+      userRole: sessionUser.role,
+      action: "RESOLVE_FINDING",
+      entityType: "FINDING",
+      entityId: targetFinding.ticketCode,
+      details: `PIC mengirim tindakan perbaikan untuk tiket ${targetFinding.ticketCode} (Status: RESOLVED)`,
+    });
 
     safeRevalidate("/");
     safeRevalidate("/findings");
@@ -1681,16 +2153,35 @@ export async function resolveFinding(payload: {
   }
 }
 
+/**
+ * Poin 2: Verifikasi hasil perbaikan oleh PM atau Pelapor temuan
+ * Action: APPROVE (status menjadi CLOSED) atau REJECT (status kembali ke OPEN untuk revisi)
+ */
 export async function validateFinding(payload: {
   findingId: string;
   action: "APPROVE" | "REJECT";
   rejectionNote?: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
-    // 0. Enforce role authorization (PM, BOD, ADMIN only)
-    const auth = await requireAuth(["PM", "BOD", "ADMIN"]);
-    if (!auth.authorized) {
-      return { success: false, message: auth.error || "Akses ditolak: Hanya PM atau BOD yang dapat memvalidasi perbaikan." };
+    const session = await getSession();
+    if (!session) {
+      return { success: false, message: "Sesi telah berakhir. Silakan login kembali." };
+    }
+
+    const targetFinding = await getFindingById(payload.findingId);
+    if (!targetFinding) {
+      return { success: false, message: "Tiket temuan tidak ditemukan." };
+    }
+
+    // Otorisasi: Pelapor temuan asli atau PM/GM/BOD/ADMIN
+    const isReporter = targetFinding.reporterId === session.userId;
+    const isManagementOrAdmin = ["PM", "GM", "BOD", "ADMIN", "Advisor"].includes(session.role);
+
+    if (!isReporter && !isManagementOrAdmin) {
+      return {
+        success: false,
+        message: "Akses ditolak: Hanya pelapor temuan tersebut atau Project Manager / Manajemen yang berhak memvalidasi perbaikan.",
+      };
     }
 
     const cleanNote = payload.rejectionNote ? sanitizeText(payload.rejectionNote) : null;
@@ -1706,9 +2197,21 @@ export async function validateFinding(payload: {
             closedAt: payload.action === "APPROVE" ? now : null,
             rejectionNote:
               payload.action === "REJECT"
-                ? cleanNote || "Perbaikan ditolak oleh PM. Mohon lakukan perbaikan ulang."
+                ? cleanNote || "Perbaikan ditolak oleh verifikator. Mohon lakukan perbaikan ulang."
                 : null,
           },
+        });
+
+        await recordAuditLog({
+          userId: session.userId,
+          userName: session.name,
+          userRole: session.role,
+          action: "VALIDATE_FINDING",
+          entityType: "FINDING",
+          entityId: targetFinding.ticketCode,
+          details: payload.action === "APPROVE"
+            ? `Menyetujui hasil perbaikan tiket ${targetFinding.ticketCode} (Status: CLOSED)`
+            : `Menolak perbaikan tiket ${targetFinding.ticketCode}: "${cleanNote || "-"}" (Status: OPEN kembali)`,
         });
 
         safeRevalidate("/");
@@ -1729,10 +2232,22 @@ export async function validateFinding(payload: {
         closedAt: payload.action === "APPROVE" ? now.toISOString() : null,
         rejectionNote:
           payload.action === "REJECT"
-            ? cleanNote || "Perbaikan ditolak oleh PM. Mohon perbaiki ulang."
+            ? cleanNote || "Perbaikan ditolak. Mohon perbaiki ulang."
             : null,
       };
     }
+
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "VALIDATE_FINDING",
+      entityType: "FINDING",
+      entityId: targetFinding.ticketCode,
+      details: payload.action === "APPROVE"
+        ? `Menyetujui hasil perbaikan tiket ${targetFinding.ticketCode} (Status: CLOSED)`
+        : `Menolak perbaikan tiket ${targetFinding.ticketCode}: "${cleanNote || "-"}" (Status: OPEN kembali)`,
+    });
 
     safeRevalidate("/");
     safeRevalidate("/findings");
@@ -1740,7 +2255,7 @@ export async function validateFinding(payload: {
     safeRevalidate("/pic/tasks");
     return { success: true };
   } catch (err: any) {
-    return { success: false, message: err.message || "Gagal memproses validasi PM." };
+    return { success: false, message: err.message || "Gagal memproses validasi temuan." };
   }
 }
 
@@ -1962,6 +2477,17 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         pmName: payload.pmName,
         gmName: payload.gmName,
         reportDate: payload.reportDate,
+      });
+
+      const session = await getSession();
+      await recordAuditLog({
+        userId: session?.userId || null,
+        userName: session?.name || payload.inspectorName || "Inspector",
+        userRole: session?.role || "CMD",
+        action: "SEND_EMAIL",
+        entityType: "PATROL_REPORT",
+        entityId: payload.reportNumber,
+        details: `Mengirim email laporan ${payload.reportNumber} ke ${payload.recipients.join(", ")}`,
       });
 
       return {
@@ -2218,8 +2744,8 @@ export async function runPatrolSlaReminderEngine(options?: {
         return {
           ticketCode: f.ticketCode,
           category: f.category,
-          description: f.description,
-          locationDetail: f.locationDetail,
+          description: f.description || "Hanya Foto Patroli Lapangan",
+          locationDetail: f.locationDetail || "-",
           daysOpen: days,
           createdAt: typeof f.createdAt === "string" ? f.createdAt : new Date(f.createdAt).toISOString(),
         };
@@ -2506,6 +3032,18 @@ export async function savePatrolReport(payload: SavePatrolReportInput): Promise<
         };
 
         safeRevalidate("/reports");
+
+        const session = await getSession();
+        await recordAuditLog({
+          userId: session?.userId || null,
+          userName: session?.name || inspectorName,
+          userRole: session?.role || "CMD",
+          action: "CREATE_PATROL_REPORT",
+          entityType: "PATROL_REPORT",
+          entityId: reportNumber,
+          details: `Menyimpan laporan patroli ${reportNumber} untuk proyek ${projectName} (${payload.findingsCount ?? 0} temuan)`,
+        });
+
         return {
           success: true,
           message: `Laporan ${reportNumber} berhasil disimpan ke database Neon!`,
@@ -2653,5 +3191,163 @@ export async function deletePatrolReport(id: string): Promise<{ success: boolean
     return { success: false, message: err.message || "Gagal menghapus arsip laporan." };
   }
 }
+
+/**
+ * Poin 16: Mengambil dan Memperbarui Matriks RBAC yang dapat diedit
+ */
+export async function getRolePermissions(): Promise<{
+  matrix: Record<string, Record<string, boolean>>;
+  roles: string[];
+}> {
+  const settings = await getSystemSettings();
+  const defaultRoles = ["CMD", "PIC", "SM", "PM", "GM", "BOD", "ADMIN", "Advisor"];
+  const customRoles = settings.customRoles || [];
+  const allRoles = Array.from(new Set([...defaultRoles, ...customRoles]));
+
+  const defaultMatrix: Record<string, Record<string, boolean>> = {
+    createFinding: {
+      CMD: true,
+      PIC: false, // Poin 11: Khusus PIC saja yang tidak boleh isi temuan
+      SM: true,
+      PM: true,
+      GM: true,
+      BOD: true,
+      ADMIN: true,
+      Advisor: true,
+    },
+    editFinding: {
+      CMD: true,
+      PIC: false,
+      SM: true,
+      PM: true,
+      GM: true,
+      BOD: true,
+      ADMIN: true,
+      Advisor: true,
+    },
+    resolveFinding: {
+      CMD: false,
+      PIC: true,
+      SM: true,
+      PM: false,
+      GM: false,
+      BOD: false,
+      ADMIN: true,
+      Advisor: false,
+    },
+    validateFinding: {
+      CMD: false,
+      PIC: false,
+      SM: false,
+      PM: true,
+      GM: true,
+      BOD: true,
+      ADMIN: true,
+      Advisor: true,
+    },
+    accessReports: {
+      CMD: true,
+      PIC: true,
+      SM: true,
+      PM: true,
+      GM: true,
+      BOD: true,
+      ADMIN: true,
+      Advisor: true,
+    },
+    accessAuditLog: {
+      CMD: false,
+      PIC: false,
+      SM: false,
+      PM: true,
+      GM: true,
+      BOD: true,
+      ADMIN: true,
+      Advisor: true,
+    },
+    manageProjects: {
+      CMD: false,
+      PIC: false,
+      SM: false,
+      PM: false,
+      GM: false,
+      BOD: false,
+      ADMIN: true,
+      Advisor: false,
+    },
+    manageUsers: {
+      CMD: false,
+      PIC: false,
+      SM: false,
+      PM: false,
+      GM: false,
+      BOD: false,
+      ADMIN: true,
+      Advisor: false,
+    },
+  };
+
+  const savedMatrix = settings.rbacPermissions || {};
+  const mergedMatrix: Record<string, Record<string, boolean>> = {};
+
+  for (const [permKey, rolesMap] of Object.entries(defaultMatrix)) {
+    mergedMatrix[permKey] = { ...rolesMap };
+    if (savedMatrix[permKey]) {
+      mergedMatrix[permKey] = { ...mergedMatrix[permKey], ...savedMatrix[permKey] };
+    }
+    for (const r of allRoles) {
+      if (mergedMatrix[permKey][r] === undefined) {
+        if (permKey === "createFinding") {
+          mergedMatrix[permKey][r] = r !== "PIC";
+        } else if (permKey === "accessReports") {
+          mergedMatrix[permKey][r] = true;
+        } else {
+          mergedMatrix[permKey][r] = false;
+        }
+      }
+    }
+  }
+
+  return {
+    matrix: mergedMatrix,
+    roles: allRoles,
+  };
+}
+
+export async function updateRolePermissions(
+  matrix: Record<string, Record<string, boolean>>,
+  customRoles?: string[]
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang dapat mengubah matriks RBAC." };
+    }
+
+    const payload: Partial<SystemSettingData> = {
+      rbacPermissions: matrix,
+    };
+    if (customRoles) {
+      payload.customRoles = customRoles;
+    }
+
+    await updateSystemSettings(payload);
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "UPDATE_RBAC",
+      entityType: "RBAC",
+      details: `Memperbarui matriks hak akses peran sistem`,
+    });
+
+    safeRevalidate("/admin");
+    return { success: true, message: "Matriks hak akses peran (RBAC) berhasil diperbarui." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memperbarui matriks RBAC." };
+  }
+}
+
 
 

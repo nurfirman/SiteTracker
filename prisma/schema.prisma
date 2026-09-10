@@ -19,6 +19,7 @@ enum Role {
   BOD
   ADMIN
   PENDING
+  Advisor
 }
 
 enum Category {
@@ -54,13 +55,14 @@ model Project {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  name        String   @db.VarChar(255)
-  email       String   @unique @db.VarChar(255)
-  role        Role
-  phoneNumber String   @map("phone_number") @db.VarChar(50)
-  projectId   String?  @map("project_id")
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(255)
+  email        String   @unique @db.VarChar(255)
+  role         Role
+  phoneNumber  String   @map("phone_number") @db.VarChar(50)
+  employeeCode String?  @map("employee_code") @db.VarChar(50)
+  projectId    String?  @map("project_id")
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   projectsManagedAsPm Project[] @relation("ProjectPM")
   projectsManagedAsGm Project[] @relation("ProjectGM")
@@ -80,16 +82,17 @@ model Finding {
   pic                User          @relation("PicFindings", fields: [picId], references: [id])
   reporterId         String        @map("reporter_id")
   reporter           User          @relation("ReporterFindings", fields: [reporterId], references: [id])
-  locationDetail     String        @map("location_detail") @db.VarChar(255)
+  locationDetail     String?       @map("location_detail") @db.VarChar(255)
   coordinates        String?       @db.VarChar(100)
   category           Category
-  description        String        @db.Text
+  description        String?       @db.Text
   photoFindingUrl    String        @map("photo_finding_url") @db.Text
   status             FindingStatus @default(OPEN)
   picResponse        String?       @map("pic_response") @db.Text
   photoResolutionUrl String?       @map("photo_resolution_url") @db.Text
   rejectionNote      String?       @map("rejection_note") @db.Text
   reportNumber       String?       @map("report_number") @db.VarChar(100)
+  inspectionDate     DateTime?     @map("inspection_date")
   createdAt          DateTime      @default(now()) @map("created_at")
   dueDate            DateTime?     @map("due_date")
   resolvedAt         DateTime?     @map("resolved_at")
@@ -100,6 +103,7 @@ model Finding {
   @@index([status])
   @@index([category])
   @@index([reportNumber])
+  @@index([inspectionDate])
   @@map("findings")
 }
 
@@ -126,4 +130,40 @@ model PatrolReport {
   @@index([projectId])
   @@map("patrol_reports")
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id") @db.VarChar(100)
+  userName   String   @map("user_name") @db.VarChar(255)
+  userRole   String   @map("user_role") @db.VarChar(50)
+  action     String   @db.VarChar(100)
+  entityType String?  @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(100)
+  details    String?  @db.Text
+  ipAddress  String?  @map("ip_address") @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id        String   @id @default("default")
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model TicketSequence {
+  id        String   @id @default("singleton")
+  lastSeq   Int      @default(0) @map("last_seq")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ticket_sequences")
+}
+
 

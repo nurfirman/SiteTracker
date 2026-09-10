@@ -89,32 +89,27 @@ export default function NewFindingPage() {
       setErrorMsg("Mohon ketik nama kategori patroli custom.");
       return;
     }
-    if (!locationDetail.trim()) {
-      setErrorMsg("Mohon isi rincian lokasi temuan (contoh: Lantai 3 - Area Coring).");
-      return;
-    }
+    // Location is optional
     if (!photoFindingUrl) {
       setErrorMsg("Mohon lampirkan/ambil foto temuan patroli terlebih dahulu.");
       return;
     }
-    if (!description.trim()) {
-      setErrorMsg("Mohon isi deskripsi temuan patroli.");
-      return;
-    }
+    // Description is optional, defaults to "Hanya Foto Patroli Lapangan" if empty
 
     setSubmitting(true);
 
     const finalCategory = category === "CUSTOM" ? customCategory.trim() : category;
+    const finalDescription = description.trim() || "Hanya Foto Patroli Lapangan";
 
     try {
       const res = await createFinding({
         projectId: selectedProjectId,
         picId: selectedPicId,
         reporterId: currentUser.id,
-        locationDetail,
+        locationDetail: locationDetail.trim() || "-",
         coordinates,
         category: finalCategory,
-        description,
+        description: finalDescription,
         photoFindingUrl,
         inspectionDate: inspectionDate || todayStr,
       });
@@ -150,17 +145,21 @@ export default function NewFindingPage() {
         </span>
       </div>
 
-      {/* PENDING ROLE RESTRICTION */}
-      {currentUser.role === "PENDING" ? (
+      {/* PIC OR PENDING ROLE RESTRICTION */}
+      {currentUser.role === "PIC" || currentUser.role === "PENDING" ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-rose-300 dark:border-rose-900/60 p-8 shadow-xl text-center space-y-4">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
             <AlertTriangle size={32} />
           </div>
           <h3 className="text-xl font-black text-slate-900 dark:text-white">
-            Wewenang Belum Diatur (Status: PENDING)
+            {currentUser.role === "PIC"
+              ? "Wewenang Dibatasi: Role PIC Tidak Dapat Menginput Temuan"
+              : "Wewenang Belum Diatur (Status: PENDING)"}
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan tiket temuan patroli baru. Silakan hubungi <strong>Administrator Proyek</strong> untuk mengonfigurasi role dan proyek penugasan Anda.
+            {currentUser.role === "PIC"
+              ? "Role PIC bertindak sebagai pihak penanggung jawab perbaikan (rekanan/subkontraktor) dan tidak memiliki hak akses menerbitkan temuan patroli baru."
+              : "Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan tiket temuan patroli baru. Silakan hubungi Administrator Proyek untuk mengonfigurasi role Anda."}
           </p>
           <div className="pt-3 flex justify-center gap-3">
             <Link
@@ -169,16 +168,18 @@ export default function NewFindingPage() {
             >
               Kembali ke Dashboard
             </Link>
-            <a
-              href={`https://wa.me/6281234567890?text=Halo%20Admin,%20akun%20saya%20(${encodeURIComponent(
-                currentUser.email
-              )})%20membutuhkan%20setting%20role%20untuk%20catat%20temuan.`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition-all"
-            >
-              Hubungi Administrator
-            </a>
+            {currentUser.role === "PENDING" && (
+              <a
+                href={`https://wa.me/6281234567890?text=Halo%20Admin,%20akun%20saya%20(${encodeURIComponent(
+                  currentUser.email
+                )})%20membutuhkan%20setting%20role%20untuk%20catat%20temuan.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition-all"
+              >
+                Hubungi Administrator
+              </a>
+            )}
           </div>
         </div>
       ) : (
@@ -192,7 +193,7 @@ export default function NewFindingPage() {
             Catat Temuan Baru Lapangan
           </h1>
           <p className="text-sm text-slate-300">
-            Isi formulir dengan lengkap. Tiket temuan berstatus 🔴 OPEN akan otomatis diteruskan ke PIC terkait.
+            Isi formulir temuan. Tiket temuan berstatus 🔴 OPEN akan otomatis diteruskan ke PIC terkait.
           </p>
         </div>
 
@@ -314,15 +315,15 @@ export default function NewFindingPage() {
             {/* 4. RINCIAN LOKASI & GPS */}
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  5. Rincian Lokasi Spesifik <span className="text-red-500">*</span>
+                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                  <span>5. Rincian Lokasi Spesifik</span>
+                  <span className="text-xs font-normal text-slate-500">(Opsional)</span>
                 </label>
                 <input
                   type="text"
                   value={locationDetail}
                   onChange={(e) => setLocationDetail(e.target.value)}
-                  placeholder="Contoh: Lantai 3 - Area Coring Sisi Selatan"
-                  required
+                  placeholder="Contoh: Lantai 3 - Area Coring Sisi Selatan (Boleh dikosongkan)"
                   className="w-full px-4 py-3.5 min-h-[48px] text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                 />
               </div>
@@ -345,15 +346,15 @@ export default function NewFindingPage() {
 
             {/* 6. DESKRIPSI TEMUAN (SETELAH FOTO) */}
             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                7. Deskripsi Temuan Lapangan <span className="text-red-500">*</span>
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                <span>7. Deskripsi Temuan Lapangan</span>
+                <span className="text-xs font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patroli Lapangan&quot;)</span>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tuliskan temuan secara jelas dan objektif (contoh: 3 pekerja tidak menggunakan helm dan harness saat bekerja di ketinggian 5m)."
-                required
-                rows={4}
+                placeholder="Tuliskan temuan secara jelas dan objektif (jika dikosongkan, otomatis tersimpan 'Hanya Foto Patroli Lapangan')."
+                rows={3}
                 className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
               />
             </div>

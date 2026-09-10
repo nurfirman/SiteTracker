@@ -99,8 +99,21 @@ export default function LoginPage() {
     try {
       const res = await loginUser(emailInput.trim(), passwordInput.trim());
       if (res.success && res.session) {
-        const targetUser = users.find((u) => u.id === res.session!.userId) || users[0];
-        setCurrentUser(targetUser);
+        const targetUser: User =
+          res.user ||
+          users.find((u) => u.id === res.session!.userId) || {
+            id: res.session.userId,
+            name: res.session.name,
+            email: res.session.email,
+            role: res.session.role,
+            employeeCode: null,
+            phoneNumber: "-",
+            projectId: null,
+            project: null,
+          };
+        if (targetUser) {
+          setCurrentUser(targetUser);
+        }
         router.push("/");
         router.refresh();
       } else {
@@ -365,13 +378,16 @@ export default function LoginPage() {
             <form onSubmit={handleManualLogin} className="space-y-4 animate-in fade-in duration-200">
               {/* Username / Email Input */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-300">
+                <label htmlFor="login-email" className="block text-xs font-bold text-slate-300">
                   Email / Username Akun <span className="text-violet-400">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
                   <input
+                    id="login-email"
+                    name="email"
                     type="text"
+                    autoComplete="username"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
                     placeholder="nama@perusahaan.co.id atau admin@sitetracker.id"
@@ -384,7 +400,7 @@ export default function LoginPage() {
               {/* Password Input with Toggle */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-300">
+                  <label htmlFor="login-password" className="block text-xs font-bold text-slate-300">
                     Password <span className="text-violet-400">*</span>
                   </label>
                   <button
@@ -405,7 +421,10 @@ export default function LoginPage() {
                 <div className="relative">
                   <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
                   <input
+                    id="login-password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
                     placeholder="Masukkan password akun"

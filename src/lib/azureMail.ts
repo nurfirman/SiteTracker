@@ -383,8 +383,8 @@ export async function sendEmailViaAzureGraph(
 export interface OverdueFindingItem {
   ticketCode: string;
   category: string;
-  description: string;
-  locationDetail: string;
+  description?: string | null;
+  locationDetail?: string | null;
   daysOpen: number;
   createdAt: string;
 }

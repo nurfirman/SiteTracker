@@ -14,6 +14,7 @@ import {
   runPatrolSlaReminderEngine,
   SlaReminderEngineResult,
   getNextReportDocNumber,
+  getSystemSettings,
 } from "@/lib/actions";
 import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
 import { formatDate, getSlaStatus, exportFindingsToCsv } from "@/lib/utils";
@@ -87,11 +88,19 @@ export default function ReportsPage() {
   const [customReportNumber, setCustomReportNumber] = useState<string>("");
   const [presentInspectors, setPresentInspectors] = useState<string>("");
   const [recalledReportNumber, setRecalledReportNumber] = useState<string | null>(null);
+  const [systemLogoUrl, setSystemLogoUrl] = useState<string>("");
   
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [reportShareUrl, setReportShareUrl] = useState<string>("");
   
   const [loading, setLoading] = useState(true);
+
+  // Poin 3: Muat custom logo laporan dari admin
+  useEffect(() => {
+    getSystemSettings().then((s) => {
+      if (s?.reportLogoUrl) setSystemLogoUrl(s.reportLogoUrl);
+    });
+  }, []);
 
   // Archive & History Modal State
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -168,7 +177,7 @@ export default function ReportsPage() {
 
         const rawList = await getFindings(filters);
 
-        // Filter berdasarkan mode tanggal inspeksi:
+        // Filter berdasarkan mode tanggal inspeksi (prioritaskan data Tanggal Inspeksi):
         const filteredByDate = rawList.filter((f) => {
           let fDateStr = "";
           if (f.inspectionDate) {
@@ -179,6 +188,8 @@ export default function ReportsPage() {
             fDateStr = typeof f.createdAt === "string"
               ? f.createdAt.split("T")[0]
               : new Date(f.createdAt).toISOString().split("T")[0];
+          } else {
+            return false;
           }
 
           if (periodMode === "DAILY") {
@@ -193,6 +204,14 @@ export default function ReportsPage() {
             return true;
           }
           return true;
+        });
+
+        // Poin 5: Urutkan berdasarkan ASC tampilan di laporan patrol (temuan yang masuk pertama kali menjadi NO. 1)
+        filteredByDate.sort((a, b) => {
+          const timeA = new Date(a.inspectionDate || a.createdAt).getTime();
+          const timeB = new Date(b.inspectionDate || b.createdAt).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return a.ticketCode.localeCompare(b.ticketCode);
         });
 
         setFindings(filteredByDate);
@@ -218,18 +237,22 @@ export default function ReportsPage() {
   const activeProjectObj = projects.find((p) => p.id === selectedProject);
   const activePicObj = users.find((u) => u.id === selectedPic);
 
-  // Cari user CMD yang bertugas (pengawas patroli)
-  // Prioritaskan: reporter aktual dari temuan yang sedang ditampilkan -> current user jika CMD -> user bertugas
-  const findingsCmdReporter =
-    findings.find((f) => f.reporter?.name)?.reporter?.name ||
-    findings.find((f) => f.reporter?.role === "CMD")?.reporter?.name;
+  // Poin 17: "Nama Inspector (Pengawas / CMD):" diisi dengan semua pelapor yg muncul di laporan ini, jika ada 2 pelapor dipisah tanda koma
+  const uniqueReporters = Array.from(
+    new Set(
+      findings
+        .map((f) => f.reporter?.name)
+        .filter((name): name is string => Boolean(name && name.trim()))
+    )
+  );
 
   const defaultCmdInspector =
-    findingsCmdReporter ||
-    (currentUser?.role === "CMD" ? currentUser.name : null) ||
-    users.find((u) => u.name.toLowerCase().includes("hadi"))?.name ||
-    users.find((u) => u.role === "CMD")?.name ||
-    "Hadi Pramono (CMD)";
+    uniqueReporters.length > 0
+      ? uniqueReporters.join(", ")
+      : (currentUser?.role === "CMD" ? currentUser.name : null) ||
+        users.find((u) => u.name.toLowerCase().includes("hadi"))?.name ||
+        users.find((u) => u.role === "CMD")?.name ||
+        "Hadi Pramono (CMD)";
 
   // Cari PM / SM proyek terkait
   const projectPmOrSm =
@@ -1069,13 +1092,32 @@ export default function ReportsPage() {
         {/* VIEW 1: INTERNAL PATROL STANDARD FORM */}
         {reportType === "INTERNAL_PATROL" && (
           <div className="bg-white text-black p-4 sm:p-8 md:p-10 rounded-2xl border border-slate-300 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 font-sans">
-            <div className="relative text-center pb-2">
-              <div className="text-right text-[11px] font-mono font-bold text-slate-600 print:text-black mb-1 sm:absolute sm:right-0 sm:top-0">
+            {/* Header Laporan dengan Custom Logo dan No. Dok */}
+            <div className="relative flex items-center justify-between pb-3 border-b-2 border-black mb-1">
+              <div className="flex items-center gap-3">
+                {systemLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={systemLogoUrl}
+                    alt="Logo Laporan"
+                    className="h-12 w-auto max-w-[150px] object-contain"
+                  />
+                ) : (
+                  <div className="text-left font-black text-sm tracking-tight text-slate-800 print:text-black">
+                    CMD PATROL
+                  </div>
+                )}
+              </div>
+
+              <div className="text-center flex-1 px-4">
+                <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase">
+                  INTERNAL PATROL
+                </h2>
+              </div>
+
+              <div className="text-right text-[11px] font-mono font-bold text-slate-600 print:text-black">
                 No. Dok: <span className="bg-slate-100 print:bg-transparent px-1.5 py-0.5 border border-slate-300 print:border-none rounded font-black">{resolvedReportNumber}</span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase border-b-2 border-black pb-1.5 inline-block">
-                INTERNAL PATROL
-              </h2>
             </div>
 
             <div className="mt-3 border-2 border-black text-xs font-semibold">
@@ -1085,7 +1127,9 @@ export default function ReportsPage() {
                 </div>
                 <div className="col-span-10 sm:col-span-10 p-1.5 font-bold uppercase flex items-center justify-between gap-2 flex-wrap">
                   <span>
-                    {activeProjectObj ? activeProjectObj.name : "SEMUA PROYEK"} {activeProjectObj ? `(${activeProjectObj.location})` : ""}
+                    {activeProjectObj
+                      ? `${activeProjectObj.code ? `${activeProjectObj.code} ` : ""}${activeProjectObj.name}`
+                      : "SEMUA PROYEK"} {activeProjectObj ? `(${activeProjectObj.location})` : ""}
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 print:bg-transparent border border-black rounded">
                     DIVISI: {activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
@@ -1198,13 +1242,15 @@ export default function ReportsPage() {
                     {findings.map((item, index) => {
                       return (
                         <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
+                          {/* Kolom 1: Poin 10: Nomor urut di atas dan Nomor Temuan di bawahnya */}
                           <td className="border-r border-black p-2 text-center align-top">
                             <span className="text-base font-black block">{index + 1}</span>
-                            <span className="text-[9px] font-mono font-bold bg-slate-100 print:bg-transparent px-1 py-0.5 border border-slate-300 print:border-none rounded block mt-1 tracking-tight text-slate-700 print:text-black">
+                            <span className="text-[10px] font-mono font-bold block mt-1 tracking-tight text-slate-800 print:text-black">
                               {item.ticketCode}
                             </span>
                           </td>
 
+                          {/* Kolom 2: Poin 14, 18: Comment bersih tanpa nomor temuan, tambah Lokasi Spesifik, ganti PIC dengan Pelapor */}
                           <td className="border-r border-black p-3 align-top space-y-2">
                             <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
                               {item.photoFindingUrl ? (
@@ -1226,15 +1272,21 @@ export default function ReportsPage() {
                                 Comment :
                               </p>
                               <p className="text-slate-800 print:text-black mt-0.5">
-                                <span className="font-semibold">[{item.ticketCode} - {item.locationDetail}]:</span> {item.description}
+                                {item.description || "Hanya Foto Patroli Lapangan"}
                               </p>
-                              <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 print:text-slate-700">
-                                <span>Kategori: <strong>{item.category}</strong></span>
-                                <span>PIC: <strong>{item.pic?.name || "Unassigned"}</strong></span>
+                              <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
+                                <p>
+                                  Lokasi Spesifik: <strong className="text-black font-bold">{item.locationDetail || "-"}</strong>
+                                </p>
+                                <div className="flex items-center justify-between mt-0.5">
+                                  <span>Kategori: <strong>{item.category}</strong></span>
+                                  <span>Pelapor: <strong>{item.reporter?.name || "CMD"}</strong></span>
+                                </div>
                               </div>
                             </div>
                           </td>
 
+                          {/* Kolom 3: Poin 19: Comment perbaikan di bawahnya tambah nama pelaksana perbaikan */}
                           <td className="p-3 align-top space-y-2">
                             <div className="w-full bg-slate-50 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
                               {item.photoResolutionUrl ? (
@@ -1267,11 +1319,16 @@ export default function ReportsPage() {
                                   </span>
                                 )}
                               </p>
-                              {item.resolvedAt && (
-                                <p className="text-[10px] text-slate-500 print:text-slate-700 mt-1">
-                                  Tgl Perbaikan: {formatDate(item.resolvedAt)}
+                              <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
+                                <p>
+                                  Pelaksana Perbaikan: <strong className="text-black font-bold">{item.pic?.name || "-"}</strong>
                                 </p>
-                              )}
+                                {item.resolvedAt && (
+                                  <p className="text-slate-500 print:text-slate-700">
+                                    Tgl Perbaikan: {formatDate(item.resolvedAt)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>

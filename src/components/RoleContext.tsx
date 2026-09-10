@@ -57,6 +57,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleSetCurrentUser = (user: User) => {
+    if (!user || !user.id) return;
     setCurrentUser(user);
     localStorage.setItem("sitetracker_active_user_id", user.id);
     loginUser(user.id).catch((e) => console.warn("Failed to set session cookie:", e));

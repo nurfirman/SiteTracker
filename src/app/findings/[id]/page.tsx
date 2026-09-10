@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Finding } from "@/types";
-import { getFindingById, validateFinding, resolveFinding } from "@/lib/actions";
+import { getFindingById, validateFinding, resolveFinding, updateFinding, getUsers } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { PhotoUploader } from "@/components/PhotoUploader";
+import { GpsButton } from "@/components/GpsButton";
 import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -22,6 +23,9 @@ import {
   AlertTriangle,
   Sparkles,
   Send,
+  Pencil,
+  X,
+  Save,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,6 +37,20 @@ export default function FindingDetailPage() {
   const id = params?.id as string;
   const [finding, setFinding] = useState<Finding | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Edit Modal State (Poin 1)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCategory, setEditCategory] = useState<string>("K3_SAFETY");
+  const [editCustomCategory, setEditCustomCategory] = useState<string>("");
+  const [editInspectionDate, setEditInspectionDate] = useState<string>("");
+  const [editDescription, setEditDescription] = useState<string>("");
+  const [editLocationDetail, setEditLocationDetail] = useState<string>("");
+  const [editCoordinates, setEditCoordinates] = useState<string>("");
+  const [editPicId, setEditPicId] = useState<string>("");
+  const [editPhotoFindingUrl, setEditPhotoFindingUrl] = useState<string>("");
+  const [availablePics, setAvailablePics] = useState<any[]>([]);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // PIC inline form state
   const [showPicForm, setShowPicForm] = useState(false);
@@ -63,6 +81,69 @@ export default function FindingDetailPage() {
   useEffect(() => {
     loadDetail();
   }, [id]);
+
+  const openEditModal = async () => {
+    if (!finding) return;
+    const isCustom = !["K3_SAFETY", "QUALITY", "KEBERSIHAN_5R", "SCHEDULE", "MATERIAL"].includes(finding.category);
+    setEditCategory(isCustom ? "CUSTOM" : finding.category);
+    setEditCustomCategory(isCustom ? finding.category : "");
+    const rawDate = finding.inspectionDate || finding.createdAt;
+    const dateStr = rawDate
+      ? (typeof rawDate === "string" ? rawDate.split("T")[0] : new Date(rawDate).toISOString().split("T")[0])
+      : new Date().toISOString().split("T")[0];
+    setEditInspectionDate(dateStr);
+    setEditDescription(finding.description || "");
+    setEditLocationDetail(finding.locationDetail || "");
+    setEditCoordinates(finding.coordinates || "");
+    setEditPicId(finding.picId || "");
+    setEditPhotoFindingUrl(finding.photoFindingUrl || "");
+    setEditError(null);
+
+    try {
+      const pics = await getUsers(finding.projectId, "PIC");
+      setAvailablePics(pics);
+    } catch (e) {
+      console.error("Gagal memuat daftar PIC:", e);
+    }
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!finding) return;
+    setEditError(null);
+
+    const finalCategory = editCategory === "CUSTOM" ? editCustomCategory.trim() : editCategory;
+    if (editCategory === "CUSTOM" && !finalCategory) {
+      setEditError("Nama kategori patroli custom wajib diisi.");
+      return;
+    }
+
+    setSubmittingEdit(true);
+    try {
+      const res = await updateFinding({
+        findingId: finding.id,
+        category: finalCategory as any,
+        description: editDescription.trim() || "Hanya Foto Patroli Lapangan",
+        locationDetail: editLocationDetail.trim() || "-",
+        coordinates: editCoordinates,
+        photoFindingUrl: editPhotoFindingUrl || finding.photoFindingUrl,
+        picId: editPicId || finding.picId,
+        inspectionDate: editInspectionDate,
+      });
+
+      if (res.success) {
+        setShowEditModal(false);
+        await loadDetail();
+      } else {
+        setEditError(res.message || "Gagal mengedit data temuan.");
+      }
+    } catch (err: any) {
+      setEditError("Terjadi kesalahan sistem: " + err.message);
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
 
   const handlePicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,10 +208,16 @@ export default function FindingDetailPage() {
     );
   }
 
+  const canEdit = currentUser.role !== "PIC" && currentUser.role !== "PENDING";
+  const canVerify = finding.status === "RESOLVED" && (
+    currentUser.id === finding.reporterId ||
+    ["PM", "GM", "BOD", "ADMIN", "Advisor"].includes(currentUser.role)
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300 pb-12">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <Link
           href="/findings"
           className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
@@ -138,7 +225,17 @@ export default function FindingDetailPage() {
           <ArrowLeft size={18} /> Semua Temuan
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {canEdit && (
+            <button
+              onClick={openEditModal}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/60 border border-violet-300 dark:border-violet-800 rounded-xl hover:bg-violet-100 transition-colors shadow-xs"
+              title="Edit Data Temuan"
+            >
+              <Pencil size={13} />
+              <span>Edit Temuan</span>
+            </button>
+          )}
           <span className="font-mono text-xs font-black px-3 py-1 bg-slate-900 text-white rounded-lg">
             {finding.ticketCode}
           </span>
@@ -426,40 +523,45 @@ export default function FindingDetailPage() {
                   disabled={submittingPic || !picResponse.trim() || (hasPhoto && !photoResolutionUrl) || (!hasPhoto && !noPhotoReason.trim())}
                   className="px-6 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md disabled:opacity-50"
                 >
-                  {submittingPic ? "Menyimpan..." : "Kirim Respon & Selesaikan Tiket (CLOSED)"}
+                  {submittingPic ? "Menyimpan..." : "Kirim Respon Perbaikan (RESOLVED - Menunggu Verifikasi)"}
                 </button>
               </div>
             </form>
           )}
 
-          {/* PM Approve / Reject Controls */}
+          {/* PM / Reporter Verification Controls (Poin 2) */}
           {finding.status === "RESOLVED" && !showRejectForm && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-slate-600 dark:text-slate-300">
-                Tiket ini berstatus 🟡 <strong>RESOLVED</strong>. Project Manager (PM) dapat memverifikasi perbaikan.
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-50/80 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800">
+              <div className="text-sm text-slate-700 dark:text-slate-300">
+                Tiket ini berstatus 🟡 <strong>RESOLVED (Telah Diperbaiki PIC)</strong>.
+                {canVerify
+                  ? " Sebagai Pelapor atau Project Manager / Management, silakan tinjau foto perbaikan di atas dan berikan verifikasi:"
+                  : ` Menunggu verifikasi dari Pelapor (${finding.reporter?.name || "CMD"}) atau Project Manager.`}
               </div>
 
-              <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowRejectForm(true)}
-                  disabled={submittingPm}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-bold text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded-2xl transition-all"
-                >
-                  <XCircle size={20} />
-                  <span>Tolak / Perbaikan Ulang</span>
-                </button>
+              {canVerify && (
+                <div className="flex flex-wrap gap-3 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectForm(true)}
+                    disabled={submittingPm}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] text-sm font-bold text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded-2xl transition-all"
+                  >
+                    <XCircle size={18} />
+                    <span>Tolak / Perbaikan Ulang</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handlePmApprove}
-                  disabled={submittingPm}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-lg transition-all"
-                >
-                  <CheckCircle2 size={20} />
-                  <span>Setujui & Selesaikan (CLOSED)</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handlePmApprove}
+                    disabled={submittingPm}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-lg transition-all"
+                  >
+                    <CheckCircle2 size={18} />
+                    <span>Setujui & Selesaikan (CLOSED)</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -500,12 +602,175 @@ export default function FindingDetailPage() {
             <div className="p-4 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-900 dark:text-emerald-200 text-sm font-bold rounded-2xl flex items-center gap-3">
               <CheckCircle2 size={24} className="text-emerald-600" />
               <div>
-                Tiket ini telah 🟢 <strong>CLOSED (Selesai & Diverifikasi)</strong>. Seluruh perbaikan telah tuntas disetujui PM.
+                Tiket ini telah 🟢 <strong>CLOSED (Selesai & Diverifikasi)</strong>. Seluruh perbaikan telah tuntas disetujui.
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal Edit Temuan (Poin 1) */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-r from-slate-900 to-violet-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center text-white">
+                  <Pencil size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black">Edit Data Temuan Patroli</h3>
+                  <p className="text-xs text-slate-300">Tiket: {finding.ticketCode}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {editError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-300 rounded-xl text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              {/* Tanggal Inspeksi */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Calendar size={14} className="text-violet-600" />
+                  Tanggal Inspeksi Lapangan *
+                </label>
+                <input
+                  type="date"
+                  value={editInspectionDate}
+                  onChange={(e) => setEditInspectionDate(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Kategori */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Kategori Temuan *
+                </label>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="K3_SAFETY">🛡️ K3 / Keselamatan Kerja</option>
+                  <option value="QUALITY">🏗️ Kualitas Pekerjaan</option>
+                  <option value="KEBERSIHAN_5R">🧹 Kebersihan 5R</option>
+                  <option value="SCHEDULE">⏱️ Jadwal & Progres</option>
+                  <option value="MATERIAL">📦 Material & Logistik</option>
+                  <option value="CUSTOM">✏️ Kategori Lainnya (Custom)</option>
+                </select>
+                {editCategory === "CUSTOM" && (
+                  <input
+                    type="text"
+                    value={editCustomCategory}
+                    onChange={(e) => setEditCustomCategory(e.target.value)}
+                    placeholder="Tulis nama kategori custom..."
+                    required
+                    className="w-full mt-2 px-3 py-2 text-xs rounded-lg border border-violet-300 bg-violet-50 dark:bg-violet-950/40 text-slate-900 dark:text-white"
+                  />
+                )}
+              </div>
+
+              {/* PIC */}
+              {availablePics.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                    PIC Penanggung Jawab
+                  </label>
+                  <select
+                    value={editPicId}
+                    onChange={(e) => setEditPicId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  >
+                    {availablePics.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Rincian Lokasi */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex justify-between">
+                  <span>Rincian Lokasi Spesifik</span>
+                  <span className="text-[11px] font-normal text-slate-500">(Opsional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editLocationDetail}
+                  onChange={(e) => setEditLocationDetail(e.target.value)}
+                  placeholder="Contoh: Lantai 3 - Area Kolom Selatan"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Koordinat GPS */}
+              <GpsButton value={editCoordinates} onChange={(coords) => setEditCoordinates(coords)} />
+
+              {/* Ganti Foto Temuan (Opsional) */}
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                <PhotoUploader
+                  label="Foto Temuan (Awal) *"
+                  description="Ganti foto atau edit anotasi jika diperlukan."
+                  value={editPhotoFindingUrl}
+                  onChange={(url) => setEditPhotoFindingUrl(url)}
+                  allowAnnotation={true}
+                />
+              </div>
+
+              {/* Deskripsi Temuan */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex justify-between">
+                  <span>Deskripsi Temuan Lapangan</span>
+                  <span className="text-[11px] font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patroli Lapangan&quot;)</span>
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Deskripsi temuan..."
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingEdit}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-black text-white bg-violet-600 hover:bg-violet-700 rounded-xl shadow-md disabled:opacity-50"
+                >
+                  <Save size={16} />
+                  <span>{submittingEdit ? "Menyimpan..." : "Simpan Perubahan"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

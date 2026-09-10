@@ -1,4 +1,4 @@
-export type Role = "CMD" | "PIC" | "SM" | "PM" | "GM" | "BOD" | "ADMIN" | "PENDING";
+export type Role = "CMD" | "PIC" | "SM" | "PM" | "GM" | "BOD" | "ADMIN" | "PENDING" | "Advisor" | (string & {});
 
 export type Category = 
   | "K3_SAFETY" 
@@ -29,6 +29,7 @@ export interface User {
   email: string;
   role: Role;
   phoneNumber: string;
+  employeeCode?: string | null;
   password?: string;
   projectId?: string | null;
   projectIds?: string[];
@@ -44,10 +45,10 @@ export interface Finding {
   pic?: User;
   reporterId: string;
   reporter?: User;
-  locationDetail: string;
+  locationDetail?: string | null;
   coordinates?: string | null;
   category: Category;
-  description: string;
+  description?: string | null;
   photoFindingUrl: string;
   status: FindingStatus;
   picResponse?: string | null;
@@ -153,5 +154,31 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     badgeClass: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800",
     description: "Akun baru terdaftar. Menunggu administrator menentukan role dan proyek penugasan.",
   },
+  Advisor: {
+    label: "Advisor / Penasihat Teknis",
+    badgeClass: "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800",
+    description: "Akses Penasihat: Pengawasan teknis, mencatat temuan independen, dan evaluasi kepatuhan.",
+  },
 };
+
+export interface AuditLogEntry {
+  id: string;
+  userId?: string | null;
+  userName: string;
+  userRole: string;
+  action: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  details?: string | null;
+  ipAddress?: string | null;
+  createdAt: string | Date;
+}
+
+export interface SystemSettingData {
+  reportLogoUrl?: string;
+  companyName?: string;
+  rbacPermissions?: Record<string, Record<string, boolean>>;
+  customRoles?: string[];
+}
+
 

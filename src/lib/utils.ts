@@ -44,12 +44,38 @@ export function formatDate(dateInput: string | Date | null | undefined): string 
   }).format(date) + " WIB";
 }
 
-export function generateTicketCode(existingCount: number = 0): string {
-  const year = new Date().getFullYear();
-  const sequence = String(existingCount + 1).padStart(3, "0");
-  const randomSuffix = Math.floor(100 + Math.random() * 900); // 3-digit random number to prevent race conditions
-  return `CMD-${year}-${sequence}-${randomSuffix}`;
+/**
+ * Menghasilkan Kode Employee dengan format PXXXXX (prefix P diikuti 5 digit nomor urut karyawan)
+ */
+export function formatEmployeeCode(userIndex: number = 1): string {
+  return `P${String(userIndex).padStart(5, "0")}`;
 }
+
+/**
+ * Menghasilkan Nomor Temuan berurutan tanpa reset dengan format: EEE-DDD-XXXX
+ * EEE: Kode Employee (misal P00001)
+ * DDD: Kode Divisi Proyek / Pelapor (misal BGG, INF, EPC, CMD)
+ * XXXX: 4 digit nomor urut temuan berurutan (0001, 0002...)
+ */
+export function formatTicketCode(
+  employeeCode: string = "P00001",
+  divisionCode: string = "CMD",
+  sequenceNumber: number = 1
+): string {
+  const cleanEmp = (employeeCode || "P00001").trim().toUpperCase();
+  const cleanDiv = (divisionCode || "CMD").trim().toUpperCase();
+  const seqStr = String(sequenceNumber).padStart(4, "0");
+  return `${cleanEmp}-${cleanDiv}-${seqStr}`;
+}
+
+export function generateTicketCode(
+  existingCount: number = 0,
+  employeeCode: string = "P00001",
+  divisionCode: string = "CMD"
+): string {
+  return formatTicketCode(employeeCode, divisionCode, existingCount + 1);
+}
+
 
 /**
  * Menambahkan hari kerja (business days) dengan melewatkan Sabtu dan Minggu

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRole } from "@/components/RoleContext";
-import { User, Role, ROLE_LABELS, Project, Category, Finding } from "@/types";
+import { User, Role, ROLE_LABELS, Project, Category, Finding, AuditLogEntry } from "@/types";
 import {
   getUsers,
   getProjects,
@@ -19,6 +19,11 @@ import {
   importProjectsAndPicsFromCsv,
   ImportProjectPicReport,
   adminResetUserPassword,
+  getAuditLogs,
+  getSystemSettings,
+  updateSystemSettings,
+  getRolePermissions,
+  updateRolePermissions,
 } from "@/lib/actions";
 import { MASTER_DIVISIONS, getDivisionCode } from "@/constants/divisions";
 import {
@@ -57,6 +62,11 @@ import {
   Download,
   FileUp,
   Check,
+  Image as ImageIcon,
+  Search,
+  Filter,
+  RotateCcw,
+  Activity,
 } from "lucide-react";
 
 interface CategoryConfig {
@@ -69,7 +79,7 @@ interface CategoryConfig {
 
 export default function AdminSettingsPage() {
   const { currentUser } = useRole();
-  const [activeTab, setActiveTab] = useState<"projects_pics" | "divisions" | "categories" | "matrix" | "users" | "settings">("projects_pics");
+  const [activeTab, setActiveTab] = useState<"projects_pics" | "divisions" | "categories" | "matrix" | "users" | "audit_log" | "settings">("projects_pics");
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -79,6 +89,31 @@ export default function AdminSettingsPage() {
     mode: "Loading...",
   });
   const [seeding, setSeeding] = useState(false);
+
+  // Audit Logs State (Poin 4)
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditActionFilter, setAuditActionFilter] = useState<string>("ALL");
+  const [auditSearch, setAuditSearch] = useState<string>("");
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Custom Logo State (Poin 3)
+  const [reportLogoUrl, setReportLogoUrl] = useState<string>("/logo.png");
+  const [savingLogo, setSavingLogo] = useState(false);
+
+  // Editable RBAC State (Poin 11 & 16)
+  const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>({
+    CMD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    PIC: { canCreateFinding: false, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    SM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
+    PM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    GM: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    BOD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    Advisor: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    ADMIN: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: true },
+  });
+  const [savingRbac, setSavingRbac] = useState(false);
+  const [showAddRoleModal, setShowAddRoleModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
 
   // Clear Findings State
   const [showClearModal, setShowClearModal] = useState(false);
@@ -141,18 +176,24 @@ export default function AdminSettingsPage() {
 
   const loadAdminData = async () => {
     try {
-      const [uList, pList, fList, status, catList] = await Promise.all([
+      const [uList, pList, fList, status, catList, settings, perms, logs] = await Promise.all([
         getUsers(),
         getProjects(),
         getFindings(),
         getDatabaseStatus(),
         getCategorySettings(),
+        getSystemSettings(),
+        getRolePermissions(),
+        getAuditLogs({ limit: 100 }),
       ]);
       setUsers(uList);
       setProjects(pList);
       setFindings(fList);
       setDbStatus(status);
       setCategories(catList);
+      if (settings?.reportLogoUrl) setReportLogoUrl(settings.reportLogoUrl);
+      if (perms?.matrix) setRolePermissions(perms.matrix);
+      if (logs) setAuditLogs(logs);
       if (pList.length > 0 && !newPicProjectId) {
         setNewPicProjectId(pList[0].id);
       }
@@ -392,7 +433,7 @@ export default function AdminSettingsPage() {
     if (!assignTargetUser) return;
     setAssignSubmitting(true);
     try {
-      const isGlobalRole = ["CMD", "GM", "BOD", "ADMIN"].includes(assignRole);
+      const isGlobalRole = ["CMD", "GM", "BOD", "ADMIN", "Advisor"].includes(assignRole);
       const res = await updateUserRoleAndProject(
         assignTargetUser.id,
         assignRole,
@@ -413,68 +454,138 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Matrix definition
-  const permissionMatrix = [
+  // Logo Handlers (Poin 3)
+  const handleSaveLogo = async () => {
+    setSavingLogo(true);
+    try {
+      const res = await updateSystemSettings({ reportLogoUrl: reportLogoUrl.trim() || "/logo.png" });
+      if (res.success) {
+        showToast(res.message || "Logo laporan berhasil diperbarui!");
+      } else {
+        showToast(res.message || "Gagal menyimpan logo.", "error");
+      }
+    } catch (e: any) {
+      showToast("Terjadi kesalahan: " + e.message, "error");
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Berkas harus berupa gambar (PNG, JPG, SVG, WebP).", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result as string;
+      if (dataUrl) {
+        setReportLogoUrl(dataUrl);
+        showToast("Logo berhasil dipilih. Klik 'Simpan Logo Laporan' untuk menerapkan.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Audit Logs Refresh (Poin 4)
+  const handleRefreshAudit = async () => {
+    setLoadingAudit(true);
+    try {
+      const logs = await getAuditLogs({
+        action: auditActionFilter === "ALL" ? undefined : auditActionFilter,
+        search: auditSearch.trim() || undefined,
+        limit: 100,
+      });
+      setAuditLogs(logs);
+    } catch (e) {
+      console.error("Gagal refresh audit logs:", e);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  // Editable RBAC Handlers (Poin 11 & 16)
+  const togglePermission = (role: string, permKey: string) => {
+    if (role === "PIC" && permKey === "canCreateFinding") {
+      showToast("Role PIC secara baku tidak diizinkan membuat temuan patroli.", "error");
+      return;
+    }
+    setRolePermissions((prev) => ({
+      ...prev,
+      [role]: {
+        ...prev[role],
+        [permKey]: !prev[role]?.[permKey],
+      },
+    }));
+  };
+
+  const handleSaveRbac = async () => {
+    setSavingRbac(true);
+    try {
+      const res = await updateRolePermissions(rolePermissions);
+      if (res.success) {
+        showToast(res.message || "Matriks hak akses (RBAC) berhasil disimpan!");
+      } else {
+        showToast(res.message || "Gagal menyimpan RBAC.", "error");
+      }
+    } catch (e: any) {
+      showToast(e.message || "Terjadi kesalahan.", "error");
+    } finally {
+      setSavingRbac(false);
+    }
+  };
+
+  const handleAddCustomRole = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = newRoleName.trim().replace(/\s+/g, "_");
+    if (!cleaned) return;
+    if (rolePermissions[cleaned]) {
+      showToast("Role dengan nama tersebut sudah ada.", "error");
+      return;
+    }
+
+    setRolePermissions((prev) => ({
+      ...prev,
+      [cleaned]: {
+        canCreateFinding: true,
+        canResolveFinding: false,
+        canVerifyFinding: false,
+        canDownloadReport: true,
+        canManageAdmin: false,
+      },
+    }));
+    setNewRoleName("");
+    setShowAddRoleModal(false);
+    showToast(`Role baru '${cleaned}' berhasil ditambahkan ke matriks! Jangan lupa klik 'Simpan Perubahan RBAC'.`);
+  };
+
+  const PERMISSION_FEATURES = [
     {
-      feature: "Cakupan Visibilitas Kasus & Proyek",
-      description: "Wewenang melihat daftar temuan lintas proyek konstruksi",
-      cmd: "Semua Proyek (Global)",
-      pic: "Terisolasi Proyeknya Saja",
-      sm: "Multi-Proyek Binaan",
-      pm: "Multi-Proyek Utama",
-      bod: "Semua Proyek (Global)",
-      admin: "Semua Proyek (Master)",
-      isBadgeRow: true,
+      key: "canCreateFinding",
+      name: "1. Pencatatan Temuan Baru (/findings/new)",
+      description: "Mengambil foto temuan, input GPS, dan menerbitkan tiket OPEN. Khusus PIC dilarang menerbitkan temuan.",
     },
     {
-      feature: "Pencatatan Temuan Baru (/findings/new)",
-      description: "Mengambil foto temuan, input GPS, dan menerbitkan tiket OPEN",
-      cmd: true,
-      pic: false,
-      sm: true,
-      pm: true,
-      bod: true,
-      admin: true,
+      key: "canResolveFinding",
+      name: "2. Tindak Lanjut & Upload Bukti (/pic/tasks)",
+      description: "Mengunggah foto sesudah perbaikan dan mengisi respon tindakan perbaikan PIC.",
     },
     {
-      feature: "Tindak Lanjut & Upload Bukti (/pic/tasks)",
-      description: "Mengunggah foto sesudah perbaikan dan mengisi respon PIC",
-      cmd: false,
-      pic: true,
-      sm: true,
-      pm: true,
-      bod: false,
-      admin: true,
+      key: "canVerifyFinding",
+      name: "3. Verifikasi Side-by-Side (Approve / Reject)",
+      description: "Otoritas memvalidasi perbaikan dan menutup tiket (CLOSED) atau mengembalikan untuk perbaikan ulang (revisi ke OPEN).",
     },
     {
-      feature: "Verifikasi Side-by-Side (Approve / Reject)",
-      description: "Otoritas memvalidasi perbaikan dan menutup tiket (CLOSED) atau revisi",
-      cmd: false,
-      pic: false,
-      sm: false,
-      pm: true,
-      bod: true,
-      admin: true,
+      key: "canDownloadReport",
+      name: "4. Cetak Rekapitulasi & Ekspor Laporan (/reports)",
+      description: "Menghasilkan dokumen resmi ISO 45001 berlogo perusahaan dan distribusi laporan.",
     },
     {
-      feature: "Cetak Rekapitulasi & Ekspor Laporan (/reports)",
-      description: "Menghasilkan dokumen resmi ISO 45001 dan distribusi email",
-      cmd: true,
-      pic: true,
-      sm: true,
-      pm: true,
-      bod: true,
-      admin: true,
-    },
-    {
-      feature: "Pengisian Master Proyek, PIC & Kategori (/admin)",
-      description: "Menambahkan proyek baru, penugasan PIC, dan setting parameter kategori",
-      cmd: false,
-      pic: false,
-      sm: false,
-      pm: false,
-      bod: false,
-      admin: true,
+      key: "canManageAdmin",
+      name: "5. Akses Manajemen Portal Admin (/admin)",
+      description: "Menambahkan proyek baru, penugasan PIC, audit log, custom logo, dan konfigurasi sistem.",
     },
   ];
 
@@ -607,6 +718,18 @@ export default function AdminSettingsPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab("audit_log")}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
+            activeTab === "audit_log"
+              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+          }`}
+        >
+          <FileSpreadsheet size={18} />
+          <span>Audit Log Aktivitas ({auditLogs.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab("settings")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${
             activeTab === "settings"
@@ -615,7 +738,7 @@ export default function AdminSettingsPage() {
           }`}
         >
           <Sliders size={18} />
-          <span>Sistem & Database</span>
+          <span>Sistem & Logo Laporan</span>
         </button>
       </div>
 
@@ -990,152 +1113,136 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* TAB 3: MATRIKS HAK AKSES PERAN (RBAC) */}
+      {/* TAB 3: MATRIKS HAK AKSES PERAN (RBAC) - EDITABLE (Poin 11 & 16) */}
       {activeTab === "matrix" && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-100 dark:bg-violet-950/60 border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-xs font-black rounded-full mb-1">
+                <ShieldCheck size={13} /> RBAC Matrix Dinamis & Interaktif
+              </div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                Matriks Hak Akses & Izin Peran (User Matrix)
+                Matriks Hak Akses & Wewenang Peran (Editable RBAC)
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Tabel aturan hak akses untuk CMD, PIC, SM, PM, BOD, dan Administrator.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Klik ikon untuk mengaktifkan atau menonaktifkan hak akses setiap peran secara langsung. Khusus peran PIC dikunci tidak boleh membuat temuan.
               </p>
             </div>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-bold rounded-lg">
-              <CheckCircle2 size={14} /> Server RBAC Enforced
-            </span>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewRoleName("");
+                  setShowAddRoleModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-300 dark:border-slate-700 transition-all active:scale-95"
+              >
+                <PlusCircle size={15} />
+                <span>+ Tambah Role Baru</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveRbac}
+                disabled={savingRbac}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-lg shadow-violet-500/25 disabled:opacity-50 transition-all active:scale-95"
+              >
+                <Save size={15} />
+                <span>{savingRbac ? "Menyimpan RBAC..." : "Simpan Perubahan RBAC"}</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white font-black">
-                  <th className="p-4 rounded-l-2xl min-w-[220px]">Fitur & Aturan Wewenang</th>
-                  <th className="p-4 text-center min-w-[120px]">CMD (Inspector)</th>
-                  <th className="p-4 text-center min-w-[120px]">PIC (Proyek)</th>
-                  <th className="p-4 text-center min-w-[130px]">SM / PM</th>
-                  <th className="p-4 text-center min-w-[140px]">GM / DivHead / DepMan</th>
-                  <th className="p-4 text-center min-w-[120px]">BOD (Direksi)</th>
-                  <th className="p-4 text-center rounded-r-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 min-w-[120px]">
-                    ADMIN (SuperAdmin)
-                  </th>
+                  <th className="p-4 rounded-l-2xl min-w-[240px]">Fitur & Aturan Izin Akses</th>
+                  {Object.keys(rolePermissions).map((r) => (
+                    <th
+                      key={r}
+                      className={`p-4 text-center min-w-[120px] ${
+                        r === "ADMIN" ? "rounded-r-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 font-black" : ""
+                      }`}
+                    >
+                      <span className="block">{r}</span>
+                      <span className="text-[10px] font-normal text-slate-400 block">
+                        {r === "PIC"
+                          ? "Subkontraktor"
+                          : r === "Advisor"
+                          ? "Advisor Teknis"
+                          : r === "CMD"
+                          ? "Inspector"
+                          : r === "ADMIN"
+                          ? "SuperAdmin"
+                          : "Manajemen"}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {permissionMatrix.map((item, idx) => (
-                  <tr key={idx} className={item.isBadgeRow ? "bg-purple-50/50 dark:bg-purple-950/20" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"}>
+                {PERMISSION_FEATURES.map((feat) => (
+                  <tr key={feat.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="p-4">
-                      <p className="font-extrabold text-sm text-slate-900 dark:text-white">{item.feature}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{item.description}</p>
+                      <p className="font-extrabold text-sm text-slate-900 dark:text-white">{feat.name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{feat.description}</p>
                     </td>
 
-                    {/* CMD */}
-                    <td className="p-4 text-center">
-                      {typeof item.cmd === "string" ? (
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg font-bold text-[10px]">
-                          {item.cmd}
-                        </span>
-                      ) : item.cmd ? (
-                        <span className="inline-flex p-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
+                    {Object.keys(rolePermissions).map((role) => {
+                      const isEnabled = !!rolePermissions[role]?.[feat.key];
 
-                    {/* PIC */}
-                    <td className="p-4 text-center">
-                      {typeof item.pic === "string" ? (
-                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-200 rounded-lg font-bold text-[10px]">
-                          {item.pic}
-                        </span>
-                      ) : item.pic ? (
-                        <span className="inline-flex p-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
+                      // Special Rule Poin 11: PIC CANNOT CREATE FINDING
+                      if (role === "PIC" && feat.key === "canCreateFinding") {
+                        return (
+                          <td key={role} className="p-4 text-center">
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-xl text-[10px] font-black border border-red-200 dark:border-red-900"
+                              title="Role PIC dibatasi dan dilarang menerbitkan temuan patroli baru"
+                            >
+                              <Lock size={12} /> Dilarang (PIC)
+                            </span>
+                          </td>
+                        );
+                      }
 
-                    {/* SM */}
-                    <td className="p-4 text-center">
-                      {typeof item.sm === "string" ? (
-                        <span className="px-2 py-1 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-200 rounded-lg font-bold text-[10px]">
-                          {item.sm}
-                        </span>
-                      ) : item.sm ? (
-                        <span className="inline-flex p-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
-
-                    {/* PM */}
-                    <td className="p-4 text-center">
-                      {typeof item.pm === "string" ? (
-                        <span className="px-2 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 rounded-lg font-bold text-[10px]">
-                          {item.pm}
-                        </span>
-                      ) : item.pm ? (
-                        <span className="inline-flex p-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
-
-                    {/* BOD */}
-                    <td className="p-4 text-center">
-                      {typeof item.bod === "string" ? (
-                        <span className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-lg font-bold text-[10px]">
-                          {item.bod}
-                        </span>
-                      ) : item.bod ? (
-                        <span className="inline-flex p-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
-
-                    {/* ADMIN */}
-                    <td className="p-4 text-center bg-violet-500/5">
-                      {typeof item.admin === "string" ? (
-                        <span className="px-2 py-1 bg-violet-600 text-white rounded-lg font-bold text-[10px]">
-                          {item.admin}
-                        </span>
-                      ) : item.admin ? (
-                        <span className="inline-flex p-1.5 bg-violet-600 text-white rounded-xl shadow-xs">
-                          <CheckCircle2 size={18} />
-                        </span>
-                      ) : (
-                        <span className="inline-flex p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl">
-                          <XCircle size={18} />
-                        </span>
-                      )}
-                    </td>
+                      return (
+                        <td key={role} className={`p-4 text-center ${role === "ADMIN" ? "bg-violet-500/5" : ""}`}>
+                          <button
+                            type="button"
+                            onClick={() => togglePermission(role, feat.key)}
+                            className={`p-2 rounded-xl border transition-all active:scale-95 ${
+                              isEnabled
+                                ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                            }`}
+                            title={`Ubah status izin '${feat.name}' untuk role '${role}'`}
+                          >
+                            {isEnabled ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                          </button>
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <Info size={14} className="text-violet-600" />
+              <span>Perubahan matriks hak akses akan langsung tersimpan ke sistem setelah Anda menekan tombol Simpan.</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleSaveRbac}
+              disabled={savingRbac}
+              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl transition-all shadow-md shrink-0"
+            >
+              {savingRbac ? "Menyimpan..." : "Simpan Perubahan"}
+            </button>
           </div>
         </div>
       )}
@@ -1241,9 +1348,14 @@ export default function AdminSettingsPage() {
                       </button>
                     </div>
 
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                      {u.name}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 bg-slate-900 text-violet-300 font-mono text-[10px] font-bold rounded">
+                        {u.employeeCode || `P${String(users.indexOf(u) + 1).padStart(5, "0")}`}
+                      </span>
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                        {u.name}
+                      </h3>
+                    </div>
                     <p className="text-xs text-slate-500">{u.email}</p>
 
                     {u.project ? (
@@ -1304,9 +1416,285 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
+      {/* TAB 4.5: AUDIT LOG AKTIVITAS (Poin 4) */}
+      {activeTab === "audit_log" && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-100 dark:bg-violet-950/60 border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-xs font-black rounded-full mb-1">
+                <Activity size={13} /> Audit Trail & Compliance Log
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                Rekam Jejak & Audit Log Aktivitas Pengguna
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Merekam otomatis setiap aktivitas dari login/logout, penambahan/perubahan temuan, respon PIC, verifikasi PM, pengiriman laporan, hingga konfigurasi sistem.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRefreshAudit}
+              disabled={loadingAudit}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-300 dark:border-slate-700 transition-all self-start sm:self-auto"
+            >
+              <RotateCcw size={14} className={loadingAudit ? "animate-spin" : ""} />
+              <span>{loadingAudit ? "Memuat Log..." : "Segarkan Log"}</span>
+            </button>
+          </div>
+
+          {/* Filter & Search Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <div className="sm:col-span-2 relative">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={auditSearch}
+                onChange={(e) => setAuditSearch(e.target.value)}
+                placeholder="Cari berdasarkan nama user, email, kode tiket, atau rincian aktivitas..."
+                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 font-medium"
+              />
+            </div>
+
+            <div className="relative">
+              <select
+                value={auditActionFilter}
+                onChange={(e) => setAuditActionFilter(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-violet-500"
+              >
+                <option value="ALL">Semua Aktivitas (All Events)</option>
+                <option value="LOGIN">🔐 Login Akun</option>
+                <option value="LOGOUT">🚪 Logout Akun</option>
+                <option value="CREATE_FINDING">🔴 Buat Temuan Baru</option>
+                <option value="UPDATE_FINDING">✏️ Edit Data Temuan</option>
+                <option value="RESOLVE_FINDING">🟡 Respon Perbaikan PIC</option>
+                <option value="VALIDATE_FINDING">🟢 Verifikasi PM (Approve/Reject)</option>
+                <option value="SEND_REPORT_EMAIL">📧 Kirim Email Laporan</option>
+                <option value="DOWNLOAD_REPORT">📥 Unduh / Export Laporan</option>
+                <option value="UPDATE_SETTINGS">⚙️ Ubah Konfigurasi Sistem</option>
+                <option value="UPDATE_RBAC">🛡️ Ubah Matriks RBAC</option>
+                <option value="UPDATE_USER_ROLE">👤 Ubah Role User</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Audit Logs Table */}
+          {(() => {
+            const filteredLogs = auditLogs.filter((log) => {
+              if (auditActionFilter !== "ALL" && log.action !== auditActionFilter) return false;
+              if (auditSearch.trim()) {
+                const s = auditSearch.toLowerCase();
+                const matchName = log.userName?.toLowerCase().includes(s);
+                const matchEmail = log.userId?.toLowerCase().includes(s);
+                const matchDetails = log.details?.toLowerCase().includes(s);
+                const matchEntity = log.entityId?.toLowerCase().includes(s);
+                if (!matchName && !matchEmail && !matchDetails && !matchEntity) return false;
+              }
+              return true;
+            });
+
+            if (filteredLogs.length === 0) {
+              return (
+                <div className="py-16 text-center text-slate-400 space-y-2">
+                  <Activity size={36} className="mx-auto opacity-30 text-violet-500" />
+                  <p className="text-sm font-bold text-slate-600 dark:text-slate-400">Tidak ada log aktivitas sesuai kriteria pencarian</p>
+                  <p className="text-xs text-slate-400">Seluruh aksi pengguna akan terekam secara otomatis di sini.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 font-black text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="p-3.5 whitespace-nowrap min-w-[150px]">Waktu (WIB)</th>
+                      <th className="p-3.5 min-w-[180px]">Pengguna / Aktor</th>
+                      <th className="p-3.5 min-w-[140px]">Aksi / Event</th>
+                      <th className="p-3.5 min-w-[130px]">Objek / Tiket</th>
+                      <th className="p-3.5 min-w-[280px]">Rincian Aktivitas</th>
+                      <th className="p-3.5 min-w-[100px]">IP / Client</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredLogs.map((log) => {
+                      const getActionBadge = () => {
+                        switch (log.action) {
+                          case "LOGIN":
+                            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300";
+                          case "LOGOUT":
+                            return "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300";
+                          case "CREATE_FINDING":
+                            return "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 border-violet-300";
+                          case "UPDATE_FINDING":
+                            return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300";
+                          case "RESOLVE_FINDING":
+                            return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300";
+                          case "VALIDATE_FINDING":
+                            return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300";
+                          case "SEND_REPORT_EMAIL":
+                            return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300";
+                          case "DOWNLOAD_REPORT":
+                            return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border-cyan-300";
+                          default:
+                            return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300";
+                        }
+                      };
+
+                      const timeStr = new Date(log.createdAt).toLocaleString("id-ID", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      }) + " WIB";
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td className="p-3.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                            {timeStr}
+                          </td>
+                          <td className="p-3.5">
+                            <span className="font-bold text-slate-900 dark:text-white block">{log.userName || "System"}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Role: {log.userRole || "-"}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black border ${getActionBadge()}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="font-mono text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                              {log.entityId || log.entityType || "-"}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+                            {log.details}
+                          </td>
+                          <td className="p-3.5 font-mono text-[10px] text-slate-400">
+                            {log.ipAddress || "127.0.0.1"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* TAB 5: KONFIGURASI SISTEM & DATABASE */}
       {activeTab === "settings" && (
         <div className="space-y-6">
+          {/* Card: Kustomisasi Logo Kop Surat Laporan Patroli (Poin 3) */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-100 dark:bg-violet-950/60 border border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 text-xs font-black rounded-full">
+                  <ImageIcon size={13} /> Kustomisasi Dokumen Laporan (Poin 3)
+                </div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Logo Resmi Kop Laporan Patroli
+                </h3>
+                <p className="text-xs text-slate-500 max-w-xl">
+                  Logo ini akan disematkan pada kop surat halaman cetak laporan patroli K3 & Kualitas Proyek, ekspor PDF, serta pratinjau laporan web.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportLogoUrl("/logo.png");
+                    showToast("Logo dikembalikan ke default.");
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                >
+                  Reset Default
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveLogo}
+                  disabled={savingLogo}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-lg shadow-violet-500/25 disabled:opacity-50 transition-all active:scale-95"
+                >
+                  <Save size={15} />
+                  <span>{savingLogo ? "Menyimpan..." : "Simpan Logo Laporan"}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {/* Logo Settings Form */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    URL Gambar Logo (atau path lokal):
+                  </label>
+                  <input
+                    type="text"
+                    value={reportLogoUrl}
+                    onChange={(e) => setReportLogoUrl(e.target.value)}
+                    placeholder="e.g. /logo.png atau https://example.com/logo.png"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Atau Unggah Berkas Gambar dari Komputer:
+                  </label>
+                  <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl hover:border-violet-500 dark:hover:border-violet-500 cursor-pointer bg-slate-50 dark:bg-slate-800/40 transition-colors">
+                    <Upload size={18} className="text-violet-600" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Pilih Berkas Gambar (PNG, JPG, SVG)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Format gambar optimal: PNG transparan atau SVG dengan tinggi sekitar 60–80px.
+                  </p>
+                </div>
+              </div>
+
+              {/* Visual Preview Box */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Pratinjau Kop Surat Laporan Patroli:
+                </label>
+                <div className="p-4 bg-white dark:bg-slate-950 rounded-2xl border-2 border-slate-200 dark:border-slate-800 shadow-inner flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={reportLogoUrl || "/logo.png"}
+                      alt="Logo Pratinjau"
+                      onError={(e) => {
+                        (e.target as any).src = "/logo.png";
+                      }}
+                      className="h-12 w-auto max-w-[140px] object-contain shrink-0"
+                    />
+                    <div className="border-l pl-3 border-slate-300 dark:border-slate-700 space-y-0.5">
+                      <p className="text-[11px] font-black uppercase text-slate-900 dark:text-white leading-tight">
+                        PT. KONSTRUKSI NUSANTARA JAYA
+                      </p>
+                      <p className="text-[10px] text-slate-500">Quality, Health, Safety & Environment Division</p>
+                    </div>
+                  </div>
+                  <div className="text-right text-[9px] font-mono text-slate-400">
+                    DOC: BGG-26-001<br />ISO 45001:2018
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Card: Pembersihan Data Temuan */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-red-200 dark:border-red-900/50 p-6 sm:p-8 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
@@ -1932,7 +2320,9 @@ export default function AdminSettingsPage() {
             {/* User Info Card */}
             <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400">Informasi Personil:</span>
+                <span className="text-xs font-bold text-slate-400">
+                  Kode Pegawai: <strong className="text-violet-600 dark:text-violet-400 font-mono">{assignTargetUser.employeeCode || `P${String(users.indexOf(assignTargetUser) + 1).padStart(5, "0")}`}</strong>
+                </span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
                   Role Saat Ini: {assignTargetUser.role}
                 </span>
@@ -1961,10 +2351,18 @@ export default function AdminSettingsPage() {
                   <option value="PM">GM / DivHead / DepMan (Manajemen Divisi / Dept)</option>
                   <option value="GM">SecMan (Section Manager)</option>
                   <option value="BOD">BOD (Board of Directors - Pemantau Eksekutif)</option>
+                  <option value="Advisor">Advisor (Konsultan / Advisor Teknis Proyek)</option>
                   <option value="ADMIN">ADMIN (Administrator Sistem)</option>
+                  {Object.keys(rolePermissions)
+                    .filter((r) => !["PIC", "CMD", "SM", "PM", "GM", "BOD", "Advisor", "ADMIN", "PENDING"].includes(r))
+                    .map((customR) => (
+                      <option key={customR} value={customR}>
+                        {customR} (Custom Role)
+                      </option>
+                    ))}
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  {ROLE_LABELS[assignRole]?.description}
+                  {ROLE_LABELS[assignRole]?.description || "Role wewenang operasional"}
                 </p>
               </div>
 
@@ -2259,6 +2657,62 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TAMBAH ROLE BARU (Poin 11) */}
+      {showAddRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <PlusCircle size={20} className="text-violet-600" />
+                <span>Tambah Role Wewenang Baru</span>
+              </h3>
+              <button
+                onClick={() => setShowAddRoleModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCustomRole} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Nama Role Baru (e.g. QA_QC, Safety_Officer, Konsultan):
+                </label>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="Contoh: QA_QC atau Auditor_Eksternal"
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Role baru akan otomatis muncul di kolom matriks RBAC dan dapat diatur izin aksesnya secara granular.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddRoleModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newRoleName.trim()}
+                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
+                >
+                  Tambahkan ke Matriks
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

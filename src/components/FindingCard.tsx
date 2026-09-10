@@ -95,33 +95,23 @@ export function FindingCard({
 
       {/* Card Action Buttons */}
       <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex gap-2">
-        {onOpenSideBySide && (
-          <button
-            onClick={() => onOpenSideBySide(finding)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-xs transition-all dark:bg-slate-800 dark:text-white dark:border-slate-700 dark:hover:bg-slate-700"
-          >
-            <Eye size={16} />
-            <span>Lihat Foto Perbandingan</span>
-          </button>
-        )}
+        <Link
+          href={`/findings/${finding.id}`}
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] text-xs font-extrabold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-xs transition-all dark:bg-slate-800 dark:text-white dark:border-slate-700 dark:hover:bg-slate-700"
+        >
+          <span>Buka Detail Temuan</span>
+          <ArrowRight size={15} />
+        </Link>
 
         {currentUserRole === "PIC" && finding.status === "OPEN" && onQuickResolve && (
           <button
             onClick={() => onQuickResolve(finding)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-xl shadow-md shadow-violet-500/25 transition-all active:scale-95"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-xl shadow-md shadow-violet-500/25 transition-all active:scale-95"
           >
             <CheckSquare size={16} />
             <span>Tindak Lanjuti</span>
           </button>
         )}
-
-        <Link
-          href={`/findings/${finding.id}`}
-          className="inline-flex items-center justify-center p-2.5 min-h-[44px] text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all dark:text-slate-300 dark:hover:bg-slate-700"
-          title="Buka Detail Lengkap"
-        >
-          <ArrowRight size={18} />
-        </Link>
       </div>
     </div>
   );
