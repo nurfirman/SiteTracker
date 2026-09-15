@@ -50,9 +50,11 @@ export interface Finding {
   category: Category;
   description?: string | null;
   photoFindingUrl: string;
+  photoFindingUrls?: string[];
   status: FindingStatus;
   picResponse?: string | null;
   photoResolutionUrl?: string | null;
+  photoResolutionUrls?: string[];
   hasResolutionPhoto?: boolean;
   noPhotoReason?: string | null;
   rejectionNote?: string | null;
@@ -62,6 +64,26 @@ export interface Finding {
   dueDate?: string | Date | null;
   resolvedAt?: string | Date | null;
   closedAt?: string | Date | null;
+}
+
+export interface BulkFindingItemInput {
+  category: Category;
+  locationDetail?: string;
+  description?: string;
+  photoFindingUrls: string[];
+  picId?: string;
+}
+
+export interface CreateBulkPatrolInput {
+  projectId: string;
+  inspectionDate: string;
+  inspectionType: InspectionType;
+  inspectorName?: string;
+  presentInspectors?: string;
+  siteManagerName?: string;
+  defaultPicId?: string;
+  reportNumber?: string;
+  items: BulkFindingItemInput[];
 }
 
 export type InspectionType = "ROUTINE" | "MIDDLE" | "FINAL" | "JOINT";

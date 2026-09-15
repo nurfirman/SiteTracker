@@ -86,6 +86,12 @@ export function Sidebar() {
         highlight: true,
         badge: currentUser.role === "CMD" ? "Inspector" : undefined,
       });
+      operationalItems.push({
+        href: "/findings/bulk",
+        label: "Input Patroli Bulk",
+        icon: Layers,
+        badge: "Master-Detail",
+      });
     }
 
     // Findings List

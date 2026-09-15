@@ -1,9 +1,9 @@
 "use server";
 
-import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData } from "../types";
+import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolInput, BulkFindingItemInput } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
-import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate } from "./utils";
+import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate, formatPhotoUrls, parsePhotoUrls } from "./utils";
 import { setSession, getSession, destroySession, requireAuth, SessionData } from "./auth";
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
@@ -3280,6 +3280,255 @@ export async function updateRolePermissions(
     return { success: true, message: "Matriks hak akses peran (RBAC) berhasil diperbarui." };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal memperbarui matriks RBAC." };
+  }
+}
+
+/**
+ * Server action untuk input laporan patroli secara bulk / master-detail.
+ * Menyimpan record master PatrolReport dan banyak record Finding sekaligus dalam satu proses.
+ */
+export async function createBulkPatrolFindings(
+  payload: CreateBulkPatrolInput
+): Promise<{
+  success: boolean;
+  message?: string;
+  reportNumber?: string;
+  findingsCount?: number;
+  report?: PatrolReport;
+  findings?: Finding[];
+}> {
+  try {
+    // 0. Enforce role authorization: PIC dan PENDING dilarang mencatat temuan
+    const session = await getSession();
+    if (!session || session.role === "PIC" || session.role === "PENDING") {
+      return {
+        success: false,
+        message: "Akses ditolak: PIC dan PENDING tidak diizinkan mencatat temuan patroli.",
+      };
+    }
+
+    if (!payload.projectId) {
+      return { success: false, message: "Mohon pilih proyek lokasi patroli." };
+    }
+
+    if (!payload.items || payload.items.length === 0) {
+      return { success: false, message: "Mohon tambahkan minimal 1 item temuan dalam laporan patroli." };
+    }
+
+    // Validasi setiap item
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      if (!item.photoFindingUrls || item.photoFindingUrls.length === 0) {
+        return {
+          success: false,
+          message: `Temuan #${i + 1} belum memiliki foto. Lampirkan minimal 1 foto untuk setiap temuan.`,
+        };
+      }
+      for (const pUrl of item.photoFindingUrls) {
+        const val = validateImagePayload(pUrl);
+        if (!val.isValid) {
+          return {
+            success: false,
+            message: `Temuan #${i + 1}: ${val.error || "Format foto tidak valid."}`,
+          };
+        }
+      }
+    }
+
+    const projectList = await getProjects();
+    const targetProject = projectList.find((p) => p.id === payload.projectId);
+    const divCode = getDivisionCode(targetProject?.division);
+
+    const now = new Date();
+    const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
+    const reportDateStr = payload.inspectionDate || now.toISOString().split("T")[0];
+
+    // Tentukan atau generate Nomor Dokumen Laporan CMD
+    let reportNumber = payload.reportNumber?.trim();
+    if (!reportNumber) {
+      reportNumber = await getNextReportDocNumber(targetProject?.division, reportDateStr);
+    }
+
+    // Tentukan Employee Code Pelapor
+    let reporterEmpCode = "P00001";
+    const allUsers = await getUsers();
+    const reporterUser = allUsers.find((u) => u.id === session.userId);
+    if (reporterUser?.employeeCode) {
+      reporterEmpCode = reporterUser.employeeCode;
+    } else {
+      const userIdx = allUsers.findIndex((u) => u.id === session.userId);
+      reporterEmpCode = formatEmployeeCode(userIdx >= 0 ? userIdx + 1 : 1);
+    }
+
+    // Tentukan PIC Default proyek
+    const projectPics = await getUsers(payload.projectId, "PIC");
+    const fallbackPicId = payload.defaultPicId || (projectPics.length > 0 ? projectPics[0].id : session.userId);
+    const defaultPicUser = allUsers.find((u) => u.id === fallbackPicId);
+
+    // Simpan Header Master PatrolReport
+    const inspectorName = payload.inspectorName?.trim() || session.name || "CMD Inspector";
+    const siteManagerName = payload.siteManagerName?.trim() || (targetProject as any)?.sm?.name || "-";
+    const picName = defaultPicUser?.name || "-";
+
+    const savedMaster = await savePatrolReport({
+      reportNumber,
+      inspectorName,
+      reportDate: reportDateStr,
+      projectName: targetProject?.name || "Proyek",
+      projectId: payload.projectId,
+      siteManagerName,
+      picName,
+      picId: fallbackPicId,
+      inspectionType: payload.inspectionType || "ROUTINE",
+      presentInspectors: payload.presentInspectors || null,
+      findingsCount: payload.items.length,
+    });
+
+    const createdFindings: Finding[] = [];
+
+    // Loop simpan setiap item temuan
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      const nextSeq = await getNextTicketSequence();
+      const ticketCode = formatTicketCode(reporterEmpCode, divCode, nextSeq);
+      const dueDate = calculateDueDate(item.category, inspectionDateObj);
+
+      const cleanLocation =
+        item.locationDetail && item.locationDetail.trim().length > 0
+          ? sanitizeText(item.locationDetail)
+          : "-";
+      const cleanDesc =
+        item.description && item.description.trim().length > 0
+          ? sanitizeText(item.description)
+          : "Hanya Foto Patroli Lapangan";
+
+      const formattedPhotoUrl = formatPhotoUrls(item.photoFindingUrls);
+      const targetPicId = item.picId || fallbackPicId;
+
+      if (hasValidDatabaseUrl()) {
+        try {
+          const record = await prisma.finding.create({
+            data: {
+              ticketCode,
+              projectId: payload.projectId,
+              picId: targetPicId,
+              reporterId: session.userId,
+              locationDetail: cleanLocation,
+              category: item.category as any,
+              description: cleanDesc,
+              photoFindingUrl: formattedPhotoUrl,
+              status: "OPEN",
+              inspectionDate: inspectionDateObj,
+              reportNumber: reportNumber,
+              createdAt: now,
+              dueDate: dueDate,
+            },
+            include: { project: true, pic: true, reporter: true },
+          });
+
+          createdFindings.push({
+            id: record.id,
+            ticketCode: record.ticketCode,
+            projectId: record.projectId,
+            project: record.project,
+            picId: record.picId,
+            pic: record.pic as any,
+            reporterId: record.reporterId,
+            reporter: record.reporter as any,
+            locationDetail: record.locationDetail,
+            coordinates: record.coordinates,
+            category: record.category as any,
+            description: record.description,
+            photoFindingUrl: record.photoFindingUrl,
+            photoFindingUrls: parsePhotoUrls(record.photoFindingUrl),
+            status: record.status as any,
+            picResponse: record.picResponse,
+            photoResolutionUrl: record.photoResolutionUrl,
+            rejectionNote: record.rejectionNote,
+            reportNumber: record.reportNumber,
+            inspectionDate: record.inspectionDate ? record.inspectionDate.toISOString() : null,
+            createdAt: record.createdAt.toISOString(),
+            dueDate: record.dueDate ? record.dueDate.toISOString() : null,
+          });
+        } catch (dbErr) {
+          console.warn("Neon DB error in bulk finding item, falling back to memory:", dbErr);
+          const newF: Finding = {
+            id: `mem-${Date.now()}-${i}`,
+            ticketCode,
+            projectId: payload.projectId,
+            project: targetProject,
+            picId: targetPicId,
+            pic: allUsers.find((u) => u.id === targetPicId),
+            reporterId: session.userId,
+            reporter: reporterUser,
+            locationDetail: cleanLocation,
+            category: item.category,
+            description: cleanDesc,
+            photoFindingUrl: formattedPhotoUrl,
+            photoFindingUrls: parsePhotoUrls(formattedPhotoUrl),
+            status: "OPEN",
+            inspectionDate: inspectionDateObj.toISOString(),
+            reportNumber,
+            createdAt: now.toISOString(),
+            dueDate: dueDate.toISOString(),
+          };
+          inMemoryFindings.unshift(newF);
+          createdFindings.push(newF);
+        }
+      } else {
+        const newF: Finding = {
+          id: `mem-${Date.now()}-${i}`,
+          ticketCode,
+          projectId: payload.projectId,
+          project: targetProject,
+          picId: targetPicId,
+          pic: allUsers.find((u) => u.id === targetPicId),
+          reporterId: session.userId,
+          reporter: reporterUser,
+          locationDetail: cleanLocation,
+          category: item.category,
+          description: cleanDesc,
+          photoFindingUrl: formattedPhotoUrl,
+          photoFindingUrls: parsePhotoUrls(formattedPhotoUrl),
+          status: "OPEN",
+          inspectionDate: inspectionDateObj.toISOString(),
+          reportNumber,
+          createdAt: now.toISOString(),
+          dueDate: dueDate.toISOString(),
+        };
+        inMemoryFindings.unshift(newF);
+        createdFindings.push(newF);
+      }
+    }
+
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "CREATE_BULK_PATROL_FINDINGS",
+      entityType: "PATROL_REPORT",
+      entityId: reportNumber,
+      details: `Input Patroli Bulk: ${createdFindings.length} temuan dicatat untuk laporan ${reportNumber} di proyek ${targetProject?.name || payload.projectId}`,
+    });
+
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate("/reports");
+    safeRevalidate("/pic/tasks");
+
+    return {
+      success: true,
+      reportNumber,
+      findingsCount: createdFindings.length,
+      report: savedMaster.report,
+      findings: createdFindings,
+    };
+  } catch (err: any) {
+    console.error("Gagal createBulkPatrolFindings:", err);
+    return {
+      success: false,
+      message: "Gagal menyimpan input patroli bulk: " + (err.message || "Unknown error"),
+    };
   }
 }
 

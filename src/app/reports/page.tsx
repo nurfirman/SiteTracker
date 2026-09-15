@@ -17,7 +17,7 @@ import {
   getSystemSettings,
 } from "@/lib/actions";
 import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
-import { formatDate, getSlaStatus, exportFindingsToCsv } from "@/lib/utils";
+import { formatDate, getSlaStatus, exportFindingsToCsv, parsePhotoUrls } from "@/lib/utils";
 import {
   Printer,
   FileText,
@@ -769,6 +769,15 @@ export default function ReportsPage() {
 
             {/* Print, Export, Email, Save to DB, Archive & Cron SLA Actions */}
             <div className="flex items-center gap-2.5 flex-wrap">
+              <Link
+                href="/findings/bulk"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-700 hover:bg-violet-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
+                title="Input seluruh temuan hasil patroli lapangan sekaligus dalam format Master-Detail"
+              >
+                <Layers size={16} />
+                <span>+ Input Patroli Baru (Bulk)</span>
+              </Link>
+
               <button
                 type="button"
                 onClick={handleOpenArchiveModal}
@@ -1267,6 +1276,9 @@ export default function ReportsPage() {
                   </thead>
                   <tbody>
                     {findings.map((item, index) => {
+                      const findingPhotos = parsePhotoUrls(item.photoFindingUrl);
+                      const resolutionPhotos = parsePhotoUrls(item.photoResolutionUrl);
+
                       return (
                         <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
                           {/* Kolom 1: Poin 10: Nomor urut di atas dan Nomor Temuan di bawahnya */}
@@ -1279,20 +1291,48 @@ export default function ReportsPage() {
 
                           {/* Kolom 2: Poin 14, 18: Comment bersih tanpa nomor temuan, tambah Lokasi Spesifik, ganti PIC dengan Pelapor */}
                           <td className="border-r border-black p-3 align-top space-y-2">
-                            <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
-                              {item.photoFindingUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={item.photoFindingUrl}
-                                  alt={`Foto Temuan ${item.ticketCode}`}
-                                  className="w-full h-44 object-cover object-center"
-                                />
-                              ) : (
+                            {findingPhotos.length === 0 ? (
+                              <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
                                 <div className="text-slate-400 text-xs italic">
                                   Foto patroli tidak tersedia
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            ) : findingPhotos.length === 1 ? (
+                              <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={findingPhotos[0]}
+                                  alt={`Foto Temuan ${item.ticketCode}`}
+                                  className="w-full h-44 object-cover object-center"
+                                />
+                              </div>
+                            ) : findingPhotos.length === 2 ? (
+                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                {findingPhotos.map((pUrl, pIdx) => (
+                                  <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={pUrl}
+                                      alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
+                                      className="w-full h-full object-cover object-center"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                {findingPhotos.slice(0, 4).map((pUrl, pIdx) => (
+                                  <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={pUrl}
+                                      alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
+                                      className="w-full h-full object-cover object-center"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             
                             <div className="pt-1 text-[11px] leading-relaxed">
                               <p className="font-bold">
@@ -1315,23 +1355,49 @@ export default function ReportsPage() {
 
                           {/* Kolom 3: Poin 19: Comment perbaikan di bawahnya tambah nama pelaksana perbaikan */}
                           <td className="p-3 align-top space-y-2">
-                            <div className="w-full bg-slate-50 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
-                              {item.photoResolutionUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
+                            {resolutionPhotos.length === 0 ? (
+                              <div className="p-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded w-full h-44 flex flex-col items-center justify-center">
+                                <span>[ Belum Ada Foto Tindakan Perbaikan ]</span>
+                                <span className="text-[10px] mt-1 text-slate-400 font-normal">
+                                  Status: {item.status}
+                                </span>
+                              </div>
+                            ) : resolutionPhotos.length === 1 ? (
+                              <div className="w-full bg-slate-50 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={item.photoResolutionUrl}
+                                  src={resolutionPhotos[0]}
                                   alt={`Foto Perbaikan ${item.ticketCode}`}
                                   className="w-full h-44 object-cover object-center"
                                 />
-                              ) : (
-                                <div className="p-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded w-full h-44 flex flex-col items-center justify-center">
-                                  <span>[ Belum Ada Foto Tindakan Perbaikan ]</span>
-                                  <span className="text-[10px] mt-1 text-slate-400 font-normal">
-                                    Status: {item.status}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                              </div>
+                            ) : resolutionPhotos.length === 2 ? (
+                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                {resolutionPhotos.map((pUrl, pIdx) => (
+                                  <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={pUrl}
+                                      alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
+                                      className="w-full h-full object-cover object-center"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                {resolutionPhotos.slice(0, 4).map((pUrl, pIdx) => (
+                                  <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={pUrl}
+                                      alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
+                                      className="w-full h-full object-cover object-center"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
                             <div className="pt-1 text-[11px] leading-relaxed">
                               <p className="font-bold">

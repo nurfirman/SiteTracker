@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { Project, User, Category } from "@/types";
 import { getProjects, getUsers, createFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
-import { PhotoUploader } from "@/components/PhotoUploader";
+import { MultiPhotoUploader } from "@/components/MultiPhotoUploader";
 import { GpsButton } from "@/components/GpsButton";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
+import { formatPhotoUrls } from "@/lib/utils";
 import {
   HardHat,
   PlusCircle,
@@ -40,7 +41,7 @@ export default function NewFindingPage() {
   const [customCategory, setCustomCategory] = useState<string>("");
   const [locationDetail, setLocationDetail] = useState("");
   const [coordinates, setCoordinates] = useState("");
-  const [photoFindingUrl, setPhotoFindingUrl] = useState("");
+  const [photoFindingUrls, setPhotoFindingUrls] = useState<string[]>([]);
   const [description, setDescription] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
@@ -90,8 +91,8 @@ export default function NewFindingPage() {
       return;
     }
     // Location is optional
-    if (!photoFindingUrl) {
-      setErrorMsg("Mohon lampirkan/ambil foto temuan patroli terlebih dahulu.");
+    if (photoFindingUrls.length === 0) {
+      setErrorMsg("Mohon lampirkan/ambil foto temuan patroli (minimal 1 foto).");
       return;
     }
     // Description is optional, defaults to "Hanya Foto Patroli Lapangan" if empty
@@ -110,7 +111,7 @@ export default function NewFindingPage() {
         coordinates,
         category: finalCategory,
         description: finalDescription,
-        photoFindingUrl,
+        photoFindingUrl: formatPhotoUrls(photoFindingUrls),
         inspectionDate: inspectionDate || todayStr,
       });
 
@@ -332,13 +333,14 @@ export default function NewFindingPage() {
               <GpsButton value={coordinates} onChange={(coords) => setCoordinates(coords)} />
             </div>
 
-            {/* 5. UPLOAD FOTO TEMUAN (DIPRIORITASKAN SEBELUM DESKRIPSI SESUAI POIN 4) */}
+            {/* 5. UPLOAD FOTO TEMUAN (1 s.d. 4 FOTO) */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <PhotoUploader
-                label="6. Foto Temuan Lapangan (Foto Awal) *"
-                description="Ambil foto menggunakan kamera HP atau unggah gambar temuan secara jelas. Anda bisa mengedit dan menandai foto dengan panah, lingkaran, dan teks."
-                value={photoFindingUrl}
-                onChange={(url) => setPhotoFindingUrl(url)}
+              <MultiPhotoUploader
+                label="6. Foto Temuan Lapangan (Foto Awal)"
+                description="Lampirkan 1 sampai 4 foto (tampak luas & tampak detail cacat). Anda bisa mengedit dan menandai foto dengan panah, lingkaran, dan teks."
+                values={photoFindingUrls}
+                onChange={(urls) => setPhotoFindingUrls(urls)}
+                maxPhotos={4}
                 required
                 allowAnnotation={true}
               />

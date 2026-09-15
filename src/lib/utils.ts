@@ -225,3 +225,32 @@ export function exportFindingsToCsv(findings: any[], filename = "rekap_temuan_si
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Mengurai URL foto baik dari format tunggal maupun JSON array (hingga 4 foto)
+ */
+export function parsePhotoUrls(urlOrUrls: string | null | undefined): string[] {
+  if (!urlOrUrls || !urlOrUrls.trim()) return [];
+  const trimmed = urlOrUrls.trim();
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      }
+    } catch {
+      // bukan valid JSON, fallback ke single string
+    }
+  }
+  return [trimmed];
+}
+
+/**
+ * Memformat array URL foto menjadi string (tunggal jika 1, JSON string jika > 1)
+ */
+export function formatPhotoUrls(urls: string[]): string {
+  const filtered = urls.filter((u) => typeof u === "string" && u.trim().length > 0);
+  if (filtered.length === 0) return "";
+  if (filtered.length === 1) return filtered[0];
+  return JSON.stringify(filtered.slice(0, 4));
+}

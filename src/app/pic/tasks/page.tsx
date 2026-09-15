@@ -5,9 +5,9 @@ import { Finding } from "@/types";
 import { getFindings, resolveFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
-import { PhotoUploader } from "@/components/PhotoUploader";
+import { MultiPhotoUploader } from "@/components/MultiPhotoUploader";
 import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatPhotoUrls } from "@/lib/utils";
 import {
   CheckSquare,
   AlertCircle,
@@ -33,7 +33,7 @@ export default function PicTasksPage() {
   const [hasPhoto, setHasPhoto] = useState(true);
   const [noPhotoReason, setNoPhotoReason] = useState("");
   const [picResponse, setPicResponse] = useState("");
-  const [photoResolutionUrl, setPhotoResolutionUrl] = useState("");
+  const [photoResolutionUrls, setPhotoResolutionUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -61,18 +61,21 @@ export default function PicTasksPage() {
           } else {
             filterParams.projectIds = currentUser.projectIds;
           }
+        } else if (currentUser.projectId && selectedProjectFilter === "ALL") {
+          filterParams.projectId = currentUser.projectId;
+        } else if (selectedProjectFilter !== "ALL") {
+          filterParams.projectId = selectedProjectFilter;
         }
-      } else {
-        // PM, CMD, BOD, ADMIN can view all projects or filter specifically
+      } else if (isPmOrExec) {
         if (selectedProjectFilter !== "ALL") {
           filterParams.projectId = selectedProjectFilter;
         }
       }
 
-      const allFindings = await getFindings(filterParams);
-      setTasks(allFindings);
-    } catch (e) {
-      console.error("Gagal memuat tugas PIC:", e);
+      const res = await getFindings(filterParams);
+      setTasks(res);
+    } catch (err) {
+      console.error("Gagal memuat tugas PIC:", err);
     } finally {
       setLoading(false);
     }
@@ -87,7 +90,7 @@ export default function PicTasksPage() {
     setHasPhoto(true);
     setNoPhotoReason("");
     setPicResponse("");
-    setPhotoResolutionUrl("");
+    setPhotoResolutionUrls([]);
     setErrorMsg(null);
   };
 
@@ -96,8 +99,8 @@ export default function PicTasksPage() {
     if (!activeTask) return;
     setErrorMsg(null);
 
-    if (hasPhoto && !photoResolutionUrl) {
-      setErrorMsg("Mohon lampirkan foto bukti hasil perbaikan.");
+    if (hasPhoto && photoResolutionUrls.length === 0) {
+      setErrorMsg("Mohon lampirkan foto bukti hasil perbaikan (minimal 1 foto).");
       return;
     }
 
@@ -117,7 +120,7 @@ export default function PicTasksPage() {
       const res = await resolveFinding({
         findingId: activeTask.id,
         picResponse,
-        photoResolutionUrl: hasPhoto ? photoResolutionUrl : undefined,
+        photoResolutionUrl: hasPhoto ? formatPhotoUrls(photoResolutionUrls) : undefined,
         hasResolutionPhoto: hasPhoto,
         noPhotoReason: !hasPhoto ? noPhotoReason : undefined,
       });
@@ -427,12 +430,14 @@ export default function PicTasksPage() {
               {/* 1. UPLOAD FOTO ATAU ALASAN TANPA FOTO (URUTAN FOTO DULU BARU DESKRIPSI) */}
               {hasPhoto ? (
                 <div className="pt-1">
-                  <PhotoUploader
+                  <MultiPhotoUploader
                     label="Foto Bukti Perbaikan (Foto Sesudah) *"
-                    description="Ambil foto atau unggah gambar bukti perbaikan yang selesai dikerjakan."
-                    value={photoResolutionUrl}
-                    onChange={(url) => setPhotoResolutionUrl(url)}
+                    description="Ambil foto atau unggah gambar bukti perbaikan yang selesai dikerjakan (1 s.d. 4 foto)."
+                    values={photoResolutionUrls}
+                    onChange={(urls) => setPhotoResolutionUrls(urls)}
+                    maxPhotos={4}
                     required
+                    allowAnnotation={true}
                   />
                 </div>
               ) : (

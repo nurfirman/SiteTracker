@@ -7,9 +7,9 @@ import { getFindingById, validateFinding, resolveFinding, updateFinding, getUser
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CategoryBadge } from "@/components/CategoryBadge";
-import { PhotoUploader } from "@/components/PhotoUploader";
+import { MultiPhotoUploader } from "@/components/MultiPhotoUploader";
 import { GpsButton } from "@/components/GpsButton";
-import { formatDate } from "@/lib/utils";
+import { formatDate, parsePhotoUrls, formatPhotoUrls } from "@/lib/utils";
 import {
   ArrowLeft,
   Calendar,
@@ -37,6 +37,8 @@ export default function FindingDetailPage() {
   const id = params?.id as string;
   const [finding, setFinding] = useState<Finding | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeFindingPhotoIdx, setActiveFindingPhotoIdx] = useState(0);
+  const [activeResolutionPhotoIdx, setActiveResolutionPhotoIdx] = useState(0);
 
   // Edit Modal State (Poin 1)
   const [showEditModal, setShowEditModal] = useState(false);
@@ -47,7 +49,7 @@ export default function FindingDetailPage() {
   const [editLocationDetail, setEditLocationDetail] = useState<string>("");
   const [editCoordinates, setEditCoordinates] = useState<string>("");
   const [editPicId, setEditPicId] = useState<string>("");
-  const [editPhotoFindingUrl, setEditPhotoFindingUrl] = useState<string>("");
+  const [editPhotoFindingUrls, setEditPhotoFindingUrls] = useState<string[]>([]);
   const [availablePics, setAvailablePics] = useState<any[]>([]);
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function FindingDetailPage() {
   const [hasPhoto, setHasPhoto] = useState(true);
   const [noPhotoReason, setNoPhotoReason] = useState("");
   const [picResponse, setPicResponse] = useState("");
-  const [photoResolutionUrl, setPhotoResolutionUrl] = useState("");
+  const [photoResolutionUrls, setPhotoResolutionUrls] = useState<string[]>([]);
   const [submittingPic, setSubmittingPic] = useState(false);
 
   // PM reject state
@@ -96,7 +98,7 @@ export default function FindingDetailPage() {
     setEditLocationDetail(finding.locationDetail || "");
     setEditCoordinates(finding.coordinates || "");
     setEditPicId(finding.picId || "");
-    setEditPhotoFindingUrl(finding.photoFindingUrl || "");
+    setEditPhotoFindingUrls(parsePhotoUrls(finding.photoFindingUrl));
     setEditError(null);
 
     try {
@@ -127,7 +129,7 @@ export default function FindingDetailPage() {
         description: editDescription.trim() || "Hanya Foto Patroli Lapangan",
         locationDetail: editLocationDetail.trim() || "-",
         coordinates: editCoordinates,
-        photoFindingUrl: editPhotoFindingUrl || finding.photoFindingUrl,
+        photoFindingUrl: editPhotoFindingUrls.length > 0 ? formatPhotoUrls(editPhotoFindingUrls) : finding.photoFindingUrl,
         picId: editPicId || finding.picId,
         inspectionDate: editInspectionDate,
       });
@@ -136,10 +138,10 @@ export default function FindingDetailPage() {
         setShowEditModal(false);
         await loadDetail();
       } else {
-        setEditError(res.message || "Gagal mengedit data temuan.");
+        setEditError(res.message || "Gagal memperbarui data temuan.");
       }
     } catch (err: any) {
-      setEditError("Terjadi kesalahan sistem: " + err.message);
+      setEditError(err.message || "Terjadi kesalahan sistem.");
     } finally {
       setSubmittingEdit(false);
     }
@@ -149,14 +151,14 @@ export default function FindingDetailPage() {
     e.preventDefault();
     if (!finding) return;
     if (!picResponse.trim()) return;
-    if (hasPhoto && !photoResolutionUrl) return;
+    if (hasPhoto && photoResolutionUrls.length === 0) return;
     if (!hasPhoto && !noPhotoReason.trim()) return;
 
     setSubmittingPic(true);
     await resolveFinding({
       findingId: finding.id,
       picResponse,
-      photoResolutionUrl: hasPhoto ? photoResolutionUrl : undefined,
+      photoResolutionUrl: hasPhoto ? formatPhotoUrls(photoResolutionUrls) : undefined,
       hasResolutionPhoto: hasPhoto,
       noPhotoReason: !hasPhoto ? noPhotoReason : undefined,
     });
@@ -346,54 +348,126 @@ export default function FindingDetailPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Foto Temuan Awal */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-3 py-1.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300 font-extrabold text-xs">
-                <span>🔴 Foto Sebelum (Temuan Awal CMD)</span>
-              </div>
-              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-200 dark:border-slate-700 aspect-video shadow-md">
-                <img
-                  src={finding.photoFindingUrl}
-                  alt="Foto Temuan Awal"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+            {(() => {
+              const findingPhotos = parsePhotoUrls(finding.photoFindingUrl);
+              const activeUrl = findingPhotos[activeFindingPhotoIdx] || findingPhotos[0] || finding.photoFindingUrl;
+
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300 font-extrabold text-xs">
+                    <span>🔴 Foto Sebelum (Temuan Awal CMD)</span>
+                    {findingPhotos.length > 1 && (
+                      <span className="text-[10px] font-mono bg-red-200 dark:bg-red-900/80 px-2 py-0.5 rounded-md font-bold">
+                        Foto {activeFindingPhotoIdx + 1} dari {findingPhotos.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-200 dark:border-slate-700 aspect-video shadow-md">
+                    <img
+                      src={activeUrl}
+                      alt="Foto Temuan Awal"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  {/* Thumbnails jika multi-foto */}
+                  {findingPhotos.length > 1 && (
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      {findingPhotos.map((pUrl, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          onClick={() => setActiveFindingPhotoIdx(idx)}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${
+                            idx === activeFindingPhotoIdx
+                              ? "border-red-500 scale-105 shadow-md ring-2 ring-red-400/50"
+                              : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <img
+                            src={pUrl}
+                            alt={`Foto ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Foto Hasil Perbaikan */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
-                <span>🟢 Foto Sesudah (Bukti Perbaikan PIC)</span>
-              </div>
-              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-200 dark:border-slate-700 aspect-video shadow-md">
-                {finding.photoResolutionUrl ? (
-                  <img
-                    src={finding.photoResolutionUrl}
-                    alt="Foto Perbaikan PIC"
-                    className="w-full h-full object-cover"
-                  />
-                ) : finding.status === "CLOSED" || finding.status === "RESOLVED" ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-amber-500 p-6 text-center bg-amber-950/20">
-                    <CheckCircle2 className="w-10 h-10 mb-2 text-amber-500" />
-                    <span className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                      Diselesaikan Tanpa Foto
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
-                      {finding.noPhotoReason || finding.rejectionNote || "Perbaikan diselesaikan secara administratif/sistem"}
-                    </span>
+            {(() => {
+              const resPhotos = parsePhotoUrls(finding.photoResolutionUrl);
+              const activeResUrl = resPhotos[activeResolutionPhotoIdx] || resPhotos[0] || finding.photoResolutionUrl;
+
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
+                    <span>🟢 Foto Sesudah (Bukti Perbaikan PIC)</span>
+                    {resPhotos.length > 1 && (
+                      <span className="text-[10px] font-mono bg-emerald-200 dark:bg-emerald-900/80 px-2 py-0.5 rounded-md font-bold">
+                        Foto {activeResolutionPhotoIdx + 1} dari {resPhotos.length}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-                    <Clock className="w-10 h-10 mb-2 opacity-40 text-amber-500" />
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      Belum Ada Foto Perbaikan
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      PIC belum mengunggah bukti hasil perbaikan
-                    </span>
+                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-200 dark:border-slate-700 aspect-video shadow-md">
+                    {activeResUrl ? (
+                      <img
+                        src={activeResUrl}
+                        alt="Foto Perbaikan PIC"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : finding.status === "CLOSED" || finding.status === "RESOLVED" ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-amber-500 p-6 text-center bg-amber-950/20">
+                        <CheckCircle2 className="w-10 h-10 mb-2 text-amber-500" />
+                        <span className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                          Diselesaikan Tanpa Foto
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+                          {finding.noPhotoReason || finding.rejectionNote || "Perbaikan diselesaikan secara administratif/sistem"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                        <Clock className="w-10 h-10 mb-2 opacity-40 text-amber-500" />
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                          Belum Ada Foto Perbaikan
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          PIC belum mengunggah bukti hasil perbaikan
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+
+                  {/* Thumbnails jika multi-foto perbaikan */}
+                  {resPhotos.length > 1 && (
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      {resPhotos.map((pUrl, idx) => (
+                        <button
+                          type="button"
+                          key={idx}
+                          onClick={() => setActiveResolutionPhotoIdx(idx)}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${
+                            idx === activeResolutionPhotoIdx
+                              ? "border-emerald-500 scale-105 shadow-md ring-2 ring-emerald-400/50"
+                              : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <img
+                            src={pUrl}
+                            alt={`Foto Perbaikan ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -471,11 +545,12 @@ export default function FindingDetailPage() {
 
               {/* 1. UPLOAD FOTO ATAU ALASAN TANPA FOTO (URUTAN FOTO DULU BARU DESKRIPSI) */}
               {hasPhoto ? (
-                <PhotoUploader
+                <MultiPhotoUploader
                   label="Foto Bukti Perbaikan *"
-                  description="Lampirkan foto hasil perbaikan. Anda dapat menandai atau menambahkan caption/panah pada foto."
-                  value={photoResolutionUrl}
-                  onChange={(url) => setPhotoResolutionUrl(url)}
+                  description="Lampirkan foto hasil perbaikan (1 s.d. 4 foto). Anda dapat menandai atau menambahkan caption/panah pada foto."
+                  values={photoResolutionUrls}
+                  onChange={(urls) => setPhotoResolutionUrls(urls)}
+                  maxPhotos={4}
                   required
                   allowAnnotation={true}
                 />
@@ -520,7 +595,7 @@ export default function FindingDetailPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingPic || !picResponse.trim() || (hasPhoto && !photoResolutionUrl) || (!hasPhoto && !noPhotoReason.trim())}
+                  disabled={submittingPic || !picResponse.trim() || (hasPhoto && photoResolutionUrls.length === 0) || (!hasPhoto && !noPhotoReason.trim())}
                   className="px-6 py-3 min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md disabled:opacity-50"
                 >
                   {submittingPic ? "Menyimpan..." : "Kirim Respon Perbaikan (RESOLVED - Menunggu Verifikasi)"}
@@ -725,11 +800,12 @@ export default function FindingDetailPage() {
 
               {/* Ganti Foto Temuan (Opsional) */}
               <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                <PhotoUploader
+                <MultiPhotoUploader
                   label="Foto Temuan (Awal) *"
-                  description="Ganti foto atau edit anotasi jika diperlukan."
-                  value={editPhotoFindingUrl}
-                  onChange={(url) => setEditPhotoFindingUrl(url)}
+                  description="Ganti foto atau edit anotasi jika diperlukan (1 s.d. 4 foto)."
+                  values={editPhotoFindingUrls}
+                  onChange={(urls) => setEditPhotoFindingUrls(urls)}
+                  maxPhotos={4}
                   allowAnnotation={true}
                 />
               </div>

@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Sparkles,
   Clock,
+  Layers,
 } from "lucide-react";
 
 export default function AllFindingsPage() {
@@ -88,14 +89,23 @@ export default function AllFindingsPage() {
           </p>
         </div>
 
-        {["CMD", "PM", "SM", "ADMIN"].includes(currentUser.role) && (
-          <Link
-            href="/findings/new"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-sm font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-md shadow-violet-500/25 active:scale-95 transition-all"
-          >
-            <PlusCircle size={18} />
-            <span>+ Catat Temuan Baru</span>
-          </Link>
+        {["CMD", "PM", "SM", "ADMIN", "GM", "BOD"].includes(currentUser.role) && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/findings/bulk"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] text-sm font-extrabold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800/80 hover:bg-violet-100 dark:hover:bg-violet-900/60 rounded-2xl shadow-xs active:scale-95 transition-all"
+            >
+              <Layers size={18} />
+              <span>⚡ Input Patroli Bulk</span>
+            </Link>
+            <Link
+              href="/findings/new"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-sm font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-md shadow-violet-500/25 active:scale-95 transition-all"
+            >
+              <PlusCircle size={18} />
+              <span>+ Catat Temuan Baru</span>
+            </Link>
+          </div>
         )}
       </div>
 

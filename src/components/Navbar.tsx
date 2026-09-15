@@ -15,6 +15,7 @@ import {
   Sparkles,
   FileText,
   Database,
+  Layers,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -26,6 +27,7 @@ export function Navbar() {
     { href: "/landing", label: "Landing", icon: Sparkles },
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/findings/new", label: "Input Temuan", icon: PlusCircle, highlight: true },
+    { href: "/findings/bulk", label: "Patroli Bulk", icon: Layers },
     {
       href: "/pic/tasks",
       label: "Tugas Saya",

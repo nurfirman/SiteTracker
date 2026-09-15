@@ -13,15 +13,53 @@ export interface StorageUploadResult {
 export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB max after compression
 
 export function validateImagePayload(dataUrl: string): { isValid: boolean; sizeBytes: number; error?: string } {
-  if (!dataUrl || !dataUrl.startsWith("data:image/")) {
-    // If it's already an external URL (http/https), allow it
-    if (dataUrl && (dataUrl.startsWith("http://") || dataUrl.startsWith("https://"))) {
-      return { isValid: true, sizeBytes: 0 };
+  if (!dataUrl) {
+    return { isValid: false, sizeBytes: 0, error: "Data gambar kosong." };
+  }
+
+  // Dukungan untuk multi-foto (format JSON array string: ["url1", "url2", ...])
+  const trimmed = dataUrl.trim();
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const urls = JSON.parse(trimmed);
+      if (Array.isArray(urls)) {
+        if (urls.length === 0) {
+          return { isValid: false, sizeBytes: 0, error: "Data gambar kosong." };
+        }
+        let totalSize = 0;
+        for (let i = 0; i < urls.length; i++) {
+          const u = urls[i];
+          const singleValidation = validateSingleImage(u);
+          if (!singleValidation.isValid) {
+            return {
+              isValid: false,
+              sizeBytes: 0,
+              error: `Foto ke-${i + 1}: ${singleValidation.error}`,
+            };
+          }
+          totalSize += singleValidation.sizeBytes;
+        }
+        return { isValid: true, sizeBytes: totalSize };
+      }
+    } catch {
+      // Bukan JSON valid, lanjutkan ke validasi gambar tunggal
     }
+  }
+
+  return validateSingleImage(trimmed);
+}
+
+function validateSingleImage(dataUrl: string): { isValid: boolean; sizeBytes: number; error?: string } {
+  if (!dataUrl || (!dataUrl.startsWith("data:image/") && !dataUrl.startsWith("http://") && !dataUrl.startsWith("https://"))) {
     return { isValid: false, sizeBytes: 0, error: "Format gambar tidak valid (harus data URL atau HTTPS)." };
   }
 
-  // Calculate approximate Base64 string size in bytes
+  // Jika URL eksternal http/https, loloskan
+  if (dataUrl.startsWith("http://") || dataUrl.startsWith("https://")) {
+    return { isValid: true, sizeBytes: 0 };
+  }
+
+  // Hitung perkiraan ukuran Base64 dalam bytes
   const base64Data = dataUrl.split(",")[1];
   if (!base64Data) {
     return { isValid: false, sizeBytes: 0, error: "Data gambar kosong." };
@@ -33,7 +71,7 @@ export function validateImagePayload(dataUrl: string): { isValid: boolean; sizeB
     return {
       isValid: false,
       sizeBytes: approximateSizeBytes,
-      error: `Ukuran gambar terlalu besar (${Math.round(approximateSizeBytes / 1024)} KB). Maksimal ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)} MB.`,
+      error: `Ukuran gambar terlalu besar (${Math.round(approximateSizeBytes / 1024)} KB). Maksimal ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)} MB per foto.`,
     };
   }
 
