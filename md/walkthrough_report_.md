@@ -72,4 +72,4 @@ npm run build
 ```bash
 npx prisma db push
 ```
-- **Hasil**: Model `PatrolReport` dan field `reportNumber` pada `findings` telah sinkron dengan Neon PostgreSQL live.
+- **Hasil**: Model `PatrolReport` dan field `reportNumber` pada `findings` telah sinkron dengan Online live.

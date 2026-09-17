@@ -3,7 +3,7 @@ import { PrismaClient, Role, Category, FindingStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Starting Neon PostgreSQL database seeding...");
+  console.log("🌱 Starting database seeding...");
 
   // Reset database
   await prisma.finding.deleteMany();

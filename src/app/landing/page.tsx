@@ -317,7 +317,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 bg-slate-950 text-center text-xs text-slate-500 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4">
-          <p>© 2026 ProjectTracker — Construction Patrol & Finding Tracker. Developed with Next.js 14, TailwindCSS & Neon PostgreSQL.</p>
+          <p>© 2026 ProjectTracker Taiyo Sinar — Construction Patrol & Finding Tracker. Developed with Next.js 14, TailwindCSS & Neon PostgreSQL.</p>
         </div>
       </footer>
     </div>

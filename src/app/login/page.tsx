@@ -302,11 +302,10 @@ export default function LoginPage() {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
-                authMode === "LOGIN"
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "LOGIN"
                   ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
             >
               <Lock size={13} />
               <span>Masuk</span>
@@ -319,11 +318,10 @@ export default function LoginPage() {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
-                authMode === "REGISTER"
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "REGISTER"
                   ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
             >
               <UserPlus size={13} />
               <span>Daftar Akun</span>
@@ -338,11 +336,10 @@ export default function LoginPage() {
                 setErrorMessage(null);
                 setSuccessMessage(null);
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${
-                authMode === "RESET_PASSWORD"
+              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "RESET_PASSWORD"
                   ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
             >
               <KeyRound size={13} />
               <span>Reset Pwd</span>
@@ -779,7 +776,7 @@ export default function LoginPage() {
           <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
             <Info size={16} className="text-violet-400 shrink-0 mt-0.5" />
             <p>
-              Akun pengguna tersinkronisasi ke database Neon PostgreSQL dan mendapatkan wewenang sesuai peran yang ditetapkan.
+              Akun pengguna tersinkronisasi ke database Online dan mendapatkan wewenang sesuai peran yang ditetapkan.
             </p>
           </div>
         </div>
@@ -787,7 +784,7 @@ export default function LoginPage() {
 
       {/* Footer System Info */}
       <div className="w-full max-w-5xl mx-auto text-center py-4 border-t border-slate-800/60 text-[11px] text-slate-500 space-y-1">
-        <p>ProjectTracker © 2026 — Sistem Digitalisasi Kepatuhan & Mutu Konstruksi</p>
+        <p>ProjectTracker © 2026 Taiyo Sinar — Sistem Digitalisasi Kepatuhan & Mutu Konstruksi</p>
         <p className="text-[10px] text-slate-600">Standar ISO 45001 (K3) & ISO 9001 (Manajemen Mutu)</p>
       </div>
     </div>

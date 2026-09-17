@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { RoleProvider } from "@/components/RoleContext";
@@ -14,6 +14,29 @@ export const metadata: Metadata = {
   title: "ProjectTracker - Sistem Patroli & Pelacakan Temuan Konstruksi",
   description:
     "Aplikasi manajemen patroli konstruksi, pelacakan temuan K3 & Kualitas, serta validasi perbaikan Side-by-Side.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ProjectTracker",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6d28d9",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 const themeScript = `

@@ -13,6 +13,10 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/landing") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/manifest.json") ||
+    pathname.startsWith("/manifest.webmanifest") ||
+    pathname.startsWith("/icon-") ||
+    pathname.startsWith("/apple-touch-icon") ||
     pathname.startsWith("/api");
 
   // If user opens the application (e.g. root "/" or protected pages) without active session, redirect to /login

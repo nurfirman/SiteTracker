@@ -33,17 +33,17 @@ export function isAzureMailConfigured(): boolean {
 
   return Boolean(
     tenantId &&
-      tenantId.trim() !== "" &&
-      !tenantId.includes("your_azure_") &&
-      clientId &&
-      clientId.trim() !== "" &&
-      !clientId.includes("your_azure_") &&
-      clientSecret &&
-      clientSecret.trim() !== "" &&
-      !clientSecret.includes("your_azure_") &&
-      senderEmail &&
-      senderEmail.trim() !== "" &&
-      !senderEmail.includes("your_sender_")
+    tenantId.trim() !== "" &&
+    !tenantId.includes("your_azure_") &&
+    clientId &&
+    clientId.trim() !== "" &&
+    !clientId.includes("your_azure_") &&
+    clientSecret &&
+    clientSecret.trim() !== "" &&
+    !clientSecret.includes("your_azure_") &&
+    senderEmail &&
+    senderEmail.trim() !== "" &&
+    !senderEmail.includes("your_sender_")
   );
 }
 
@@ -102,15 +102,15 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
 
   const inspectionDateFormatted = options.reportDate
     ? new Date(options.reportDate).toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
     : new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
 
   return `
 <!DOCTYPE html>
@@ -161,9 +161,8 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
               </p>
 
               <!-- Optional Note -->
-              ${
-                options.messageNote
-                  ? `
+              ${options.messageNote
+      ? `
               <div style="background-color: #faf5ff; border-left: 4px solid #7c3aed; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px;">
                 <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8; letter-spacing: 0.5px;">
                   Catatan Tambahan Pengirim:
@@ -173,8 +172,8 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 </p>
               </div>
               `
-                  : ""
-              }
+      : ""
+    }
 
               <!-- Stats KPI Grid -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
@@ -732,7 +731,7 @@ export async function sendPasswordResetMail(
           <tr>
             <td style="background-color: #f8fafc; padding: 18px 28px; border-top: 1px solid #e2e8f0; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-                ProjectTracker © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
+                ProjectTracker Taiyo Sinar © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
               </p>
             </td>
           </tr>
