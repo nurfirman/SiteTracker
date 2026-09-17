@@ -33,7 +33,7 @@ let inMemoryPatrolReports: PatrolReport[] = [];
 let inMemoryAuditLogs: AuditLogEntry[] = [];
 let inMemorySystemSettings: SystemSettingData = {
   reportLogoUrl: "",
-  companyName: "SiteTracker CMD",
+  companyName: "ProjectTracker",
   rbacPermissions: {},
   customRoles: ["Advisor"],
 };
@@ -181,7 +181,7 @@ export async function getSystemSettings(): Promise<SystemSettingData> {
       }
       return {
         reportLogoUrl: settingsMap.reportLogoUrl || inMemorySystemSettings.reportLogoUrl || "",
-        companyName: settingsMap.companyName || inMemorySystemSettings.companyName || "SiteTracker CMD",
+        companyName: settingsMap.companyName || inMemorySystemSettings.companyName || "ProjectTracker",
         rbacPermissions: settingsMap.rbacPermissions || inMemorySystemSettings.rbacPermissions || {},
         customRoles: settingsMap.customRoles || inMemorySystemSettings.customRoles || ["Advisor"],
       };

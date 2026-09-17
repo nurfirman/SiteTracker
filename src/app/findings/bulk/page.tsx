@@ -72,7 +72,7 @@ export default function BulkPatrolPage() {
   const [items, setItems] = useState<FindingDraftItem[]>([
     {
       tempId: "item-1",
-      category: "K3_SAFETY",
+      category: "QUALITY",
       locationDetail: "",
       description: "",
       photoFindingUrls: [],
@@ -206,7 +206,7 @@ export default function BulkPatrolPage() {
     for (let i = 0; i < count; i++) {
       newItems.push({
         tempId: "item-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
-        category: "K3_SAFETY",
+        category: "QUALITY",
         locationDetail: "",
         description: "",
         photoFindingUrls: [],
@@ -235,7 +235,7 @@ export default function BulkPatrolPage() {
       setItems([
         {
           tempId: "item-" + Date.now(),
-          category: "K3_SAFETY",
+          category: "QUALITY",
           locationDetail: "",
           description: "",
           photoFindingUrls: [],
@@ -467,7 +467,7 @@ export default function BulkPatrolPage() {
                   <option value="ROUTINE">Patroli Rutin (Harian / Mingguan)</option>
                   <option value="MIDDLE">Middle Inspection (Progress 50%)</option>
                   <option value="FINAL">Final Inspection (Handover)</option>
-                  <option value="JOINT">Joint Inspection (Bersama Owner / MK)</option>
+                  <option value="JOINT">Patrol Gabungan (Bersama Owner / MK)</option>
                 </select>
               </div>
 
@@ -499,10 +499,10 @@ export default function BulkPatrolPage() {
                 />
               </div>
 
-              {/* Default PIC Proyek */}
+              {/* Default Action By Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  PIC Penanggung Jawab Default
+                  Action By (Penanggung Jawab Default)
                 </label>
                 <select
                   value={defaultPicId}
@@ -516,7 +516,7 @@ export default function BulkPatrolPage() {
                   }}
                   className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 >
-                  <option value="">-- Pilih PIC Default --</option>
+                  <option value="">-- Pilih Action By Default --</option>
                   {availablePics.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.role})
@@ -612,36 +612,17 @@ export default function BulkPatrolPage() {
                     {/* Kolom Kanan: Form Field Temuan */}
                     <div className="lg:col-span-7 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Kategori Temuan */}
-                        <div>
+                        {/* Action By Spesifik */}
+                        <div className="sm:col-span-2">
                           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            Kategori Temuan <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={item.category}
-                            onChange={(e) => updateItem(index, { category: e.target.value as Category })}
-                            className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500"
-                          >
-                            <option value="K3_SAFETY">K3 / Keselamatan Kerja</option>
-                            <option value="QUALITY">Kualitas Pekerjaan (Quality)</option>
-                            <option value="KEBERSIHAN_5R">Kebersihan 5R / Lingkungan</option>
-                            <option value="SCHEDULE">Progress / Schedule</option>
-                            <option value="MATERIAL">Material / Logistik</option>
-                            <option value="CUSTOM">Lainnya (Custom)</option>
-                          </select>
-                        </div>
-
-                        {/* PIC Penanggung Jawab Spesifik */}
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            PIC Penanggung Jawab
+                            Action By (Penanggung Jawab)
                           </label>
                           <select
                             value={item.picId || defaultPicId}
                             onChange={(e) => updateItem(index, { picId: e.target.value })}
                             className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                           >
-                            <option value="">-- Ikuti PIC Default Header --</option>
+                            <option value="">-- Ikuti Action By Default Header --</option>
                             {availablePics.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name} ({p.role})
@@ -667,10 +648,10 @@ export default function BulkPatrolPage() {
                         </div>
                       )}
 
-                      {/* Lokasi Spesifik */}
+                      {/* Lokasi Area */}
                       <div>
                         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                          Lokasi Spesifik Temuan
+                          Lokasi Area Temuan
                         </label>
                         <div className="relative">
                           <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />

@@ -65,12 +65,12 @@ export default function ReportsPage() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  
+
   // Filters
   const [selectedProject, setSelectedProject] = useState<string>("ALL");
   const [selectedPic, setSelectedPic] = useState<string>("ALL");
   const [inspectionType, setInspectionType] = useState<InspectionType>("ROUTINE");
-  
+
   // Period & Date Filter Mode: "DAILY" (Single inspection date) | "MONTHLY" (Month selection) | "PERIODICAL" (Date range)
   const [periodMode, setPeriodMode] = useState<"DAILY" | "MONTHLY" | "PERIODICAL">("DAILY");
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -90,10 +90,10 @@ export default function ReportsPage() {
   const [presentInspectors, setPresentInspectors] = useState<string>("");
   const [recalledReportNumber, setRecalledReportNumber] = useState<string | null>(null);
   const [systemLogoUrl, setSystemLogoUrl] = useState<string>("");
-  
+
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [reportShareUrl, setReportShareUrl] = useState<string>("");
-  
+
   const [loading, setLoading] = useState(true);
 
   // Poin 3: Muat custom logo laporan dari admin
@@ -182,8 +182,8 @@ export default function ReportsPage() {
         const filteredByDate = rawList.filter((f) => {
           let fDateStr = "";
           if (f.inspectionDate) {
-            fDateStr = typeof f.inspectionDate === "string" 
-              ? f.inspectionDate.split("T")[0] 
+            fDateStr = typeof f.inspectionDate === "string"
+              ? f.inspectionDate.split("T")[0]
               : new Date(f.inspectionDate).toISOString().split("T")[0];
           } else if (f.createdAt) {
             fDateStr = typeof f.createdAt === "string"
@@ -239,10 +239,7 @@ export default function ReportsPage() {
   const activePicObj = users.find((u) => u.id === selectedPic);
 
   // 1. Nama Pelapor (User yang membuat laporan / login saat ini)
-  const defaultReporterName =
-    currentUser?.name ||
-    (findings.length > 0 && findings[0].reporter?.name ? findings[0].reporter.name : null) ||
-    "Petugas Patroli";
+  const defaultReporterName = currentUser?.name || "Petugas Patroli";
   const resolvedReporterName = customInspector || defaultReporterName;
   const resolvedInspectorName = resolvedReporterName;
 
@@ -268,16 +265,18 @@ export default function ReportsPage() {
     users.find((u) => u.role === "PM" && (selectedProject === "ALL" || u.projectId === selectedProject || u.projectIds?.includes(selectedProject)))?.name ||
     "Ir. Aris Munandar";
 
-  // Cari nama PIC dari filter atau dari data temuan (misal Chairul Muttaqin)
+  // Cari nama Action By / PIC dari filter atau dari data temuan
   const findingsPicName = findings.find((f) => f.pic?.name)?.pic?.name;
   const resolvedPicName =
     customPicName ||
     activePicObj?.name ||
     (availablePics.length === 1 ? availablePics[0].name : null) ||
     findingsPicName ||
+    projectPmOrSm ||
     "Chairul Muttaqin";
 
-  const resolvedSiteManagerName = customSiteManager || projectPmOrSm;
+  // Poin 14: PIC (Action By) dan SiteManager otomatis disamakan
+  const resolvedSiteManagerName = customSiteManager || resolvedPicName;
 
   // Penomoran Dokumen Laporan Resmi berdasarkan Divisi: DIV-YY-XXX (e.g. CMD-26-001)
   const activeDivCode = getDivisionCode(activeProjectObj?.division);
@@ -289,10 +288,10 @@ export default function ReportsPage() {
     if (periodMode === "DAILY") {
       return reportDate
         ? new Date(reportDate).toLocaleDateString("id-ID", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
         : formatDate(new Date());
     } else if (periodMode === "MONTHLY") {
       if (!reportMonth) return "Semua Bulan";
@@ -703,10 +702,10 @@ export default function ReportsPage() {
 
   const formattedInspectionDate = reportDate
     ? new Date(reportDate).toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
     : formatDate(new Date());
 
   return (
@@ -714,11 +713,10 @@ export default function ReportsPage() {
       {/* Toast Notification */}
       {emailToast && (
         <div
-          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${
-            emailToast.type === "success"
+          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${emailToast.type === "success"
               ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
               : "bg-red-950 text-red-300 border-red-800"
-          }`}
+            }`}
         >
           {emailToast.type === "success" ? (
             <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
@@ -729,7 +727,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6 print:max-w-none print:w-full print:space-y-0 print:m-0 print:p-0">
         {currentUser.role === "PENDING" ? (
           <div className="p-8 sm:p-12 bg-white dark:bg-slate-900 border-2 border-dashed border-amber-300 dark:border-amber-800/80 rounded-3xl text-center space-y-4 shadow-sm">
             <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -759,1077 +757,1065 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400 text-xs font-black tracking-widest uppercase">
                     <FileText size={16} /> Modul Generate Laporan & Distribusi
                   </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                Cetak Form Patroli Lapangan & Pengiriman Email
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Pilih filter <strong>Proyek</strong> dan <strong>PIC</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
-              </p>
-            </div>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                    Cetak Form Patroli Lapangan & Pengiriman Email
+                  </h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Pilih filter <strong>Proyek</strong> dan <strong>PIC</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
+                  </p>
+                </div>
 
-            {/* Print, Export, Email, Save to DB, Archive & Cron SLA Actions */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <Link
-                href="/findings/bulk"
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-700 hover:bg-violet-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
-                title="Input seluruh temuan hasil patroli lapangan sekaligus dalam format Master-Detail"
-              >
-                <Layers size={16} />
-                <span>+ Input Patroli Baru (Bulk)</span>
-              </Link>
+                {/* Print, Export, Email, Save to DB, Archive & Cron SLA Actions */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <Link
+                    href="/findings/bulk"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-700 hover:bg-violet-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
+                    title="Input seluruh temuan hasil patroli lapangan sekaligus dalam format Master-Detail"
+                  >
+                    <Layers size={16} />
+                    <span>+ Input Patroli Baru (Bulk)</span>
+                  </Link>
 
-              <button
-                type="button"
-                onClick={handleOpenArchiveModal}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
-                title="Lihat daftar arsip laporan patroli yang pernah disimpan di database & panggil kembali sewaktu-waktu"
-              >
-                <FolderClock size={16} />
-                <span>Arsip Laporan CMD</span>
-                {savedReports.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-white/25 rounded-full">
-                    {savedReports.length}
-                  </span>
-                )}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenArchiveModal}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
+                    title="Lihat daftar arsip laporan patroli yang pernah disimpan di database & panggil kembali sewaktu-waktu"
+                  >
+                    <FolderClock size={16} />
+                    <span>Arsip Laporan CMD</span>
+                    {savedReports.length > 0 && (
+                      <span className="ml-1 px-2 py-0.5 text-[10px] font-black bg-white/25 rounded-full">
+                        {savedReports.length}
+                      </span>
+                    )}
+                  </button>
 
-              <button
-                type="button"
-                onClick={handleSaveReportManual}
-                disabled={savingReport || findings.length === 0}
-                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-                title="Simpan konfigurasi laporan aktif ke database Neon"
-              >
-                <BookmarkCheck size={16} className={savingReport ? "animate-spin" : ""} />
-                <span>{savingReport ? "Menyimpan..." : "Simpan ke DB"}</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveReportManual}
+                    disabled={savingReport || findings.length === 0}
+                    className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                    title="Simpan konfigurasi laporan aktif ke database Neon"
+                  >
+                    <BookmarkCheck size={16} className={savingReport ? "animate-spin" : ""} />
+                    <span>{savingReport ? "Menyimpan..." : "Simpan ke DB"}</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={handleTriggerCronReminder}
-                disabled={runningCron}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-                title="Picu engine Vercel Cron untuk periksa temuan OPEN > 7 hari dan kirim email eskalasi ke PIC & GM"
-              >
-                <BellRing size={16} className={runningCron ? "animate-spin" : ""} />
-                <span>{runningCron ? "Memeriksa SLA..." : "Picu Cron Reminder (H+7)"}</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleTriggerCronReminder}
+                    disabled={runningCron}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                    title="Picu engine Vercel Cron untuk periksa temuan OPEN > 7 hari dan kirim email eskalasi ke PIC & GM"
+                  >
+                    <BellRing size={16} className={runningCron ? "animate-spin" : ""} />
+                    <span>{runningCron ? "Memeriksa SLA..." : "Picu Cron Reminder (H+7)"}</span>
+                  </button>
 
-              <button
-                onClick={handleOpenEmailModal}
-                disabled={findings.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-                title="Kirim email laporan resmi dan otomatis simpan arsip ke database"
-              >
-                <Mail size={16} />
-                <span>Kirim Email Laporan</span>
-              </button>
+                  <button
+                    onClick={handleOpenEmailModal}
+                    disabled={findings.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                    title="Kirim email laporan resmi dan otomatis simpan arsip ke database"
+                  >
+                    <Mail size={16} />
+                    <span>Kirim Email Laporan</span>
+                  </button>
 
-              <button
-                onClick={handleExportCsv}
-                disabled={findings.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-              >
-                <Download size={16} />
-                <span>Ekspor CSV</span>
-              </button>
+                  <button
+                    onClick={handleExportCsv}
+                    disabled={findings.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
+                  >
+                    <Download size={16} />
+                    <span>Ekspor CSV</span>
+                  </button>
 
-              <button
-                onClick={handlePrint}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-sm rounded-xl shadow-lg shadow-violet-500/25 transition-all min-h-[44px]"
-              >
-                <Printer size={18} />
-                <span>Cetak / PDF</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Report Mode Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-            <button
-              onClick={() => setReportType("INTERNAL_PATROL")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                reportType === "INTERNAL_PATROL"
-                  ? "bg-violet-600 text-white shadow-xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-              }`}
-            >
-              <ClipboardCheck size={16} />
-              <span>Form Template "INTERNAL PATROL" (Standar Fisik)</span>
-            </button>
-
-            <button
-              onClick={() => setReportType("EXECUTIVE_REKAP")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                reportType === "EXECUTIVE_REKAP"
-                  ? "bg-violet-600 text-white shadow-xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-              }`}
-            >
-              <Layers size={16} />
-              <span>Rekapitulasi Tabel & Statistik Temuan</span>
-            </button>
-          </div>
-
-          {/* Filter Form Controls */}
-          <div className="space-y-4 pt-1">
-            {/* Mode Pemilihan Periode Inspeksi */}
-            <div className="flex items-center justify-between gap-2 flex-wrap bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-300">
-                <Calendar size={15} className="text-violet-600 dark:text-violet-400" />
-                <span>Format Periode Laporan:</span>
+                  <button
+                    onClick={handlePrint}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-sm rounded-xl shadow-lg shadow-violet-500/25 transition-all min-h-[44px]"
+                  >
+                    <Printer size={18} />
+                    <span>Cetak / PDF</span>
+                  </button>
+                </div>
               </div>
-              <div className="inline-flex rounded-xl p-1 bg-slate-200/80 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+
+              {/* Report Mode Tabs */}
+              <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <button
-                  type="button"
-                  onClick={() => setPeriodMode("DAILY")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    periodMode === "DAILY"
-                      ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
+                  onClick={() => setReportType("INTERNAL_PATROL")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${reportType === "INTERNAL_PATROL"
+                      ? "bg-violet-600 text-white shadow-xs"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    }`}
                 >
-                  Harian (Inspeksi Spesifik)
+                  <ClipboardCheck size={16} />
+                  <span>Form Template "INTERNAL PATROL" (Standar Fisik)</span>
                 </button>
+
                 <button
-                  type="button"
-                  onClick={() => setPeriodMode("MONTHLY")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    periodMode === "MONTHLY"
-                      ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
+                  onClick={() => setReportType("EXECUTIVE_REKAP")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${reportType === "EXECUTIVE_REKAP"
+                      ? "bg-violet-600 text-white shadow-xs"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    }`}
                 >
-                  Bulanan (Semua / Per Proyek)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPeriodMode("PERIODICAL")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                    periodMode === "PERIODICAL"
-                      ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  Periodical Patrol (Rentang Tanggal)
+                  <Layers size={16} />
+                  <span>Rekapitulasi Tabel & Statistik Temuan</span>
                 </button>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Filter 1: Project */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                  <Building2 size={13} className="text-violet-600 dark:text-violet-400" /> Filter Proyek
-                </label>
-                <select
-                  value={selectedProject}
-                  onChange={(e) => {
-                    setSelectedProject(e.target.value);
-                    setSelectedPic("ALL");
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
-                >
-                  <option value="ALL">-- Semua Proyek --</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.code ? `[${p.code}] ` : ""}{p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Filter Form Controls */}
+              <div className="space-y-4 pt-1">
+                {/* Mode Pemilihan Periode Inspeksi */}
+                <div className="flex items-center justify-between gap-2 flex-wrap bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2 text-xs font-black text-slate-700 dark:text-slate-300">
+                    <Calendar size={15} className="text-violet-600 dark:text-violet-400" />
+                    <span>Format Periode Laporan:</span>
+                  </div>
+                  <div className="inline-flex rounded-xl p-1 bg-slate-200/80 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setPeriodMode("DAILY")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "DAILY"
+                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        }`}
+                    >
+                      Harian (Inspeksi Spesifik)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPeriodMode("MONTHLY")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "MONTHLY"
+                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        }`}
+                    >
+                      Bulanan (Semua / Per Proyek)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPeriodMode("PERIODICAL")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "PERIODICAL"
+                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        }`}
+                    >
+                      Periodical Patrol (Rentang Tanggal)
+                    </button>
+                  </div>
+                </div>
 
-              {/* Filter 2: PIC */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                  <UserCheck size={13} className="text-violet-600 dark:text-violet-400" /> Filter PIC (Penanggung Jawab)
-                </label>
-                <select
-                  value={selectedPic}
-                  onChange={(e) => setSelectedPic(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
-                >
-                  <option value="ALL">-- Semua PIC di Proyek Ini --</option>
-                  {availablePics.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.phoneNumber})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Filter 3: Jenis Inspeksi */}
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                  <CheckSquare size={13} className="text-violet-600 dark:text-violet-400" /> Jenis Inspeksi
-                </label>
-                <select
-                  value={inspectionType}
-                  onChange={(e) => setInspectionType(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
-                >
-                  <option value="ROUTINE">Routine Inspection (Inspeksi Rutin)</option>
-                  <option value="MIDDLE">Middle Inspection (Inspeksi Berkala)</option>
-                  <option value="FINAL">Final Inspection (Inspeksi Akhir)</option>
-                  <option value="JOINT">Inspeksi Gabungan (Joint Inspection)</option>
-                </select>
-              </div>
-
-              {/* Filter 4: Tanggal / Periode dinamis sesuai PeriodMode */}
-              <div>
-                {periodMode === "DAILY" && (
-                  <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Filter 1: Project */}
+                  <div>
                     <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Tanggal Inspeksi
+                      <Building2 size={13} className="text-violet-600 dark:text-violet-400" /> Filter Proyek
+                    </label>
+                    <select
+                      value={selectedProject}
+                      onChange={(e) => {
+                        setSelectedProject(e.target.value);
+                        setSelectedPic("ALL");
+                      }}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                    >
+                      <option value="ALL">-- Semua Proyek --</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.code ? `[${p.code}] ` : ""}{p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filter 2: PIC */}
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <UserCheck size={13} className="text-violet-600 dark:text-violet-400" /> Filter Action By
+                    </label>
+                    <select
+                      value={selectedPic}
+                      onChange={(e) => setSelectedPic(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                    >
+                      <option value="ALL">-- Semua Action By di Proyek Ini --</option>
+                      {availablePics.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.phoneNumber})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filter 3: Jenis Inspeksi */}
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <CheckSquare size={13} className="text-violet-600 dark:text-violet-400" /> Jenis Inspeksi
+                    </label>
+                    <select
+                      value={inspectionType}
+                      onChange={(e) => setInspectionType(e.target.value as any)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                    >
+                      <option value="ROUTINE">Routine Inspection (Inspeksi Rutin)</option>
+                      <option value="MIDDLE">Middle Inspection (Inspeksi Berkala)</option>
+                      <option value="FINAL">Final Inspection (Inspeksi Akhir)</option>
+                      <option value="JOINT">Patrol Gabungan (Joint Inspection)</option>
+                      <option value="HSE">Patrol HSE SQCD (Inspeksi Berkala)</option>
+                    </select>
+                  </div>
+
+                  {/* Filter 4: Tanggal / Periode dinamis sesuai PeriodMode */}
+                  <div>
+                    {periodMode === "DAILY" && (
+                      <>
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                          <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Tanggal Inspeksi
+                        </label>
+                        <input
+                          type="date"
+                          value={reportDate}
+                          onChange={(e) => setReportDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                        />
+                      </>
+                    )}
+
+                    {periodMode === "MONTHLY" && (
+                      <>
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                          <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Pilihan Bulan Laporan
+                        </label>
+                        <input
+                          type="month"
+                          value={reportMonth}
+                          onChange={(e) => setReportMonth(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                        />
+                      </>
+                    )}
+
+                    {periodMode === "PERIODICAL" && (
+                      <>
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                          <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Rentang Patroli
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-1/2 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-[11px] font-bold text-slate-900 dark:text-white min-h-[44px]"
+                            title="Tanggal Mulai"
+                          />
+                          <span className="text-slate-400 font-bold text-xs">-</span>
+                          <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-1/2 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-[11px] font-bold text-slate-900 dark:text-white min-h-[44px]"
+                            title="Tanggal Selesai"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Inspector, Site Manager, PIC, Report Number, and Present Inspectors fields */}
+              {reportType === "INTERNAL_PATROL" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                      Nama Pelapor:
                     </label>
                     <input
-                      type="date"
-                      value={reportDate}
-                      onChange={(e) => setReportDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                      type="text"
+                      value={customInspector}
+                      onChange={(e) => setCustomInspector(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                      placeholder={`Otomatis: ${defaultReporterName}`}
                     />
-                  </>
-                )}
-
-                {periodMode === "MONTHLY" && (
-                  <>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Pilihan Bulan Laporan
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                      Inspektor (Item Temuan):
                     </label>
                     <input
-                      type="month"
-                      value={reportMonth}
-                      onChange={(e) => setReportMonth(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
+                      type="text"
+                      value={customFindingInspectors}
+                      onChange={(e) => setCustomFindingInspectors(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                      placeholder={`Otomatis: ${defaultItemInspectors}`}
                     />
-                  </>
-                )}
-
-                {periodMode === "PERIODICAL" && (
-                  <>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Rentang Patroli
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                      Nama Site Manager / PM:
                     </label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-1/2 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-[11px] font-bold text-slate-900 dark:text-white min-h-[44px]"
-                        title="Tanggal Mulai"
-                      />
-                      <span className="text-slate-400 font-bold text-xs">-</span>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-1/2 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-[11px] font-bold text-slate-900 dark:text-white min-h-[44px]"
-                        title="Tanggal Selesai"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Inspector, Site Manager, PIC, Report Number, and Present Inspectors fields */}
-          {reportType === "INTERNAL_PATROL" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Nama Pelapor:
-                </label>
-                <input
-                  type="text"
-                  value={customInspector}
-                  onChange={(e) => setCustomInspector(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${defaultReporterName}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Inspektor (Item Temuan):
-                </label>
-                <input
-                  type="text"
-                  value={customFindingInspectors}
-                  onChange={(e) => setCustomFindingInspectors(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${defaultItemInspectors}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Nama Site Manager / PM:
-                </label>
-                <input
-                  type="text"
-                  value={customSiteManager}
-                  onChange={(e) => setCustomSiteManager(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${projectPmOrSm}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                  Nama PIC Penanggung Jawab:
-                </label>
-                <input
-                  type="text"
-                  value={customPicName}
-                  onChange={(e) => setCustomPicName(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${activePicObj?.name || findingsPicName || "Sesuai Data Temuan"}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
-                  <span>Nomor Laporan / Dokumen:</span>
-                  <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 font-bold">DIV-YY-XXX</span>
-                </label>
-                <input
-                  type="text"
-                  value={customReportNumber}
-                  onChange={(e) => setCustomReportNumber(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-800 dark:text-slate-200"
-                  placeholder={`Otomatis: ${defaultReportNumber}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
-                  <span>Inspektor yg Hadir (Manual):</span>
-                  <span className="text-[9px] text-violet-600 dark:text-violet-400 font-bold">Maks. 255</span>
-                </label>
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={presentInspectors}
-                  onChange={(e) => setPresentInspectors(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
-                  placeholder="Contoh: Hadi P., Joko W., Budi S."
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* VIEW 1: INTERNAL PATROL STANDARD FORM */}
-        {reportType === "INTERNAL_PATROL" && (
-          <div className="bg-white text-black p-4 sm:p-8 md:p-10 rounded-2xl border border-slate-300 shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 font-sans">
-            {/* Header Laporan dengan Custom Logo dan No. Dok */}
-            <div className="relative flex items-center justify-between pb-3 border-b-2 border-black mb-1">
-              <div className="flex items-center gap-3">
-                {systemLogoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={systemLogoUrl}
-                    alt="Logo Laporan"
-                    className="h-12 w-auto max-w-[150px] object-contain"
-                  />
-                ) : (
-                  <div className="text-left font-black text-sm tracking-tight text-slate-800 print:text-black">
-                    CMD PATROL
+                    <input
+                      type="text"
+                      value={customSiteManager}
+                      onChange={(e) => setCustomSiteManager(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                      placeholder={`Otomatis: ${projectPmOrSm}`}
+                    />
                   </div>
-                )}
-              </div>
-
-              <div className="text-center flex-1 px-4">
-                <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase">
-                  INTERNAL PATROL
-                </h2>
-              </div>
-
-              <div className="text-right text-[11px] font-mono font-bold text-slate-600 print:text-black">
-                No. Dok: <span className="bg-slate-100 print:bg-transparent px-1.5 py-0.5 border border-slate-300 print:border-none rounded font-black">{resolvedReportNumber}</span>
-              </div>
-            </div>
-
-            <div className="mt-3 border-2 border-black text-xs font-semibold">
-              <div className="grid grid-cols-12 border-b border-black">
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Project
-                </div>
-                <div className="col-span-10 sm:col-span-10 p-1.5 font-bold uppercase flex items-center justify-between gap-2 flex-wrap">
-                  <span>
-                    {activeProjectObj
-                      ? `${activeProjectObj.code ? `${activeProjectObj.code} ` : ""}${activeProjectObj.name}`
-                      : "SEMUA PROYEK"} {activeProjectObj ? `(${activeProjectObj.location})` : ""}
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 print:bg-transparent border border-black rounded">
-                    DIVISI: {activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 border-b border-black">
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Date / Periode
-                </div>
-                <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-medium">
-                  {periodDisplayLabel}
-                </div>
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Site Manager
-                </div>
-                <div className="col-span-4 sm:col-span-4 p-1.5 font-bold">
-                  {resolvedSiteManagerName}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 border-b border-black">
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Pelapor
-                </div>
-                <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-bold">
-                  {resolvedReporterName}
-                </div>
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Status
-                </div>
-                <div className="col-span-4 sm:col-span-4 p-1.5 flex items-center gap-3 sm:gap-4 flex-wrap text-[11px]">
-                  <span className="inline-flex items-center gap-1">
-                    {inspectionType === "FINAL" ? (
-                      <CheckSquare size={13} className="stroke-[2.5]" />
-                    ) : (
-                      <Square size={13} />
-                    )}
-                    <span>Final Inspection</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    {inspectionType === "MIDDLE" ? (
-                      <CheckSquare size={13} className="stroke-[2.5]" />
-                    ) : (
-                      <Square size={13} />
-                    )}
-                    <span>Middle Inspection</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    {inspectionType === "ROUTINE" ? (
-                      <CheckSquare size={13} className="stroke-[2.5]" />
-                    ) : (
-                      <Square size={13} />
-                    )}
-                    <span>Routine Inspection</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    {inspectionType === "JOINT" ? (
-                      <CheckSquare size={13} className="stroke-[2.5]" />
-                    ) : (
-                      <Square size={13} />
-                    )}
-                    <span>Inspeksi Gabungan</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Baris baru di bawah Pelapor: Inspektor (semua pelapor yang ada di item temuan) */}
-              <div className="grid grid-cols-12">
-                <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                  Inspektor
-                </div>
-                <div className="col-span-10 sm:col-span-10 p-1.5 font-bold">
-                  {resolvedItemInspectors}
-                </div>
-              </div>
-
-              {presentInspectors && (
-                <div className="grid grid-cols-12 border-t border-black">
-                  <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
-                    Inspektor Hadir
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                      Nama Action By:
+                    </label>
+                    <input
+                      type="text"
+                      value={customPicName}
+                      onChange={(e) => setCustomPicName(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                      placeholder={`Otomatis: ${activePicObj?.name || findingsPicName || "Sesuai Data Temuan"}`}
+                    />
                   </div>
-                  <div className="col-span-10 sm:col-span-10 p-1.5 font-semibold text-slate-800 print:text-black">
-                    {presentInspectors}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
+                      <span>Nomor Laporan / Dokumen:</span>
+                      <span className="text-[9px] font-mono text-violet-600 dark:text-violet-400 font-bold">DIV-YY-XXX</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={customReportNumber}
+                      onChange={(e) => setCustomReportNumber(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-800 dark:text-slate-200"
+                      placeholder={`Otomatis: ${defaultReportNumber}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
+                      <span>Inspektor yg Hadir (Manual):</span>
+                      <span className="text-[9px] text-violet-600 dark:text-violet-400 font-bold">Maks. 255</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={255}
+                      value={presentInspectors}
+                      onChange={(e) => setPresentInspectors(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200"
+                      placeholder="Contoh: Hadi P., Joko W., Budi S."
+                    />
                   </div>
                 </div>
               )}
             </div>
 
-            {selectedPic !== "ALL" && (
-              <div className="mt-2 text-xs font-bold text-slate-700 print:text-black">
-                PIC Penanggung Jawab Terpilih: <span className="underline">{activePicObj?.name}</span> ({activePicObj?.phoneNumber})
+            {/* VIEW 1: INTERNAL PATROL STANDARD FORM */}
+            {reportType === "INTERNAL_PATROL" && (
+              <div className="bg-white text-black p-4 sm:p-8 md:p-10 rounded-2xl shadow-xl print:shadow-none print:border-none print:p-0 print:m-0 font-sans">
+                {/* Header Laporan dengan Custom Logo dan No. Dok */}
+                <div className="relative flex items-center justify-between pb-3 border-b-2 border-black mb-1">
+                  <div className="flex items-center gap-3">
+                    {systemLogoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={systemLogoUrl}
+                        alt="Logo Laporan"
+                        className="h-12 w-auto max-w-[150px] object-contain"
+                      />
+                    ) : (
+                      <div className="text-left font-black text-sm tracking-tight text-slate-800 print:text-black">
+                        CMD PATROL
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-center flex-1 px-4">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase">
+                      INSPECTION REPORT
+                    </h2>
+                  </div>
+
+                  <div className="text-right text-[11px] font-mono font-bold text-slate-600 print:text-black">
+                    No. Dok: <span className="bg-slate-100 print:bg-transparent px-1.5 py-0.5 border border-slate-300 print:border-none rounded font-black">{resolvedReportNumber}</span>
+                  </div>
+                </div>
+
+                <div className="mt-3 border-2 border-black text-xs font-semibold">
+                  <div className="grid grid-cols-12 border-b border-black">
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Project
+                    </div>
+                    <div className="col-span-10 sm:col-span-10 p-1.5 font-bold uppercase flex items-center justify-between gap-2 flex-wrap">
+                      <div className="space-y-0.5 text-xs">
+                        <div>Nama : {activeProjectObj?.name || "SEMUA PROYEK"}</div>
+                        <div>Code : {activeProjectObj?.code || "-"}</div>
+                        <div>Lokasi : {activeProjectObj?.location || "-"}</div>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 print:bg-transparent border border-black rounded self-start">
+                        DIVISI: {activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 border-b border-black">
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Date / Periode
+                    </div>
+                    <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-medium">
+                      {periodDisplayLabel}
+                    </div>
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Site Manager
+                    </div>
+                    <div className="col-span-4 sm:col-span-4 p-1.5 font-bold">
+                      {resolvedSiteManagerName}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-12 border-b border-black">
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Inspektor
+                    </div>
+                    <div className="col-span-4 sm:col-span-4 p-1.5 border-r border-black font-bold">
+                      {resolvedReporterName}
+                    </div>
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Status
+                    </div>
+                    <div className="col-span-4 sm:col-span-4 p-1.5 flex items-center gap-3 sm:gap-4 flex-wrap text-[11px]">
+                      <span className="inline-flex items-center gap-1">
+                        {inspectionType === "FINAL" ? (
+                          <CheckSquare size={13} className="stroke-[2.5]" />
+                        ) : (
+                          <Square size={13} />
+                        )}
+                        <span>Final Inspection</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        {inspectionType === "MIDDLE" ? (
+                          <CheckSquare size={13} className="stroke-[2.5]" />
+                        ) : (
+                          <Square size={13} />
+                        )}
+                        <span>Middle Inspection</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        {inspectionType === "ROUTINE" ? (
+                          <CheckSquare size={13} className="stroke-[2.5]" />
+                        ) : (
+                          <Square size={13} />
+                        )}
+                        <span>Routine Inspection</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        {inspectionType === "JOINT" ? (
+                          <CheckSquare size={13} className="stroke-[2.5]" />
+                        ) : (
+                          <Square size={13} />
+                        )}
+                        <span>Patrol Gabungan</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Baris Pelapor (sebelumnya Inspektor, ditukar posisi labelnya) */}
+                  <div className="grid grid-cols-12">
+                    <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                      Pelapor
+                    </div>
+                    <div className="col-span-10 sm:col-span-10 p-1.5 font-bold">
+                      {resolvedItemInspectors}
+                    </div>
+                  </div>
+
+                  {presentInspectors && (
+                    <div className="grid grid-cols-12 border-t border-black">
+                      <div className="col-span-2 sm:col-span-2 p-1.5 font-bold border-r border-black bg-slate-50 print:bg-transparent">
+                        Inspektor Hadir
+                      </div>
+                      <div className="col-span-10 sm:col-span-10 p-1.5 font-semibold text-slate-800 print:text-black">
+                        {presentInspectors}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedPic !== "ALL" && (
+                  <div className="mt-2 text-xs font-bold text-slate-700 print:text-black">
+                    Action By Terpilih: <span className="underline">{activePicObj?.name}</span> ({activePicObj?.phoneNumber})
+                  </div>
+                )}
+
+                <div className="mt-4">
+                  {loading ? (
+                    <div className="py-16 text-center text-slate-500 font-bold">
+                      Memuat data temuan patroli...
+                    </div>
+                  ) : findings.length === 0 ? (
+                    <div className="py-12 text-center border-2 border-black font-bold text-slate-500">
+                      Tidak ada data temuan untuk filter Proyek & PIC ini.
+                    </div>
+                  ) : (
+                    <table className="w-full border-collapse border-2 border-black text-xs">
+                      <thead>
+                        <tr className="border-b-2 border-black bg-slate-100 print:bg-slate-100 font-black text-center">
+                          <th className="w-16 border-r border-black p-2">NO</th>
+                          <th className="w-1/2 border-r border-black p-2 uppercase tracking-wide">
+                            Patrol Photograph
+                          </th>
+                          <th className="w-1/2 p-2 uppercase tracking-wide">
+                            Confirm Countermeasure
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {findings.map((item, index) => {
+                          const findingPhotos = parsePhotoUrls(item.photoFindingUrl);
+                          const resolutionPhotos = parsePhotoUrls(item.photoResolutionUrl);
+                          const formattedNo = String(index + 1).padStart(3, "0");
+
+                          return (
+                            <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
+                              {/* Kolom 1: Nomor urut format 001, 002, 003 tanpa ID tiket */}
+                              <td className="border-r border-black p-2 text-center align-top">
+                                <span className="text-base font-black block">{formattedNo}</span>
+                              </td>
+
+                              {/* Kolom 2: Poin 14, 18: Comment bersih tanpa nomor temuan, tambah Lokasi Spesifik, ganti PIC dengan Pelapor */}
+                              <td className="border-r border-black p-3 align-top space-y-2">
+                                {findingPhotos.length === 0 ? (
+                                  <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
+                                    <div className="text-slate-400 text-xs italic">
+                                      Foto patroli tidak tersedia
+                                    </div>
+                                  </div>
+                                ) : findingPhotos.length === 1 ? (
+                                  <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={findingPhotos[0]}
+                                      alt={`Foto Temuan ${item.ticketCode}`}
+                                      className="w-full h-44 object-cover object-center"
+                                    />
+                                  </div>
+                                ) : findingPhotos.length === 2 ? (
+                                  <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                    {findingPhotos.map((pUrl, pIdx) => (
+                                      <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={pUrl}
+                                          alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
+                                          className="w-full h-full object-cover object-center"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                    {findingPhotos.slice(0, 4).map((pUrl, pIdx) => (
+                                      <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={pUrl}
+                                          alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
+                                          className="w-full h-full object-cover object-center"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="pt-1 text-[11px] leading-relaxed">
+                                  <p className="font-bold">
+                                    Comment :
+                                  </p>
+                                  <p className="text-slate-800 print:text-black mt-0.5">
+                                    {item.description || "Hanya Foto Patroli Lapangan"}
+                                  </p>
+                                  <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
+                                    <p>
+                                      Lokasi Area: <strong className="text-black font-bold">{item.locationDetail || "-"}</strong>
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Kolom 3: Poin 19: Comment perbaikan di bawahnya tambah nama pelaksana perbaikan */}
+                              <td className="p-3 align-top space-y-2">
+                                {resolutionPhotos.length === 0 ? (
+                                  <div className="p-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded w-full h-44 flex flex-col items-center justify-center">
+                                    <span>[ Belum Ada Foto Tindakan Perbaikan ]</span>
+                                    <span className="text-[10px] mt-1 text-slate-400 font-normal">
+                                      Status: {item.status}
+                                    </span>
+                                  </div>
+                                ) : resolutionPhotos.length === 1 ? (
+                                  <div className="w-full bg-slate-50 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={resolutionPhotos[0]}
+                                      alt={`Foto Perbaikan ${item.ticketCode}`}
+                                      className="w-full h-44 object-cover object-center"
+                                    />
+                                  </div>
+                                ) : resolutionPhotos.length === 2 ? (
+                                  <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                    {resolutionPhotos.map((pUrl, pIdx) => (
+                                      <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={pUrl}
+                                          alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
+                                          className="w-full h-full object-cover object-center"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
+                                    {resolutionPhotos.slice(0, 4).map((pUrl, pIdx) => (
+                                      <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={pUrl}
+                                          alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
+                                          className="w-full h-full object-cover object-center"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="pt-1 text-[11px] leading-relaxed">
+                                  <p className="font-bold">
+                                    Comment :
+                                  </p>
+                                  <p className="text-slate-800 print:text-black mt-0.5">
+                                    {item.picResponse ? (
+                                      item.picResponse
+                                    ) : (
+                                      <span className="italic text-slate-400">
+                                        (Menunggu tindakan perbaikan dari PIC di lapangan)
+                                      </span>
+                                    )}
+                                  </p>
+                                  <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
+                                    <p>
+                                      Action By:{" "}
+                                      <strong className="text-black font-bold">
+                                        {item.picResponse ? (item.pic?.name || "-") : ""}
+                                      </strong>
+                                    </p>
+                                    {item.resolvedAt && (
+                                      <p className="text-slate-500 print:text-slate-700">
+                                        Tgl Perbaikan: {formatDate(item.resolvedAt)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs font-semibold">
+                  <div className="italic text-slate-800 print:text-black font-bold">
+                    * Konfirmasi perbaikan selambat - lambatnya 14 hari kerja harus respon
+                  </div>
+                  <div className="text-[11px] text-slate-500 print:text-slate-700">
+                    ProjectTracker Patrol System • ISO 45001 & ISO 9001
+                  </div>
+                </div>
+
+                {/* DIGITAL QR CODE E-VERIFICATION (Menggantikan Approval Basah) */}
+                <div className="mt-8 pt-5 border-t-2 border-black flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-white border-2 border-black rounded-xl shadow-xs shrink-0">
+                      {qrCodeDataUrl ? (
+                        <img
+                          src={qrCodeDataUrl}
+                          alt="QR Code Verifikasi Laporan"
+                          className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center text-slate-400">
+                          <QrCode size={36} />
+                          <span className="text-[9px] mt-1">Generating QR...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-black uppercase tracking-wider print:bg-transparent print:border-black print:text-black">
+                        <ShieldCheck size={13} className="text-emerald-700 print:text-black" />
+                        <span>Persetujuan Sah Elektronik (Paperless QR)</span>
+                      </div>
+                      <h4 className="text-xs font-black text-slate-900 print:text-black tracking-tight">
+                        Diverifikasi & Divalidasi Sistem Terpusat ProjectTracker
+                      </h4>
+                      <p className="text-[11px] text-slate-600 print:text-slate-800 leading-snug max-w-md">
+                        Dokumen ini disahkan secara digital tanpa tanda tangan basah fisik. Scan QR code untuk memeriksa keaslian, status perbaikan terkini, dan log audit patroli.
+                      </p>
+                      <p className="text-[10px] font-mono font-bold text-slate-500 print:text-black pt-0.5">
+                        Ref Dokumen: {resolvedReportNumber} • ID Patroli: {selectedProject !== "ALL" ? selectedProject.slice(0, 8) : "GLOBAL"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Detail Petugas & Pihak Terlibat */}
+                  <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200">
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Pelapor: </span>
+                      <span className="font-black text-slate-900 print:text-black uppercase">{resolvedReporterName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
+                      <span className="font-black text-slate-900 print:text-black uppercase">{resolvedItemInspectors}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Action By: </span>
+                      <span className="font-black text-slate-900 print:text-black uppercase">{resolvedPicName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Site Manager / PM: </span>
+                      <span className="font-black text-slate-900 print:text-black uppercase">{resolvedSiteManagerName}</span>
+                    </div>
+                    {reportShareUrl && (
+                      <div className="pt-1 print:hidden">
+                        <a
+                          href={reportShareUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 hover:text-violet-900 underline"
+                        >
+                          <span>Buka Tautan Online Laporan</span>
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="mt-4">
-              {loading ? (
-                <div className="py-16 text-center text-slate-500 font-bold">
-                  Memuat data temuan patroli...
-                </div>
-              ) : findings.length === 0 ? (
-                <div className="py-12 text-center border-2 border-black font-bold text-slate-500">
-                  Tidak ada data temuan untuk filter Proyek & PIC ini.
-                </div>
-              ) : (
-                <table className="w-full border-collapse border-2 border-black text-xs">
-                  <thead>
-                    <tr className="border-b-2 border-black bg-slate-100 print:bg-slate-100 font-black text-center">
-                      <th className="w-16 border-r border-black p-2">NO / ID</th>
-                      <th className="w-1/2 border-r border-black p-2 uppercase tracking-wide">
-                        Patrol Photograph
-                      </th>
-                      <th className="w-1/2 p-2 uppercase tracking-wide">
-                        Confirm Countermeasure
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {findings.map((item, index) => {
-                      const findingPhotos = parsePhotoUrls(item.photoFindingUrl);
-                      const resolutionPhotos = parsePhotoUrls(item.photoResolutionUrl);
-
-                      return (
-                        <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
-                          {/* Kolom 1: Poin 10: Nomor urut di atas dan Nomor Temuan di bawahnya */}
-                          <td className="border-r border-black p-2 text-center align-top">
-                            <span className="text-base font-black block">{index + 1}</span>
-                            <span className="text-[10px] font-mono font-bold block mt-1 tracking-tight text-slate-800 print:text-black">
-                              {item.ticketCode}
-                            </span>
-                          </td>
-
-                          {/* Kolom 2: Poin 14, 18: Comment bersih tanpa nomor temuan, tambah Lokasi Spesifik, ganti PIC dengan Pelapor */}
-                          <td className="border-r border-black p-3 align-top space-y-2">
-                            {findingPhotos.length === 0 ? (
-                              <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
-                                <div className="text-slate-400 text-xs italic">
-                                  Foto patroli tidak tersedia
-                                </div>
-                              </div>
-                            ) : findingPhotos.length === 1 ? (
-                              <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={findingPhotos[0]}
-                                  alt={`Foto Temuan ${item.ticketCode}`}
-                                  className="w-full h-44 object-cover object-center"
-                                />
-                              </div>
-                            ) : findingPhotos.length === 2 ? (
-                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
-                                {findingPhotos.map((pUrl, pIdx) => (
-                                  <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={pUrl}
-                                      alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
-                                      className="w-full h-full object-cover object-center"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
-                                {findingPhotos.slice(0, 4).map((pUrl, pIdx) => (
-                                  <div key={pIdx} className="bg-slate-100 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={pUrl}
-                                      alt={`Foto ${pIdx + 1} ${item.ticketCode}`}
-                                      className="w-full h-full object-cover object-center"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            <div className="pt-1 text-[11px] leading-relaxed">
-                              <p className="font-bold">
-                                Comment :
-                              </p>
-                              <p className="text-slate-800 print:text-black mt-0.5">
-                                {item.description || "Hanya Foto Patroli Lapangan"}
-                              </p>
-                              <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
-                                <p>
-                                  Lokasi Spesifik: <strong className="text-black font-bold">{item.locationDetail || "-"}</strong>
-                                </p>
-                                <div className="flex items-center justify-between mt-0.5">
-                                  <span>Kategori: <strong>{item.category}</strong></span>
-                                  <span>Pelapor: <strong>{item.reporter?.name || "CMD"}</strong></span>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Kolom 3: Poin 19: Comment perbaikan di bawahnya tambah nama pelaksana perbaikan */}
-                          <td className="p-3 align-top space-y-2">
-                            {resolutionPhotos.length === 0 ? (
-                              <div className="p-4 text-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded w-full h-44 flex flex-col items-center justify-center">
-                                <span>[ Belum Ada Foto Tindakan Perbaikan ]</span>
-                                <span className="text-[10px] mt-1 text-slate-400 font-normal">
-                                  Status: {item.status}
-                                </span>
-                              </div>
-                            ) : resolutionPhotos.length === 1 ? (
-                              <div className="w-full bg-slate-50 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={resolutionPhotos[0]}
-                                  alt={`Foto Perbaikan ${item.ticketCode}`}
-                                  className="w-full h-44 object-cover object-center"
-                                />
-                              </div>
-                            ) : resolutionPhotos.length === 2 ? (
-                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
-                                {resolutionPhotos.map((pUrl, pIdx) => (
-                                  <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-28 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={pUrl}
-                                      alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
-                                      className="w-full h-full object-cover object-center"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="w-full grid grid-cols-2 gap-1 rounded overflow-hidden">
-                                {resolutionPhotos.slice(0, 4).map((pUrl, pIdx) => (
-                                  <div key={pIdx} className="bg-slate-50 border border-slate-300 rounded overflow-hidden h-20 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={pUrl}
-                                      alt={`Foto Perbaikan ${pIdx + 1} ${item.ticketCode}`}
-                                      className="w-full h-full object-cover object-center"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="pt-1 text-[11px] leading-relaxed">
-                              <p className="font-bold">
-                                Comment :
-                              </p>
-                              <p className="text-slate-800 print:text-black mt-0.5">
-                                {item.picResponse ? (
-                                  item.picResponse
-                                ) : (
-                                  <span className="italic text-slate-400">
-                                    (Menunggu tindakan perbaikan dari PIC di lapangan)
-                                  </span>
-                                )}
-                              </p>
-                              <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
-                                <p>
-                                  Pelaksana Perbaikan: <strong className="text-black font-bold">{item.pic?.name || "-"}</strong>
-                                </p>
-                                {item.resolvedAt && (
-                                  <p className="text-slate-500 print:text-slate-700">
-                                    Tgl Perbaikan: {formatDate(item.resolvedAt)}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div className="mt-4 pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs font-semibold">
-              <div className="italic text-slate-800 print:text-black font-bold">
-                * Konfirmasi perbaikan selambat - lambatnya 14 hari kerja harus respon
-              </div>
-              <div className="text-[11px] text-slate-500 print:text-slate-700">
-                SiteTracker CMD Patrol System • ISO 45001 & ISO 9001
-              </div>
-            </div>
-
-            {/* DIGITAL QR CODE E-VERIFICATION (Menggantikan Approval Basah) */}
-            <div className="mt-8 pt-5 border-t-2 border-black flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-white border-2 border-black rounded-xl shadow-xs shrink-0">
-                  {qrCodeDataUrl ? (
-                    <img
-                      src={qrCodeDataUrl}
-                      alt="QR Code Verifikasi Laporan"
-                      className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center text-slate-400">
-                      <QrCode size={36} />
-                      <span className="text-[9px] mt-1">Generating QR...</span>
+            {/* VIEW 2: EXECUTIVE REKAP & KPI STATISTIK */}
+            {reportType === "EXECUTIVE_REKAP" && (
+              <div className="bg-white dark:bg-slate-900 print:bg-white print:text-black p-6 sm:p-10 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl print:shadow-none print:border-none space-y-8 font-sans">
+                <div className="border-b-2 border-slate-900 dark:border-slate-700 print:border-black pb-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-violet-600 text-white rounded-2xl print:bg-black print:text-white">
+                      <HardHat size={36} strokeWidth={2.5} />
                     </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-black uppercase tracking-wider print:bg-transparent print:border-black print:text-black">
-                    <ShieldCheck size={13} className="text-emerald-700 print:text-black" />
-                    <span>Persetujuan Sah Elektronik (Paperless QR)</span>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900 dark:text-white print:text-black tracking-tight">
+                        PROJECTTRACKER
+                      </h2>
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400 print:text-slate-700">
+                        LAPORAN HASIL PATROLI LAPANGAN & PENGAWASAN K3 / MUTU
+                      </p>
+                      <p className="text-[11px] text-slate-500 print:text-slate-600">
+                        Standard Operating Procedure: ISO 45001 & ISO 9001
+                      </p>
+                    </div>
                   </div>
-                  <h4 className="text-xs font-black text-slate-900 print:text-black tracking-tight">
-                    Diverifikasi & Divalidasi Sistem Terpusat SiteTracker CMD
-                  </h4>
-                  <p className="text-[11px] text-slate-600 print:text-slate-800 leading-snug max-w-md">
-                    Dokumen ini disahkan secara digital tanpa tanda tangan basah fisik. Scan QR code untuk memeriksa keaslian, status perbaikan terkini, dan log audit patroli.
-                  </p>
-                  <p className="text-[10px] font-mono font-bold text-slate-500 print:text-black pt-0.5">
-                    Ref Dokumen: {resolvedReportNumber} • ID Patroli: {selectedProject !== "ALL" ? selectedProject.slice(0, 8) : "GLOBAL"}
-                  </p>
-                </div>
-              </div>
 
-              {/* Detail Petugas & Pihak Terlibat */}
-              <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200">
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Pelapor: </span>
-                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedReporterName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
-                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedItemInspectors}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">PIC Penanggung Jawab: </span>
-                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedPicName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Site Manager / PM: </span>
-                  <span className="font-black text-slate-900 print:text-black uppercase">{resolvedSiteManagerName}</span>
-                </div>
-                {reportShareUrl && (
-                  <div className="pt-1 print:hidden">
-                    <a
-                      href={reportShareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-700 hover:text-violet-900 underline"
-                    >
-                      <span>Buka Tautan Online Laporan</span>
-                      <ExternalLink size={10} />
-                    </a>
+                  <div className="text-right text-xs text-slate-600 dark:text-slate-400 print:text-slate-700 space-y-1">
+                    <p className="font-bold text-slate-900 dark:text-white print:text-black">
+                      No. Dok: <span className="font-mono font-black text-violet-700 dark:text-violet-300 print:text-black">{resolvedReportNumber}</span>
+                    </p>
+                    <p>
+                      Divisi: <span className="font-bold font-mono text-sky-700 dark:text-sky-300 print:text-black">{activeDivCode}</span> ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
+                    </p>
+                    <p>
+                      Periode: <span className="font-bold text-violet-700 dark:text-violet-300 print:text-black">{periodDisplayLabel}</span>
+                    </p>
+                    <p>
+                      Tanggal Cetak: {formatDate(new Date())}
+                    </p>
+                    <p>
+                      Proyek: <span className="font-bold">{activeProjectObj ? activeProjectObj.name : "Seluruh Proyek"}</span>
+                    </p>
+                    <p>
+                      PIC: <span className="font-bold">{activePicObj ? activePicObj.name : "Semua PIC"}</span>
+                    </p>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* VIEW 2: EXECUTIVE REKAP & KPI STATISTIK */}
-        {reportType === "EXECUTIVE_REKAP" && (
-          <div className="bg-white dark:bg-slate-900 print:bg-white print:text-black p-6 sm:p-10 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl print:shadow-none print:border-none space-y-8 font-sans">
-            <div className="border-b-2 border-slate-900 dark:border-slate-700 print:border-black pb-6 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-violet-600 text-white rounded-2xl print:bg-black print:text-white">
-                  <HardHat size={36} strokeWidth={2.5} />
                 </div>
+
+                {/* Metrics */}
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900 dark:text-white print:text-black tracking-tight">
-                    SITETRACKER CMD
-                  </h2>
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-400 print:text-slate-700">
-                    LAPORAN HASIL PATROLI LAPANGAN & PENGAWASAN K3 / MUTU
-                  </p>
-                  <p className="text-[11px] text-slate-500 print:text-slate-600">
-                    Standard Operating Procedure: ISO 45001 & ISO 9001
-                  </p>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-3">
+                    Ringkasan Statistik Temuan ({periodDisplayLabel})
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/60 print:bg-slate-100 rounded-2xl border border-slate-200 dark:border-slate-700 print:border-slate-300">
+                      <p className="text-xs font-bold text-slate-500 print:text-slate-700">Total Temuan</p>
+                      <p className="text-2xl font-black text-slate-900 dark:text-white print:text-black mt-1">{totalFindings}</p>
+                    </div>
+                    <div className="p-4 bg-red-50 dark:bg-red-950/40 print:bg-red-50 rounded-2xl border border-red-200 dark:border-red-800 print:border-red-300">
+                      <p className="text-xs font-bold text-red-600 print:text-red-800">Status OPEN</p>
+                      <p className="text-2xl font-black text-red-700 dark:text-red-400 print:text-red-800 mt-1">{totalOpen}</p>
+                    </div>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 print:bg-amber-50 rounded-2xl border border-amber-200 dark:border-amber-800 print:border-amber-300">
+                      <p className="text-xs font-bold text-amber-600 print:text-amber-800">Status RESOLVED</p>
+                      <p className="text-2xl font-black text-amber-700 dark:text-amber-400 print:text-amber-800 mt-1">{totalResolved}</p>
+                    </div>
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 print:bg-emerald-50 rounded-2xl border border-emerald-200 dark:border-emerald-800 print:border-emerald-300">
+                      <p className="text-xs font-bold text-emerald-600 print:text-emerald-800">Status CLOSED</p>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 print:text-emerald-800 mt-1">{totalClosed}</p>
+                    </div>
+                    <div className="p-4 bg-rose-50 dark:bg-rose-950/40 print:bg-rose-50 rounded-2xl border border-rose-200 dark:border-rose-800 print:border-rose-300 col-span-2 sm:col-span-1">
+                      <p className="text-xs font-bold text-rose-600 print:text-rose-800">OVERDUE SLA</p>
+                      <p className="text-2xl font-black text-rose-700 dark:text-rose-400 print:text-rose-800 mt-1">{totalOverdue}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="text-right text-xs text-slate-600 dark:text-slate-400 print:text-slate-700 space-y-1">
-                <p className="font-bold text-slate-900 dark:text-white print:text-black">
-                  No. Dok: <span className="font-mono font-black text-violet-700 dark:text-violet-300 print:text-black">{resolvedReportNumber}</span>
-                </p>
-                <p>
-                  Divisi: <span className="font-bold font-mono text-sky-700 dark:text-sky-300 print:text-black">{activeDivCode}</span> ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})
-                </p>
-                <p>
-                  Periode: <span className="font-bold text-violet-700 dark:text-violet-300 print:text-black">{periodDisplayLabel}</span>
-                </p>
-                <p>
-                  Tanggal Cetak: {formatDate(new Date())}
-                </p>
-                <p>
-                  Proyek: <span className="font-bold">{activeProjectObj ? activeProjectObj.name : "Seluruh Proyek"}</span>
-                </p>
-                <p>
-                  PIC: <span className="font-bold">{activePicObj ? activePicObj.name : "Semua PIC"}</span>
-                </p>
-              </div>
-            </div>
+                {/* Rekapitulasi Temuan Per Project (Berapa di project itu yang OPEN & CLOSED) */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider">
+                      Rekapitulasi Temuan Per Proyek ({periodDisplayLabel})
+                    </h3>
+                    <span className="text-xs font-bold text-slate-500 print:text-slate-600">
+                      {projectBreakdownStats.length} Proyek Tercatat
+                    </span>
+                  </div>
 
-            {/* Metrics */}
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-3">
-                Ringkasan Statistik Temuan ({periodDisplayLabel})
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 print:bg-slate-100 rounded-2xl border border-slate-200 dark:border-slate-700 print:border-slate-300">
-                  <p className="text-xs font-bold text-slate-500 print:text-slate-700">Total Temuan</p>
-                  <p className="text-2xl font-black text-slate-900 dark:text-white print:text-black mt-1">{totalFindings}</p>
-                </div>
-                <div className="p-4 bg-red-50 dark:bg-red-950/40 print:bg-red-50 rounded-2xl border border-red-200 dark:border-red-800 print:border-red-300">
-                  <p className="text-xs font-bold text-red-600 print:text-red-800">Status OPEN</p>
-                  <p className="text-2xl font-black text-red-700 dark:text-red-400 print:text-red-800 mt-1">{totalOpen}</p>
-                </div>
-                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 print:bg-amber-50 rounded-2xl border border-amber-200 dark:border-amber-800 print:border-amber-300">
-                  <p className="text-xs font-bold text-amber-600 print:text-amber-800">Status RESOLVED</p>
-                  <p className="text-2xl font-black text-amber-700 dark:text-amber-400 print:text-amber-800 mt-1">{totalResolved}</p>
-                </div>
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 print:bg-emerald-50 rounded-2xl border border-emerald-200 dark:border-emerald-800 print:border-emerald-300">
-                  <p className="text-xs font-bold text-emerald-600 print:text-emerald-800">Status CLOSED</p>
-                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 print:text-emerald-800 mt-1">{totalClosed}</p>
-                </div>
-                <div className="p-4 bg-rose-50 dark:bg-rose-950/40 print:bg-rose-50 rounded-2xl border border-rose-200 dark:border-rose-800 print:border-rose-300 col-span-2 sm:col-span-1">
-                  <p className="text-xs font-bold text-rose-600 print:text-rose-800">OVERDUE SLA</p>
-                  <p className="text-2xl font-black text-rose-700 dark:text-rose-400 print:text-rose-800 mt-1">{totalOverdue}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Rekapitulasi Temuan Per Project (Berapa di project itu yang OPEN & CLOSED) */}
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider">
-                  Rekapitulasi Temuan Per Proyek ({periodDisplayLabel})
-                </h3>
-                <span className="text-xs font-bold text-slate-500 print:text-slate-600">
-                  {projectBreakdownStats.length} Proyek Tercatat
-                </span>
-              </div>
-
-              {projectBreakdownStats.length === 0 ? (
-                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-                  Tidak ada data temuan proyek pada periode ini.
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 print:border-black">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 dark:bg-slate-800 print:bg-slate-200 text-slate-900 dark:text-white print:text-black font-extrabold border-b border-slate-200 dark:border-slate-700 print:border-black">
-                        <th className="p-3">No</th>
-                        <th className="p-3">Kode & Nama Proyek</th>
-                        <th className="p-3">Lokasi</th>
-                        <th className="p-3 text-center text-red-600 print:text-black">OPEN</th>
-                        <th className="p-3 text-center text-amber-600 print:text-black">RESOLVED</th>
-                        <th className="p-3 text-center text-emerald-600 print:text-black">CLOSED</th>
-                        <th className="p-3 text-center text-rose-600 print:text-black">Overdue SLA</th>
-                        <th className="p-3 text-right font-black">Total Temuan</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800 print:divide-slate-300 font-medium">
-                      {projectBreakdownStats.map((item, idx) => (
-                        <tr
-                          key={item.projectId}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 print:hover:bg-transparent"
-                        >
-                          <td className="p-3 text-slate-500 print:text-black font-mono">{idx + 1}</td>
-                          <td className="p-3">
-                            <span className="font-bold text-slate-900 dark:text-white print:text-black">
-                              {item.projectCode ? `[${item.projectCode}] ` : ""}
-                              {item.projectName}
-                            </span>
-                          </td>
-                          <td className="p-3 text-slate-600 dark:text-slate-400 print:text-black">{item.location}</td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
-                              item.open > 0 ? "bg-red-100 text-red-700 font-black" : "text-slate-400"
-                            }`}>
-                              {item.open}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
-                              item.resolved > 0 ? "bg-amber-100 text-amber-700" : "text-slate-400"
-                            }`}>
-                              {item.resolved}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
-                              item.closed > 0 ? "bg-emerald-100 text-emerald-700" : "text-slate-400"
-                            }`}>
-                              {item.closed}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${
-                              item.overdue > 0 ? "bg-rose-100 text-rose-700 font-black" : "text-slate-400"
-                            }`}>
-                              {item.overdue}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right font-black text-sm text-slate-900 dark:text-white print:text-black">
-                            {item.total}
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Summary Row */}
-                      <tr className="bg-slate-100/80 dark:bg-slate-800/80 print:bg-slate-200 font-black border-t-2 border-slate-300 dark:border-slate-700 print:border-black text-slate-900 dark:text-white print:text-black">
-                        <td colSpan={3} className="p-3 text-right uppercase tracking-wider">
-                          Total Keseluruhan Proyek:
-                        </td>
-                        <td className="p-3 text-center text-red-600 font-black">{totalOpen}</td>
-                        <td className="p-3 text-center text-amber-600 font-black">{totalResolved}</td>
-                        <td className="p-3 text-center text-emerald-600 font-black">{totalClosed}</td>
-                        <td className="p-3 text-center text-rose-600 font-black">{totalOverdue}</td>
-                        <td className="p-3 text-right text-sm font-black">{totalFindings}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Detailed Table */}
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-4">
-                Daftar Detail Tiket Patroli Lapangan
-              </h3>
-
-              {loading ? (
-                <div className="py-12 text-center text-slate-500 font-bold">Memuat data laporan...</div>
-              ) : findings.length === 0 ? (
-                <div className="py-12 text-center text-slate-500">Tidak ada temuan terdaftar untuk filter ini.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b-2 border-slate-300 dark:border-slate-700 print:border-black bg-slate-100 dark:bg-slate-800 print:bg-slate-200 text-slate-900 dark:text-white print:text-black font-extrabold">
-                        <th className="p-3">Kode Tiket</th>
-                        <th className="p-3">Proyek & Lokasi</th>
-                        <th className="p-3">Kategori</th>
-                        <th className="p-3">Deskripsi Masalah</th>
-                        <th className="p-3">PIC</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3">Tgl Lapor / SLA</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800 print:divide-slate-300">
-                      {findings.map((item) => {
-                        const sla = getSlaStatus(item.dueDate, item.status);
-
-                        return (
-                          <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 print:hover:bg-transparent">
-                            <td className="p-3 font-mono font-bold text-slate-900 dark:text-white print:text-black whitespace-nowrap">
-                              {item.ticketCode}
-                            </td>
-                            <td className="p-3">
-                              <p className="font-bold text-slate-900 dark:text-white print:text-black">{item.project?.name || "-"}</p>
-                              <p className="text-[11px] text-slate-500 print:text-slate-700">{item.locationDetail}</p>
-                            </td>
-                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-200 print:text-black">
-                              {item.category}
-                            </td>
-                            <td className="p-3 text-slate-700 dark:text-slate-300 print:text-black max-w-xs leading-relaxed">
-                              {item.description}
-                            </td>
-                            <td className="p-3 font-medium text-slate-800 dark:text-slate-200 print:text-black whitespace-nowrap">
-                              {item.pic?.name || "Unassigned"}
-                            </td>
-                            <td className="p-3 whitespace-nowrap font-extrabold">
-                              <span
-                                className={`px-2.5 py-1 rounded-md text-[10px] ${
-                                  item.status === "OPEN"
-                                    ? "bg-red-100 text-red-800 print:bg-red-100"
-                                    : item.status === "RESOLVED"
-                                    ? "bg-amber-100 text-amber-800 print:bg-amber-100"
-                                    : "bg-emerald-100 text-emerald-800 print:bg-emerald-100"
-                                }`}
-                              >
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="p-3 text-[11px] whitespace-nowrap">
-                              <p className="text-slate-600 print:text-black">{formatDate(item.createdAt)}</p>
-                              <p className={`font-bold text-[10px] ${sla.isOverdue ? "text-red-600" : "text-slate-500"}`}>
-                                {sla.label}
-                              </p>
-                            </td>
+                  {projectBreakdownStats.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
+                      Tidak ada data temuan proyek pada periode ini.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 print:border-black">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 dark:bg-slate-800 print:bg-slate-200 text-slate-900 dark:text-white print:text-black font-extrabold border-b border-slate-200 dark:border-slate-700 print:border-black">
+                            <th className="p-3">No</th>
+                            <th className="p-3">Kode & Nama Proyek</th>
+                            <th className="p-3">Lokasi</th>
+                            <th className="p-3 text-center text-red-600 print:text-black">OPEN</th>
+                            <th className="p-3 text-center text-amber-600 print:text-black">RESOLVED</th>
+                            <th className="p-3 text-center text-emerald-600 print:text-black">CLOSED</th>
+                            <th className="p-3 text-center text-rose-600 print:text-black">Overdue SLA</th>
+                            <th className="p-3 text-right font-black">Total Temuan</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* DIGITAL QR CODE E-VERIFICATION (Executive Paperless Validation) */}
-            <div className="pt-8 border-t border-slate-300 dark:border-slate-800 print:border-slate-400 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-white rounded-2xl border-2 border-slate-900 dark:border-slate-700 print:border-black shadow-md shrink-0">
-                  {qrCodeDataUrl ? (
-                    <img
-                      src={qrCodeDataUrl}
-                      alt="QR Code Laporan Eksekutif"
-                      className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center text-slate-400">
-                      <QrCode size={36} />
-                      <span className="text-[9px] mt-1">Generating QR...</span>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 print:divide-slate-300 font-medium">
+                          {projectBreakdownStats.map((item, idx) => (
+                            <tr
+                              key={item.projectId}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 print:hover:bg-transparent"
+                            >
+                              <td className="p-3 text-slate-500 print:text-black font-mono">{idx + 1}</td>
+                              <td className="p-3">
+                                <span className="font-bold text-slate-900 dark:text-white print:text-black">
+                                  {item.projectCode ? `[${item.projectCode}] ` : ""}
+                                  {item.projectName}
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-600 dark:text-slate-400 print:text-black">{item.location}</td>
+                              <td className="p-3 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${item.open > 0 ? "bg-red-100 text-red-700 font-black" : "text-slate-400"
+                                  }`}>
+                                  {item.open}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${item.resolved > 0 ? "bg-amber-100 text-amber-700" : "text-slate-400"
+                                  }`}>
+                                  {item.resolved}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${item.closed > 0 ? "bg-emerald-100 text-emerald-700" : "text-slate-400"
+                                  }`}>
+                                  {item.closed}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-xs ${item.overdue > 0 ? "bg-rose-100 text-rose-700 font-black" : "text-slate-400"
+                                  }`}>
+                                  {item.overdue}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-black text-sm text-slate-900 dark:text-white print:text-black">
+                                {item.total}
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Summary Row */}
+                          <tr className="bg-slate-100/80 dark:bg-slate-800/80 print:bg-slate-200 font-black border-t-2 border-slate-300 dark:border-slate-700 print:border-black text-slate-900 dark:text-white print:text-black">
+                            <td colSpan={3} className="p-3 text-right uppercase tracking-wider">
+                              Total Keseluruhan Proyek:
+                            </td>
+                            <td className="p-3 text-center text-red-600 font-black">{totalOpen}</td>
+                            <td className="p-3 text-center text-amber-600 font-black">{totalResolved}</td>
+                            <td className="p-3 text-center text-emerald-600 font-black">{totalClosed}</td>
+                            <td className="p-3 text-center text-rose-600 font-black">{totalOverdue}</td>
+                            <td className="p-3 text-right text-sm font-black">{totalFindings}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-950/60 text-violet-900 dark:text-violet-200 border border-violet-300 dark:border-violet-700 rounded-lg text-[10px] font-black uppercase tracking-wider print:bg-transparent print:border-black print:text-black">
-                    <ShieldCheck size={13} className="text-violet-700 dark:text-violet-400 print:text-black" />
-                    <span>Laporan Resmi Tervalidasi Sistem (E-Report QR)</span>
-                  </div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white print:text-black tracking-tight">
-                    Otorisasi & Pengesahan Digital Terpadu SiteTracker CMD
-                  </h4>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400 print:text-slate-800 leading-snug max-w-md">
-                    Rekapitulasi ini sah tanpa cap/tanda tangan basah manual. Pindai kode QR untuk mengakses dashboard interaktif, detail temuan aktual, dan pembuktian foto perbaikan.
-                  </p>
-                  <p className="text-[10px] font-mono font-bold text-slate-500 print:text-black pt-0.5">
-                    No. Dok: {resolvedReportNumber} • Periode: {periodDisplayLabel}
-                  </p>
-                </div>
-              </div>
+                {/* Detailed Table */}
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-4">
+                    Daftar Detail Tiket Patroli Lapangan
+                  </h3>
 
-              <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1.5 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200 dark:border-slate-800">
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Pelapor (Pembuat Laporan): </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedReporterName}</span>
+                  {loading ? (
+                    <div className="py-12 text-center text-slate-500 font-bold">Memuat data laporan...</div>
+                  ) : findings.length === 0 ? (
+                    <div className="py-12 text-center text-slate-500">Tidak ada temuan terdaftar untuk filter ini.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b-2 border-slate-300 dark:border-slate-700 print:border-black bg-slate-100 dark:bg-slate-800 print:bg-slate-200 text-slate-900 dark:text-white print:text-black font-extrabold">
+                            <th className="p-3">Kode Tiket</th>
+                            <th className="p-3">Proyek & Lokasi</th>
+                            <th className="p-3">Kategori</th>
+                            <th className="p-3">Deskripsi Masalah</th>
+                            <th className="p-3">PIC</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Tgl Lapor / SLA</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 print:divide-slate-300">
+                          {findings.map((item) => {
+                            const sla = getSlaStatus(item.dueDate, item.status);
+
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 print:hover:bg-transparent">
+                                <td className="p-3 font-mono font-bold text-slate-900 dark:text-white print:text-black whitespace-nowrap">
+                                  {item.ticketCode}
+                                </td>
+                                <td className="p-3">
+                                  <p className="font-bold text-slate-900 dark:text-white print:text-black">{item.project?.name || "-"}</p>
+                                  <p className="text-[11px] text-slate-500 print:text-slate-700">{item.locationDetail}</p>
+                                </td>
+                                <td className="p-3 font-semibold text-slate-800 dark:text-slate-200 print:text-black">
+                                  {item.category}
+                                </td>
+                                <td className="p-3 text-slate-700 dark:text-slate-300 print:text-black max-w-xs leading-relaxed">
+                                  {item.description}
+                                </td>
+                                <td className="p-3 font-medium text-slate-800 dark:text-slate-200 print:text-black whitespace-nowrap">
+                                  {item.pic?.name || "Unassigned"}
+                                </td>
+                                <td className="p-3 whitespace-nowrap font-extrabold">
+                                  <span
+                                    className={`px-2.5 py-1 rounded-md text-[10px] ${item.status === "OPEN"
+                                        ? "bg-red-100 text-red-800 print:bg-red-100"
+                                        : item.status === "RESOLVED"
+                                          ? "bg-amber-100 text-amber-800 print:bg-amber-100"
+                                          : "bg-emerald-100 text-emerald-800 print:bg-emerald-100"
+                                      }`}
+                                  >
+                                    {item.status}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-[11px] whitespace-nowrap">
+                                  <p className="text-slate-600 print:text-black">{formatDate(item.createdAt)}</p>
+                                  <p className={`font-bold text-[10px] ${sla.isOverdue ? "text-red-600" : "text-slate-500"}`}>
+                                    {sla.label}
+                                  </p>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedItemInspectors}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Ditindaklanjuti (PIC Lapangan): </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedPicName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 print:text-slate-700">Mengetahui (SM / PM Proyek): </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedSiteManagerName}</span>
-                </div>
-                {presentInspectors && (
-                  <div>
-                    <span className="text-slate-500 print:text-slate-700">Inspektor Hadir Patroli: </span>
-                    <span className="font-extrabold text-slate-900 dark:text-white print:text-black">{presentInspectors}</span>
+
+                {/* DIGITAL QR CODE E-VERIFICATION (Executive Paperless Validation) */}
+                <div className="pt-8 border-t border-slate-300 dark:border-slate-800 print:border-slate-400 flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-white rounded-2xl border-2 border-slate-900 dark:border-slate-700 print:border-black shadow-md shrink-0">
+                      {qrCodeDataUrl ? (
+                        <img
+                          src={qrCodeDataUrl}
+                          alt="QR Code Laporan Eksekutif"
+                          className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center text-slate-400">
+                          <QrCode size={36} />
+                          <span className="text-[9px] mt-1">Generating QR...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-950/60 text-violet-900 dark:text-violet-200 border border-violet-300 dark:border-violet-700 rounded-lg text-[10px] font-black uppercase tracking-wider print:bg-transparent print:border-black print:text-black">
+                        <ShieldCheck size={13} className="text-violet-700 dark:text-violet-400 print:text-black" />
+                        <span>Laporan Resmi Tervalidasi Sistem (E-Report QR)</span>
+                      </div>
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white print:text-black tracking-tight">
+                        Otorisasi & Pengesahan Digital Terpadu ProjectTracker
+                      </h4>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 print:text-slate-800 leading-snug max-w-md">
+                        Rekapitulasi ini sah tanpa cap/tanda tangan basah manual. Pindai kode QR untuk mengakses dashboard interaktif, detail temuan aktual, dan pembuktian foto perbaikan.
+                      </p>
+                      <p className="text-[10px] font-mono font-bold text-slate-500 print:text-black pt-0.5">
+                        No. Dok: {resolvedReportNumber} • Periode: {periodDisplayLabel}
+                      </p>
+                    </div>
                   </div>
-                )}
-                {reportShareUrl && (
-                  <div className="pt-1 print:hidden">
-                    <a
-                      href={reportShareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:text-violet-500 underline"
-                    >
-                      <span>Akses Laporan Versi Web</span>
-                      <ExternalLink size={10} />
-                    </a>
+
+                  <div className="w-full sm:w-auto text-left sm:text-right text-[11px] space-y-1.5 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-200 dark:border-slate-800">
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Pelapor (Pembuat Laporan): </span>
+                      <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedReporterName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Inspektor: </span>
+                      <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedItemInspectors}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Action By: </span>
+                      <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedPicName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 print:text-slate-700">Mengetahui (SM / PM Proyek): </span>
+                      <span className="font-extrabold text-slate-900 dark:text-white print:text-black uppercase">{resolvedSiteManagerName}</span>
+                    </div>
+                    {presentInspectors && (
+                      <div>
+                        <span className="text-slate-500 print:text-slate-700">Inspektor Hadir Patroli: </span>
+                        <span className="font-extrabold text-slate-900 dark:text-white print:text-black">{presentInspectors}</span>
+                      </div>
+                    )}
+                    {reportShareUrl && (
+                      <div className="pt-1 print:hidden">
+                        <a
+                          href={reportShareUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:text-violet-500 underline"
+                        >
+                          <span>Akses Laporan Versi Web</span>
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
-      </>
-    )}
-  </div>
+      </div>
 
       {/* EMAIL REPORT MODAL */}
       {showEmailModal && (
@@ -1855,11 +1841,10 @@ export default function ReportsPage() {
 
             {/* Status Provider Koneksi Azure */}
             <div
-              className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-2 ${
-                mailStatus?.isConfigured
+              className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-2 ${mailStatus?.isConfigured
                   ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
                   : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 truncate">
                 <Sparkles size={16} className={mailStatus?.isConfigured ? "text-emerald-600" : "text-amber-600"} />
@@ -1898,19 +1883,17 @@ export default function ReportsPage() {
                           <div
                             key={pic.id}
                             onClick={() => toggleRecipient(pic.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                              isChecked
+                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
                                 ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-400/80 text-amber-950 dark:text-amber-200 font-semibold"
                                 : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                                  isChecked
+                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
                                     ? "bg-amber-600 border-amber-600 text-white"
                                     : "border-slate-300 dark:border-slate-600"
-                                }`}
+                                  }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
                               </div>
@@ -1939,19 +1922,17 @@ export default function ReportsPage() {
                         return (
                           <div
                             onClick={() => toggleRecipient(activePmUser.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                              isChecked
+                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
                                 ? "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400/80 text-emerald-950 dark:text-emerald-200 font-semibold"
                                 : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                                  isChecked
+                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
                                     ? "bg-emerald-600 border-emerald-600 text-white"
                                     : "border-slate-300 dark:border-slate-600"
-                                }`}
+                                  }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
                               </div>
@@ -1982,19 +1963,17 @@ export default function ReportsPage() {
                         return (
                           <div
                             onClick={() => toggleRecipient(activeGmUser.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                              isChecked
+                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
                                 ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-400/80 text-blue-950 dark:text-blue-200 font-semibold"
                                 : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                                  isChecked
+                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
                                     ? "bg-blue-600 border-blue-600 text-white"
                                     : "border-slate-300 dark:border-slate-600"
-                                }`}
+                                  }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
                               </div>
@@ -2028,11 +2007,10 @@ export default function ReportsPage() {
                   >
                     <div className="flex items-center gap-2.5">
                       <div
-                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                          includeBod
+                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeBod
                             ? "bg-purple-600 border-purple-600 text-white"
                             : "border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900"
-                        }`}
+                          }`}
                       >
                         {includeBod && <Check size={12} strokeWidth={3} />}
                       </div>
@@ -2084,11 +2062,10 @@ export default function ReportsPage() {
                                   type="button"
                                   key={u.id}
                                   onClick={() => toggleRecipient(u.email)}
-                                  className={`text-left p-2 rounded-xl text-xs border transition-all flex items-center justify-between gap-1.5 ${
-                                    isChecked
+                                  className={`text-left p-2 rounded-xl text-xs border transition-all flex items-center justify-between gap-1.5 ${isChecked
                                       ? "bg-violet-50 dark:bg-violet-950/60 border-violet-500/80 text-violet-700 dark:text-violet-300 font-bold"
                                       : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
-                                  }`}
+                                    }`}
                                 >
                                   <div className="truncate">
                                     <p className="truncate font-semibold text-[11px]">{u.name}</p>
@@ -2408,23 +2385,22 @@ export default function ReportsPage() {
                           </td>
                           <td className="p-3 whitespace-nowrap">
                             <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                                rep.inspectionType === "FINAL"
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${rep.inspectionType === "FINAL"
                                   ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
                                   : rep.inspectionType === "MIDDLE"
-                                  ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
-                                  : rep.inspectionType === "JOINT"
-                                  ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
-                                  : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
-                              }`}
+                                    ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
+                                    : rep.inspectionType === "JOINT"
+                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                      : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                }`}
                             >
                               {rep.inspectionType === "JOINT"
-                                ? "Inspeksi Gabungan"
+                                ? "Patrol Gabungan"
                                 : rep.inspectionType === "FINAL"
-                                ? "Final Inspection"
-                                : rep.inspectionType === "MIDDLE"
-                                ? "Middle Inspection"
-                                : "Routine Inspection"}
+                                  ? "Final Inspection"
+                                  : rep.inspectionType === "MIDDLE"
+                                    ? "Middle Inspection"
+                                    : "Routine Inspection"}
                             </span>
                           </td>
                           <td className="p-3 text-slate-700 dark:text-slate-300">

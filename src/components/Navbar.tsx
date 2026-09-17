@@ -52,7 +52,7 @@ export function Navbar() {
               </div>
               <div>
                 <span className="block font-black text-xl tracking-tight text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                  SiteTracker <span className="text-violet-600 dark:text-violet-400">CMD</span>
+                  ProjectTracker
                 </span>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Patroli & Pelacakan Temuan Lapangan

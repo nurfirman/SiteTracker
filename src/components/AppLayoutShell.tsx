@@ -19,14 +19,14 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row print:m-0 print:p-0 print:bg-white print:block">
       <Sidebar />
-      <div className="flex-1 min-w-0 md:pl-72 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 md:pl-72 flex flex-col min-h-screen print:pl-0 print:min-h-0 print:block">
         <Header />
 
         {/* Global Alert Banner untuk Akun yang Baru Terdaftar (Status: PENDING) */}
         {currentUser?.role === "PENDING" && (
-          <div className="bg-amber-500/15 dark:bg-amber-950/50 border-b-2 border-amber-400 dark:border-amber-700/80 py-4 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-300">
+          <div className="bg-amber-500/15 dark:bg-amber-950/50 border-b-2 border-amber-400 dark:border-amber-700/80 py-4 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-300 print:hidden">
             <div className="max-w-7xl w-full mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div className="p-2.5 bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-2xl shrink-0 mt-0.5 sm:mt-0">
@@ -64,7 +64,7 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 print:p-0 print:m-0 print:max-w-none print:w-full">
           {children}
         </main>
       </div>

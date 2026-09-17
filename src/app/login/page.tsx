@@ -283,7 +283,7 @@ export default function LoginPage() {
           <HardHat size={32} strokeWidth={2.5} />
         </div>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-          SiteTracker <span className="text-violet-400">CMD</span>
+          ProjectTracker
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
           Sistem Pengawasan Keselamatan K3 (ISO 45001) & Pelacakan Temuan Kualitas Mutu Fisik Konstruksi
@@ -787,7 +787,7 @@ export default function LoginPage() {
 
       {/* Footer System Info */}
       <div className="w-full max-w-5xl mx-auto text-center py-4 border-t border-slate-800/60 text-[11px] text-slate-500 space-y-1">
-        <p>SiteTracker CMD © 2026 — Sistem Digitalisasi Kepatuhan & Mutu Konstruksi</p>
+        <p>ProjectTracker © 2026 — Sistem Digitalisasi Kepatuhan & Mutu Konstruksi</p>
         <p className="text-[10px] text-slate-600">Standar ISO 45001 (K3) & ISO 9001 (Manajemen Mutu)</p>
       </div>
     </div>

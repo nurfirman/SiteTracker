@@ -303,9 +303,9 @@ export default function FindingDetailPage() {
               </span>
             </div>
             <div className="space-y-0.5">
-              <span className="text-slate-400 block font-semibold">PIC Penanggung Jawab:</span>
+              <span className="text-slate-400 block font-semibold">Action By (Penanggung Jawab):</span>
               <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                {finding.pic?.name || "Ahmad Fauzi (PIC)"}
+                {finding.pic?.name || "Ahmad Fauzi"}
               </span>
             </div>
           </div>
@@ -764,7 +764,7 @@ export default function FindingDetailPage() {
               {availablePics.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    PIC Penanggung Jawab
+                    Action By (Penanggung Jawab)
                   </label>
                   <select
                     value={editPicId}
@@ -783,7 +783,7 @@ export default function FindingDetailPage() {
               {/* Rincian Lokasi */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex justify-between">
-                  <span>Rincian Lokasi Spesifik</span>
+                  <span>Rincian Lokasi Area</span>
                   <span className="text-[11px] font-normal text-slate-500">(Opsional)</span>
                 </label>
                 <input

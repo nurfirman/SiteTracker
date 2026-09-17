@@ -170,14 +170,14 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Top Header Toggle */}
-      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-md shadow-sm transition-colors">
+      <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-white/95 dark:bg-slate-950/95 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-md shadow-sm transition-colors print:hidden">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="p-2 bg-violet-600 text-white rounded-xl shadow-sm shadow-violet-500/20">
             <HardHat size={20} strokeWidth={2.5} />
           </div>
           <div>
             <span className="font-black text-base tracking-tight block text-slate-900 dark:text-white">
-              SiteTracker <span className="text-violet-600 dark:text-violet-400">CMD</span>
+              Project<span className="text-violet-600 dark:text-violet-400">Tracker</span>
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block -mt-0.5">
               Patroli Lapangan K3 & Mutu
@@ -205,7 +205,7 @@ export function Sidebar() {
       {/* Desktop & Mobile Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 w-72 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between transition-all duration-300 ease-out md:translate-x-0 overflow-y-auto shadow-sm dark:shadow-2xl",
+          "fixed top-0 bottom-0 left-0 z-50 w-72 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between transition-all duration-300 ease-out md:translate-x-0 overflow-y-auto shadow-sm dark:shadow-2xl print:hidden",
           isOpenMobile ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -222,7 +222,7 @@ export function Sidebar() {
               </div>
               <div>
                 <span className="block font-black text-lg tracking-tight text-slate-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                  SiteTracker <span className="text-violet-600 dark:text-violet-400">CMD</span>
+                  Project<span className="text-violet-600 dark:text-violet-400">Tracker</span>
                 </span>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   K3 & Mutu Konstruksi
@@ -300,7 +300,7 @@ export function Sidebar() {
             <span>ISO 45001 & ISO 9001</span>
           </div>
           <p className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
-            SiteTracker CMD © 2026
+            ProjectTracker © 2026
           </p>
         </div>
       </aside>

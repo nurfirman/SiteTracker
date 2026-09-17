@@ -134,7 +134,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 <tr>
                   <td>
                     <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
-                      SITETRACKER CMD REPORT
+                      PROJECTTRACKER REPORT
                     </div>
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; line-height: 1.3;">
                       ${options.projectName}
@@ -270,7 +270,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
           <tr>
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
-                Email otomatis dari <strong>SiteTracker CMD</strong> (Construction Quality & Safety Monitoring).<br>
+                Email otomatis dari <strong>ProjectTracker</strong> (Construction Quality & Safety Monitoring).<br>
                 Dikirim menggunakan Microsoft Graph API (Azure Entra ID OAuth 2.0).
               </p>
             </td>
@@ -541,7 +541,7 @@ export function generateEscalationReminderEmailHtml(
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
                 Email eskalasi otomatis terjadwal via <strong>Vercel Cron & Microsoft Graph API</strong>.<br>
-                Sistem SiteTracker CMD &copy; ${new Date().getFullYear()}
+                Sistem ProjectTracker &copy; ${new Date().getFullYear()}
               </p>
             </td>
           </tr>
@@ -732,7 +732,7 @@ export async function sendPasswordResetMail(
           <tr>
             <td style="background-color: #f8fafc; padding: 18px 28px; border-top: 1px solid #e2e8f0; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-                SiteTracker CMD © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
+                ProjectTracker © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
               </p>
             </td>
           </tr>

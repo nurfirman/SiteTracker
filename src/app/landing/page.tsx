@@ -24,7 +24,7 @@ export default function LandingPage() {
       {/* Top Banner Accent */}
       <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-4 py-2 text-center text-xs font-black text-white flex items-center justify-center gap-2">
         <Sparkles size={16} />
-        <span>SITETRACKER CMD 2026 — Platform Digitalisasi Patroli K3 & Cacat Mutu Konstruksi Fisik</span>
+        <span>PROJECTTRACKER 2026 — Platform Digitalisasi Patroli K3 & Cacat Mutu Konstruksi Fisik</span>
         <span className="hidden sm:inline-block px-2 py-0.5 bg-slate-950 text-violet-300 rounded-full text-[10px]">ISO 45001 & ISO 9001 Compliant</span>
       </div>
 
@@ -101,7 +101,7 @@ export default function LandingPage() {
               4 Pillar Utama Pengawasan Proyek Fisik
             </p>
             <p className="mt-3 text-slate-400 text-base">
-              SiteTracker CMD dirancang untuk mengklasifikasikan setiap potensi risiko kerja secara akurat.
+              ProjectTracker dirancang untuk mengklasifikasikan setiap potensi risiko kerja secara akurat.
             </p>
           </div>
 
@@ -295,7 +295,7 @@ export default function LandingPage() {
             Siap Tingkatkan Kepatuhan K3 & Mutu Proyek Anda?
           </h2>
           <p className="mt-4 text-base sm:text-lg font-semibold text-purple-100 max-w-2xl mx-auto">
-            Gunakan SiteTracker CMD hari ini untuk pemantauan patroli fisik yang transparan, akuntabel, dan real-time.
+            Gunakan ProjectTracker hari ini untuk pemantauan patroli fisik yang transparan, akuntabel, dan real-time.
           </p>
           <div className="mt-8 flex justify-center gap-4 flex-wrap">
             <Link
@@ -317,7 +317,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-8 bg-slate-950 text-center text-xs text-slate-500 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4">
-          <p>© 2026 SiteTracker CMD — Construction Patrol & Finding Tracker. Developed with Next.js 14, TailwindCSS & Neon PostgreSQL.</p>
+          <p>© 2026 ProjectTracker — Construction Patrol & Finding Tracker. Developed with Next.js 14, TailwindCSS & Neon PostgreSQL.</p>
         </div>
       </footer>
     </div>

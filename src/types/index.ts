@@ -142,7 +142,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     description: "Akses Semua Kasus: Patroli lapangan, catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
-    label: "PIC Proyek (Subkon / Site Eng)",
+    label: "Action By (Pelaksana / Penanggung Jawab)",
     badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
     description: "Akses Terisolasi Khusus Proyek Sendiri: Hanya dapat melihat & merespon tugas proyeknya.",
   },

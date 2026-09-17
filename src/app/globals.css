@@ -30,3 +30,25 @@
 button, input, select, textarea, a {
   touch-action: manipulation;
 }
+
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm 8mm 10mm 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Sembunyikan semua elemen navigasi, header, dan banner global */
+  aside,
+  header,
+  nav,
+  .print\\:hidden {
+    display: none !important;
+  }
+}

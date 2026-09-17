@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SiteTracker CMD - Sistem Patroli & Pelacakan Temuan Konstruksi",
+  title: "ProjectTracker - Sistem Patroli & Pelacakan Temuan Konstruksi",
   description:
     "Aplikasi manajemen patroli konstruksi, pelacakan temuan K3 & Kualitas, serta validasi perbaikan Side-by-Side.",
 };

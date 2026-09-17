@@ -88,7 +88,7 @@ export function Header() {
       };
     }
     return {
-      title: "SiteTracker CMD",
+      title: "ProjectTracker",
       subtitle: "Sistem Patroli K3 & Manajemen Mutu Terintegrasi",
     };
   };
@@ -112,7 +112,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-950/90 text-slate-900 dark:text-slate-100 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3 shadow-sm dark:shadow-md transition-colors duration-150">
+    <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-950/90 text-slate-900 dark:text-slate-100 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3 shadow-sm dark:shadow-md transition-colors duration-150 print:hidden">
       <div className="flex items-center justify-between gap-4">
         {/* Left Side: Page Title & Subtitle */}
         <div className="min-w-0">

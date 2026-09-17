@@ -37,7 +37,7 @@ export default function NewFindingPage() {
   const [inspectionDate, setInspectionDate] = useState<string>(todayStr);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedPicId, setSelectedPicId] = useState<string>("");
-  const [category, setCategory] = useState<string>("K3_SAFETY");
+  const [category, setCategory] = useState<string>("QUALITY");
   const [customCategory, setCustomCategory] = useState<string>("");
   const [locationDetail, setLocationDetail] = useState("");
   const [coordinates, setCoordinates] = useState("");
@@ -83,7 +83,7 @@ export default function NewFindingPage() {
       return;
     }
     if (!selectedPicId) {
-      setErrorMsg("Mohon pilih PIC Penanggung Jawab temuan.");
+      setErrorMsg("Mohon pilih Action By (Penanggung Jawab temuan).");
       return;
     }
     if (category === "CUSTOM" && !customCategory.trim()) {
@@ -256,7 +256,7 @@ export default function NewFindingPage() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  3. PIC Penanggung Jawab (Subkont) <span className="text-red-500">*</span>
+                  3. Action By (Penanggung Jawab) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -266,7 +266,7 @@ export default function NewFindingPage() {
                     className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                   >
                     {availablePics.length === 0 ? (
-                      <option value="">-- Tidak Ada PIC untuk proyek ini --</option>
+                      <option value="">-- Tidak Ada Action By untuk proyek ini --</option>
                     ) : (
                       availablePics.map((u) => (
                         <option key={u.id} value={u.id}>
@@ -279,45 +279,11 @@ export default function NewFindingPage() {
               </div>
             </div>
 
-            {/* 3. KATEGORI TEMUAN */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                4. Kategori Temuan Patroli <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                required
-                className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
-              >
-                <option value="K3_SAFETY">🛡️ K3 / Keselamatan Kerja (APD, Barikade, Listrik)</option>
-                <option value="QUALITY">🏗️ Kualitas Pekerjaan (Retak, Coring, Plesteran)</option>
-                <option value="KEBERSIHAN_5R">🧹 Kebersihan 5R (Sampah Puing, Kerapian Area)</option>
-                <option value="SCHEDULE">⏱️ Jadwal & Progres (Keterlambatan, Pekerja Less)</option>
-                <option value="MATERIAL">📦 Material & Logistik (Kerusakan, Penyimpanan Basah)</option>
-                <option value="CUSTOM">✏️ Kategori Lainnya (Isi Bebas / Custom)</option>
-              </select>
-
-              {/* Input Custom Category jika memilih opsi custom */}
-              {category === "CUSTOM" && (
-                <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <input
-                    type="text"
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    placeholder="Tuliskan nama kategori patroli custom..."
-                    required
-                    className="w-full px-4 py-3 text-sm font-semibold rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/40 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                  />
-                </div>
-              )}
-            </div>
-
             {/* 4. RINCIAN LOKASI & GPS */}
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                  <span>5. Rincian Lokasi Spesifik</span>
+                  <span>4. Rincian Lokasi Area</span>
                   <span className="text-xs font-normal text-slate-500">(Opsional)</span>
                 </label>
                 <input
@@ -336,7 +302,7 @@ export default function NewFindingPage() {
             {/* 5. UPLOAD FOTO TEMUAN (1 s.d. 4 FOTO) */}
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
               <MultiPhotoUploader
-                label="6. Foto Temuan Lapangan (Foto Awal)"
+                label="5. Foto Temuan Lapangan (Foto Awal)"
                 description="Lampirkan 1 sampai 4 foto (tampak luas & tampak detail cacat). Anda bisa mengedit dan menandai foto dengan panah, lingkaran, dan teks."
                 values={photoFindingUrls}
                 onChange={(urls) => setPhotoFindingUrls(urls)}
@@ -349,7 +315,7 @@ export default function NewFindingPage() {
             {/* 6. DESKRIPSI TEMUAN (SETELAH FOTO) */}
             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                <span>7. Deskripsi Temuan Lapangan</span>
+                <span>6. Deskripsi Temuan Lapangan</span>
                 <span className="text-xs font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patroli Lapangan&quot;)</span>
               </label>
               <textarea
