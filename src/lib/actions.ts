@@ -969,8 +969,14 @@ export async function importProjectsAndPicsFromCsv(
     const headers = parseLine(headerLine).map((h) => h.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_"));
 
     // Find column indices with alias support
+    // PRIORITY: exact match first, then partial/includes match
+    // This prevents "kode_proyek".includes("proyek") from incorrectly matching nameIdx
     const findCol = (candidates: string[]) => {
-      return headers.findIndex((h) => candidates.some((c) => h === c || h.includes(c)));
+      // Step 1: Try exact match
+      const exactIdx = headers.findIndex((h) => candidates.some((c) => h === c));
+      if (exactIdx !== -1) return exactIdx;
+      // Step 2: Fallback to partial match (includes)
+      return headers.findIndex((h) => candidates.some((c) => h.includes(c) && c.length >= 4));
     };
 
     const codeIdx = findCol(["kode_proyek", "kodeproyek", "project_code", "kode", "code"]);
@@ -1167,11 +1173,13 @@ export async function importProjectsAndPicsFromCsv(
                   phoneNumber: rawPicPhone || existingUser.phoneNumber,
                 },
               });
-              picMessage = `Proyek dibuat & PIC '${rawPicName}' (${rawPicEmail}) dihubungkan`;
+              picMessage = `Proyek dibuat & PIC '${rawPicName}' (${rawPicEmail}) dihubungkan ke proyek`;
             } else {
+              // User belum ada di DB - buat akun baru di DB
+              const newPicId = "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum;
               await prisma.user.create({
                 data: {
-                  id: "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum,
+                  id: newPicId,
                   name: rawPicName,
                   email: rawPicEmail,
                   role: "PIC",
@@ -1179,7 +1187,23 @@ export async function importProjectsAndPicsFromCsv(
                   projectId: newProjectObj.id,
                 },
               });
-              picMessage = `Proyek dibuat & Akun PIC '${rawPicName}' berhasil didaftarkan`;
+
+              // Daftarkan juga ke Neon Auth agar PIC bisa login
+              const { signUpWithNeonAuth, isNeonAuthConfigured } = await import("@/lib/neonAuth");
+              if (isNeonAuthConfigured()) {
+                const authResult = await signUpWithNeonAuth({
+                  email: rawPicEmail,
+                  password: rawPicPassword || "123456",
+                  name: rawPicName,
+                });
+                if (authResult.success) {
+                  picMessage = `Proyek dibuat & Akun PIC '${rawPicName}' didaftarkan (DB + Neon Auth ✓)`;
+                } else {
+                  picMessage = `Proyek dibuat & Akun PIC '${rawPicName}' dibuat di DB (Neon Auth: ${authResult.message})`;
+                }
+              } else {
+                picMessage = `Proyek dibuat & Akun PIC '${rawPicName}' berhasil didaftarkan di database`;
+              }
             }
           } catch (uErr) {
             console.warn("DB user creation fallback in CSV:", uErr);
