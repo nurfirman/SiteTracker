@@ -1090,11 +1090,57 @@ export async function importProjectsAndPicsFromCsv(
         continue;
       }
 
-      // Check if project already exists (by name or code) -> SKIP
+      // Check if project already exists (by name or code) -> UPDATE penugasan DH/GM/DM/SC
       const isNameDuplicate = existingProjectNames.has(rawName.toLowerCase());
       const isCodeDuplicate = rawCode ? existingProjectCodes.has(rawCode.toLowerCase()) : false;
 
       if (isNameDuplicate || isCodeDuplicate) {
+        // Cari project yang sudah ada lalu update DH/GM/DM/SC-nya
+        let updatedAssignment = false;
+        if (hasValidDatabaseUrl()) {
+          try {
+            const whereClause = rawCode && rawName
+              ? {
+                  OR: [
+                    { code: { equals: rawCode, mode: "insensitive" as const } },
+                    { name: { equals: rawName, mode: "insensitive" as const } },
+                  ],
+                }
+              : rawCode
+              ? { code: { equals: rawCode, mode: "insensitive" as const } }
+              : { name: { equals: rawName, mode: "insensitive" as const } };
+            const existing = await (prisma.project as any).findFirst({ where: whereClause });
+            if (existing) {
+              const updatedPmId = matchedPmId !== null ? matchedPmId : existing.pmId;
+              const updatedGmId = matchedGmId !== null ? matchedGmId : existing.gmId;
+              const updatedDmId = matchedDmId !== null ? matchedDmId : existing.dmId;
+              const updatedScId = matchedScId !== null ? matchedScId : existing.scId;
+
+              await (prisma.project as any).update({
+                where: { id: existing.id },
+                data: {
+                  pmId: updatedPmId,
+                  gmId: updatedGmId,
+                  dmId: updatedDmId,
+                  scId: updatedScId,
+                  ...(rawDivision ? { division: rawDivision } : {}),
+                },
+              });
+              // Update in-memory too
+              const memProj = inMemoryProjects.find((p) => p.id === existing.id);
+              if (memProj) {
+                if (updatedPmId !== null) memProj.pmId = updatedPmId;
+                if (updatedGmId !== null) memProj.gmId = updatedGmId;
+                (memProj as any).dmId = updatedDmId;
+                (memProj as any).scId = updatedScId;
+              }
+              updatedAssignment = true;
+            }
+          } catch (upErr) {
+            console.warn("Update existing project assignment from CSV failed:", upErr);
+          }
+        }
+
         details.push({
           rowNumber: rowNum,
           projectCode: rawCode || "-",
@@ -1103,13 +1149,122 @@ export async function importProjectsAndPicsFromCsv(
           picName: rawPicName || "-",
           picEmail: rawPicEmail || "-",
           status: "SKIPPED",
-          message: `Dilewati: Proyek ${
-            isCodeDuplicate ? `dengan kode [${rawCode}]` : `'${rawName}'`
-          } sudah terdaftar di sistem.`,
+          message: updatedAssignment
+            ? `Proyek ${isCodeDuplicate ? `[${rawCode}]` : `'${rawName}'`} sudah ada — penugasan DH/GM/DM/SC diperbarui.`
+            : `Dilewati: Proyek ${isCodeDuplicate ? `dengan kode [${rawCode}]` : `'${rawName}'`} sudah terdaftar di sistem.`,
         });
         skippedCount++;
+
+        // Lanjut proses PIC assignment untuk proyek yang sudah ada
+        if (rawPicEmail) {
+          // Cari project id untuk assign PIC
+          let existingProjectId: string | null = null;
+          if (hasValidDatabaseUrl()) {
+            try {
+              const whereClause = isCodeDuplicate
+                ? { code: { equals: rawCode, mode: "insensitive" as const } }
+                : { name: { equals: rawName, mode: "insensitive" as const } };
+              const found = await (prisma.project as any).findFirst({ where: whereClause, select: { id: true } });
+              if (found) existingProjectId = found.id;
+            } catch { /* ignore */ }
+          }
+          if (!existingProjectId) {
+            existingProjectId = inMemoryProjects.find((p) =>
+              isCodeDuplicate
+                ? p.code?.toLowerCase() === rawCode?.toLowerCase()
+                : p.name.toLowerCase() === rawName.toLowerCase()
+            )?.id || null;
+          }
+
+          if (existingProjectId && rawPicEmail) {
+            // PIC multi-project assignment
+            if (hasValidDatabaseUrl()) {
+              try {
+                const existingUser = await prisma.user.findUnique({
+                  where: { email: rawPicEmail.toLowerCase() },
+                });
+                if (existingUser) {
+                  const currentProjectIds: string[] = Array.isArray((existingUser as any).projectIds)
+                    ? (existingUser as any).projectIds
+                    : (existingUser.projectId ? [existingUser.projectId] : []);
+                  const updatedProjectIds = Array.from(new Set([...currentProjectIds, existingProjectId]));
+
+                  await prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                      projectId: existingUser.projectId || existingProjectId,
+                      projectIds: updatedProjectIds,
+                      role: existingUser.role === "PENDING" ? "PIC" : existingUser.role,
+                      ...(rawPicName ? { name: rawPicName } : {}),
+                      ...(rawPicPhone ? { phoneNumber: rawPicPhone } : {}),
+                    },
+                  });
+
+                  // Update in-memory
+                  const memIdx = inMemoryUsers.findIndex((u) => u.id === existingUser.id);
+                  if (memIdx !== -1) {
+                    inMemoryUsers[memIdx].projectIds = updatedProjectIds;
+                    if (!inMemoryUsers[memIdx].projectId) inMemoryUsers[memIdx].projectId = existingProjectId;
+                  }
+                } else if (rawPicName) {
+                  // User belum ada -> Buat akun baru di DB & Neon Auth
+                  const { signUpWithNeonAuth, isNeonAuthConfigured } = await import("@/lib/neonAuth");
+                  let assignedUserId = "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum;
+                  if (isNeonAuthConfigured()) {
+                    const authRes = await signUpWithNeonAuth({ name: rawPicName, email: rawPicEmail, password: rawPicPassword });
+                    if (authRes.success && authRes.user?.id) {
+                      assignedUserId = authRes.user.id;
+                    }
+                  }
+                  const created = await prisma.user.create({
+                    data: {
+                      id: assignedUserId,
+                      name: rawPicName,
+                      email: rawPicEmail.toLowerCase(),
+                      role: "PIC",
+                      projectId: existingProjectId,
+                      projectIds: [existingProjectId],
+                      phoneNumber: rawPicPhone || "0812-0000-0000",
+                    },
+                  });
+                  inMemoryUsers.push({
+                    id: created.id,
+                    name: created.name,
+                    email: created.email,
+                    role: "PIC",
+                    projectId: existingProjectId,
+                    projectIds: [existingProjectId],
+                    phoneNumber: created.phoneNumber,
+                  });
+                }
+              } catch (picErr) {
+                console.warn("PIC assignment for existing project error:", picErr);
+              }
+            } else {
+              // Fallback in-memory
+              const memUser = inMemoryUsers.find((u) => u.email.toLowerCase() === rawPicEmail.toLowerCase());
+              if (memUser) {
+                const currentIds = memUser.projectIds || (memUser.projectId ? [memUser.projectId] : []);
+                memUser.projectIds = Array.from(new Set([...currentIds, existingProjectId]));
+                if (!memUser.projectId) memUser.projectId = existingProjectId;
+              } else if (rawPicName) {
+                inMemoryUsers.push({
+                  id: "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum,
+                  name: rawPicName,
+                  email: rawPicEmail.toLowerCase(),
+                  role: "PIC",
+                  phoneNumber: rawPicPhone || "0812-0000-0000",
+                  projectId: existingProjectId,
+                  projectIds: [existingProjectId],
+                });
+              }
+            }
+          }
+
+        }
         continue;
       }
+
 
       // Generate project code if not provided
       const finalProjectCode =
@@ -1191,19 +1346,25 @@ export async function importProjectsAndPicsFromCsv(
         if (hasValidDatabaseUrl()) {
           try {
             const existingUser = await prisma.user.findUnique({
-              where: { email: rawPicEmail },
+              where: { email: rawPicEmail.toLowerCase() },
             });
             if (existingUser) {
+              const currentProjectIds: string[] = Array.isArray((existingUser as any).projectIds)
+                ? (existingUser as any).projectIds
+                : (existingUser.projectId ? [existingUser.projectId] : []);
+              const updatedProjectIds = Array.from(new Set([...currentProjectIds, newProjectObj.id]));
+
               await prisma.user.update({
                 where: { id: existingUser.id },
                 data: {
-                  role: "PIC",
-                  projectId: newProjectObj.id,
+                  role: existingUser.role === "PENDING" ? "PIC" : existingUser.role,
+                  projectId: existingUser.projectId || newProjectObj.id,
+                  projectIds: updatedProjectIds,
                   name: rawPicName || existingUser.name,
                   phoneNumber: rawPicPhone || existingUser.phoneNumber,
                 },
               });
-              picMessage = `Proyek dibuat & PIC '${rawPicName}' (${rawPicEmail}) dihubungkan ke proyek`;
+              picMessage = `Proyek dibuat & PIC '${rawPicName}' (${rawPicEmail}) ditugaskan ke proyek (Total: ${updatedProjectIds.length} proyek)`;
             } else {
               // User belum ada di DB - buat akun baru di DB
               const newPicId = "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum;
@@ -1211,10 +1372,11 @@ export async function importProjectsAndPicsFromCsv(
                 data: {
                   id: newPicId,
                   name: rawPicName,
-                  email: rawPicEmail,
+                  email: rawPicEmail.toLowerCase(),
                   role: "PIC",
-                  phoneNumber: rawPicPhone,
+                  phoneNumber: rawPicPhone || "0812-0000-0000",
                   projectId: newProjectObj.id,
+                  projectIds: [newProjectObj.id],
                 },
               });
 
@@ -1222,7 +1384,7 @@ export async function importProjectsAndPicsFromCsv(
               const { signUpWithNeonAuth, isNeonAuthConfigured } = await import("@/lib/neonAuth");
               if (isNeonAuthConfigured()) {
                 const authResult = await signUpWithNeonAuth({
-                  email: rawPicEmail,
+                  email: rawPicEmail.toLowerCase(),
                   password: rawPicPassword || "123456",
                   name: rawPicName,
                 });
@@ -1241,20 +1403,21 @@ export async function importProjectsAndPicsFromCsv(
         }
 
         // In-memory sync
-        const memIdx = inMemoryUsers.findIndex((u) => u.email.toLowerCase() === rawPicEmail);
+        const memIdx = inMemoryUsers.findIndex((u) => u.email.toLowerCase() === rawPicEmail.toLowerCase());
         if (memIdx !== -1) {
           inMemoryUsers[memIdx].role = "PIC";
-          inMemoryUsers[memIdx].projectId = newProjectObj.id;
-          inMemoryUsers[memIdx].project = newProjectObj;
+          if (!inMemoryUsers[memIdx].projectId) inMemoryUsers[memIdx].projectId = newProjectObj.id;
+          const curMem = inMemoryUsers[memIdx].projectIds || (inMemoryUsers[memIdx].projectId ? [inMemoryUsers[memIdx].projectId!] : []);
+          inMemoryUsers[memIdx].projectIds = Array.from(new Set([...curMem, newProjectObj.id]));
         } else {
           inMemoryUsers.push({
             id: "usr-pic-" + Date.now().toString().slice(-5) + "-" + rowNum,
             name: rawPicName,
-            email: rawPicEmail,
+            email: rawPicEmail.toLowerCase(),
             role: "PIC",
-            phoneNumber: rawPicPhone,
-            password: rawPicPassword,
+            phoneNumber: rawPicPhone || "0812-0000-0000",
             projectId: newProjectObj.id,
+            projectIds: [newProjectObj.id],
             project: newProjectObj,
           });
         }
@@ -1344,6 +1507,60 @@ export async function createOrUpdatePicUser(payload: {
       return { success: true, user: inMemoryUsers[idx], message: "Data PIC berhasil diperbarui!" };
     }
 
+    // Check if user already exists by email in DB
+    if (hasValidDatabaseUrl()) {
+      try {
+        const existingByEmail = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+        });
+        if (existingByEmail) {
+          const currentProjectIds: string[] = Array.isArray((existingByEmail as any).projectIds)
+            ? (existingByEmail as any).projectIds
+            : (existingByEmail.projectId ? [existingByEmail.projectId] : []);
+          const updatedProjectIds = Array.from(new Set([...currentProjectIds, payload.projectId]));
+
+          const updated = await prisma.user.update({
+            where: { id: existingByEmail.id },
+            data: {
+              name: cleanName,
+              phoneNumber: cleanPhone,
+              projectId: existingByEmail.projectId || payload.projectId,
+              projectIds: updatedProjectIds,
+              role: existingByEmail.role === "PENDING" ? "PIC" : existingByEmail.role,
+            },
+          });
+
+          const memIdx = inMemoryUsers.findIndex((u) => u.id === existingByEmail.id);
+          if (memIdx !== -1) {
+            inMemoryUsers[memIdx].name = cleanName;
+            inMemoryUsers[memIdx].phoneNumber = cleanPhone;
+            inMemoryUsers[memIdx].projectIds = updatedProjectIds;
+            if (!inMemoryUsers[memIdx].projectId) inMemoryUsers[memIdx].projectId = payload.projectId;
+          }
+
+          safeRevalidate("/admin");
+          safeRevalidate("/projects");
+          safeRevalidate("/findings/new");
+
+          return {
+            success: true,
+            user: {
+              id: updated.id,
+              name: updated.name,
+              email: updated.email,
+              role: updated.role as Role,
+              phoneNumber: updated.phoneNumber,
+              projectId: updated.projectId,
+              projectIds: updated.projectIds,
+            },
+            message: `User '${cleanName}' (${cleanEmail}) berhasil ditugaskan ke proyek ini! (Total: ${updatedProjectIds.length} proyek)`,
+          };
+        }
+      } catch (checkErr) {
+        console.warn("Check user by email fallback:", checkErr);
+      }
+    }
+
     // Create new PIC
     const newPic: User = {
       id: "usr-pic-" + Date.now().toString().slice(-4),
@@ -1353,6 +1570,7 @@ export async function createOrUpdatePicUser(payload: {
       phoneNumber: cleanPhone,
       password: payload.password || "123",
       projectId: payload.projectId,
+      projectIds: [payload.projectId],
       project: project,
     };
 
@@ -1366,8 +1584,19 @@ export async function createOrUpdatePicUser(payload: {
             role: "PIC",
             phoneNumber: newPic.phoneNumber,
             projectId: newPic.projectId,
+            projectIds: [payload.projectId],
           },
         });
+
+        // Daftarkan juga ke Neon Auth jika dikonfigurasi
+        const { signUpWithNeonAuth, isNeonAuthConfigured } = await import("@/lib/neonAuth");
+        if (isNeonAuthConfigured()) {
+          await signUpWithNeonAuth({
+            email: newPic.email,
+            password: payload.password || "123",
+            name: newPic.name,
+          });
+        }
       } catch (dbErr) {
         console.warn("Neon DB PIC creation fallback:", dbErr);
       }
@@ -1382,6 +1611,138 @@ export async function createOrUpdatePicUser(payload: {
     return { success: true, user: newPic, message: "PIC baru berhasil ditugaskan ke proyek!" };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal menyimpan PIC." };
+  }
+}
+
+/**
+ * Menugaskan user yang SUDAH ADA ke suatu proyek (tanpa perlu membuat user baru)
+ * Mendukung multiple project assignment per PIC
+ */
+export async function assignExistingUserToProject(
+  userId: string,
+  projectId: string
+): Promise<{ success: boolean; message: string; user?: User }> {
+  try {
+    if (!userId || !projectId) {
+      return { success: false, message: "Pilih user dan proyek penugasan terlebih dahulu." };
+    }
+
+    let updatedUser: User | null = null;
+
+    if (hasValidDatabaseUrl()) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!dbUser) {
+        return { success: false, message: "User tidak ditemukan di sistem." };
+      }
+
+      const currentIds: string[] = Array.isArray((dbUser as any).projectIds)
+        ? (dbUser as any).projectIds
+        : (dbUser.projectId ? [dbUser.projectId] : []);
+
+      if (currentIds.includes(projectId)) {
+        return { success: true, message: `User '${dbUser.name}' sudah ditugaskan ke proyek ini.` };
+      }
+
+      const newIds = [...currentIds, projectId];
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          projectId: dbUser.projectId || projectId,
+          projectIds: newIds,
+          role: dbUser.role === "PENDING" ? "PIC" : dbUser.role,
+        },
+      });
+
+      updatedUser = {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role as Role,
+        phoneNumber: updated.phoneNumber,
+        employeeCode: updated.employeeCode || null,
+        projectId: updated.projectId,
+        projectIds: updated.projectIds,
+      };
+    }
+
+    // in-memory update
+    const memUser = inMemoryUsers.find((u) => u.id === userId);
+    if (memUser) {
+      const currentIds = memUser.projectIds || (memUser.projectId ? [memUser.projectId] : []);
+      if (!currentIds.includes(projectId)) {
+        memUser.projectIds = [...currentIds, projectId];
+      }
+      if (!memUser.projectId) memUser.projectId = projectId;
+      if (memUser.role === "PENDING") memUser.role = "PIC";
+      if (!updatedUser) updatedUser = memUser;
+    }
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/pic/tasks");
+
+    return {
+      success: true,
+      message: `User '${updatedUser?.name || "PIC"}' berhasil ditugaskan ke proyek!`,
+      user: updatedUser || undefined,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menugaskan user ke proyek." };
+  }
+}
+
+/**
+ * Melepaskan penugasan user dari suatu proyek tertentu
+ */
+export async function unassignUserFromProject(
+  userId: string,
+  projectId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!userId || !projectId) {
+      return { success: false, message: "User dan Proyek wajib ditentukan." };
+    }
+
+    if (hasValidDatabaseUrl()) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (dbUser) {
+        const currentIds: string[] = Array.isArray((dbUser as any).projectIds)
+          ? (dbUser as any).projectIds
+          : (dbUser.projectId ? [dbUser.projectId] : []);
+        const newIds = currentIds.filter((id) => id !== projectId);
+        const newPrimaryId = dbUser.projectId === projectId ? (newIds[0] || null) : dbUser.projectId;
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            projectId: newPrimaryId,
+            projectIds: newIds,
+          },
+        });
+      }
+    }
+
+    const memUser = inMemoryUsers.find((u) => u.id === userId);
+    if (memUser) {
+      const currentIds = memUser.projectIds || (memUser.projectId ? [memUser.projectId] : []);
+      memUser.projectIds = currentIds.filter((id) => id !== projectId);
+      if (memUser.projectId === projectId) {
+        memUser.projectId = memUser.projectIds[0] || null;
+      }
+    }
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/pic/tasks");
+
+    return { success: true, message: "Penugasan PIC dari proyek berhasil dilepas." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal melepaskan penugasan PIC." };
   }
 }
 
@@ -1461,10 +1822,14 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
       if (role) whereClause.role = role;
       if (projectId) {
         if (role === "PIC") {
-          whereClause.projectId = projectId;
+          whereClause.OR = [
+            { projectId: projectId },
+            { projectIds: { has: projectId } },
+          ];
         } else {
           whereClause.OR = [
             { projectId: projectId },
+            { projectIds: { has: projectId } },
             { role: "PM" },
             { role: "GM" },
             { role: "BOD" },
@@ -1488,6 +1853,9 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
         phoneNumber: u.phoneNumber,
         employeeCode: (u as any).employeeCode || null,
         projectId: u.projectId,
+        projectIds: Array.isArray((u as any).projectIds)
+          ? (u as any).projectIds
+          : (u.projectId ? [u.projectId] : []),
         project: u.project
           ? {
               id: u.project.id,
@@ -1508,11 +1876,12 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
   }
   if (projectId) {
     if (role === "PIC") {
-      filtered = filtered.filter((u) => u.projectId === projectId);
+      filtered = filtered.filter((u) => u.projectId === projectId || u.projectIds?.includes(projectId));
     } else {
       filtered = filtered.filter(
         (u) =>
           u.projectId === projectId ||
+          u.projectIds?.includes(projectId) ||
           u.role === "PM" ||
           u.role === "CMD" ||
           u.role === "ADMIN"

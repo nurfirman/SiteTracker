@@ -13,6 +13,8 @@ import {
   createProject,
   updateProjectAssignment,
   createOrUpdatePicUser,
+  assignExistingUserToProject,
+  unassignUserFromProject,
   getCategorySettings,
   updateCategorySla,
   updateUserRoleAndProject,
@@ -147,6 +149,8 @@ export default function AdminSettingsPage() {
 
   // Forms State for Adding / Assigning PIC
   const [showAddPicModal, setShowAddPicModal] = useState(false);
+  const [picModalMode, setPicModalMode] = useState<"EXISTING" | "NEW">("EXISTING");
+  const [selectedExistingUserId, setSelectedExistingUserId] = useState("");
   const [newPicName, setNewPicName] = useState("");
   const [newPicEmail, setNewPicEmail] = useState("");
   const [newPicPhone, setNewPicPhone] = useState("");
@@ -383,6 +387,49 @@ export default function AdminSettingsPage() {
       showToast(err.message || "Terjadi kesalahan.", "error");
     } finally {
       setPicSubmitting(false);
+    }
+  };
+
+  const handleAssignExistingPic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedExistingUserId) {
+      showToast("Pilih user yang akan dialokasikan.", "error");
+      return;
+    }
+    if (!newPicProjectId) {
+      showToast("Pilih proyek penugasan.", "error");
+      return;
+    }
+    setPicSubmitting(true);
+    try {
+      const res = await assignExistingUserToProject(selectedExistingUserId, newPicProjectId);
+      if (res.success) {
+        showToast(res.message);
+        setSelectedExistingUserId("");
+        setShowAddPicModal(false);
+        loadAdminData();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal mengalokasikan PIC.", "error");
+    } finally {
+      setPicSubmitting(false);
+    }
+  };
+
+  const handleUnassignPic = async (userId: string, projectId: string, userName: string) => {
+    if (!confirm(`Lepaskan penugasan PIC '${userName}' dari proyek ini?`)) return;
+    try {
+      const res = await unassignUserFromProject(userId, projectId);
+      if (res.success) {
+        showToast(res.message);
+        loadAdminData();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal melepaskan PIC dari proyek.", "error");
     }
   };
 
@@ -785,7 +832,7 @@ export default function AdminSettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {projects.map((project) => {
-              const assignedPics = users.filter((u) => u.role === "PIC" && u.projectId === project.id);
+              const assignedPics = users.filter((u) => u.role === "PIC" && (u.projectId === project.id || (u.projectIds && u.projectIds.includes(project.id))));
               const dhUser = project.pm || users.find((u) => u.id === project.pmId);
               const gmUser = project.gm || users.find((u) => u.id === project.gmId);
               const dmUser = (project as any).dm || users.find((u) => u.id === (project as any).dmId);
@@ -928,15 +975,25 @@ export default function AdminSettingsPage() {
                           {assignedPics.map((pic) => (
                             <div
                               key={pic.id}
-                              className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between"
+                              className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between group"
                             >
                               <div className="truncate min-w-0 pr-2">
                                 <p className="font-bold text-slate-900 dark:text-white truncate">{pic.name}</p>
                                 <p className="text-[11px] text-slate-500 truncate">{pic.email}</p>
                               </div>
-                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-md shrink-0 flex items-center gap-1">
-                                <Phone size={10} /> {pic.phoneNumber}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-md flex items-center gap-1">
+                                  <Phone size={10} /> {pic.phoneNumber}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignPic(pic.id, project.id, pic.name)}
+                                  title={`Lepaskan ${pic.name} dari proyek ini`}
+                                  className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -2179,115 +2236,261 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* MODAL: TAMBAH PIC */}
+      {/* MODAL: ALOKASIKAN PIC KE PROYEK */}
       {showAddPicModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <UserPlus size={20} className="text-violet-600 dark:text-violet-400" />
-                <span>Alokasikan PIC Baru ke Proyek</span>
+                <span>Alokasikan PIC ke Proyek</span>
               </h3>
               <button
-                onClick={() => setShowAddPicModal(false)}
+                onClick={() => {
+                  setShowAddPicModal(false);
+                  setSelectedExistingUserId("");
+                }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreatePic} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Pilih Proyek Penugasan <span className="text-violet-600 dark:text-violet-400">*</span>
-                </label>
-                <select
-                  value={newPicProjectId}
-                  onChange={(e) => setNewPicProjectId(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.location})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Mode Switch Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl gap-1">
+              <button
+                type="button"
+                onClick={() => setPicModalMode("EXISTING")}
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                  picModalMode === "EXISTING"
+                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <UserCheck size={14} />
+                <span>Pilih User Terdaftar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPicModalMode("NEW")}
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                  picModalMode === "NEW"
+                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <UserPlus size={14} />
+                <span>Daftarkan User Baru</span>
+              </button>
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Nama Lengkap PIC <span className="text-violet-600 dark:text-violet-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newPicName}
-                  onChange={(e) => setNewPicName(e.target.value)}
-                  placeholder="e.g. Ir. Suryadi (Subkon Struktur)"
-                  required
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {picModalMode === "EXISTING" ? (
+              /* TAB 1: PILIH DARI USER TERDAFTAR */
+              <form onSubmit={handleAssignExistingPic} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Email Akun <span className="text-violet-600 dark:text-violet-400">*</span>
+                    Pilih Proyek Penugasan <span className="text-violet-600 dark:text-violet-400">*</span>
                   </label>
-                  <input
-                    type="email"
-                    value={newPicEmail}
-                    onChange={(e) => setNewPicEmail(e.target.value)}
-                    placeholder="suryadi@subkon.id"
+                  <select
+                    value={newPicProjectId}
+                    onChange={(e) => setNewPicProjectId(e.target.value)}
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                  />
+                  >
+                    <option value="">-- Pilih Proyek Tujuan --</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code ? `[${p.code}] ` : ""}{p.name} ({p.location})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Nomor WhatsApp <span className="text-violet-600 dark:text-violet-400">*</span>
+                    Pilih Akun User <span className="text-violet-600 dark:text-violet-400">*</span>
+                  </label>
+                  <select
+                    value={selectedExistingUserId}
+                    onChange={(e) => setSelectedExistingUserId(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih User Terdaftar di Sistem --</option>
+                    {users
+                      .slice()
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((u) => {
+                        const isAlreadyAssigned =
+                          u.projectId === newPicProjectId ||
+                          (u.projectIds && u.projectIds.includes(newPicProjectId));
+                        return (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({u.email}) — [{u.role}]
+                            {isAlreadyAssigned ? " ✓ (Sudah di proyek ini)" : ""}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+
+                {/* Preview Selected User Info */}
+                {(() => {
+                  const selUser = users.find((u) => u.id === selectedExistingUserId);
+                  if (!selUser) return null;
+                  const assignedList = projects.filter(
+                    (p) =>
+                      p.id === selUser.projectId ||
+                      (selUser.projectIds && selUser.projectIds.includes(p.id))
+                  );
+                  return (
+                    <div className="p-3 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-900/60 rounded-2xl space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-slate-900 dark:text-white text-sm">
+                          {selUser.name}
+                        </span>
+                        <span className="px-2 py-0.5 bg-violet-200 dark:bg-violet-900 text-violet-800 dark:text-violet-200 font-bold rounded-md text-[10px]">
+                          {selUser.role}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-400">{selUser.email} • {selUser.phoneNumber || "No Telp: -"}</p>
+                      <div className="pt-1 border-t border-violet-150 dark:border-violet-900/40 text-[11px]">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          Proyek aktif ({assignedList.length}):
+                        </span>{" "}
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {assignedList.length > 0
+                            ? assignedList.map((p) => p.name).join(", ")
+                            : "Belum ada penugasan"}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-0.5">
+                        ✓ Multi-proyek didukung: Penugasan ke proyek baru tidak akan menghapus proyek sebelumnya.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex justify-end gap-2.5 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddPicModal(false);
+                      setSelectedExistingUserId("");
+                    }}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={picSubmitting || !selectedExistingUserId || !newPicProjectId}
+                    className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
+                  >
+                    {picSubmitting ? "Menugaskan..." : "Tugaskan ke Proyek Ini"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* TAB 2: DAFTARKAN USER BARU */
+              <form onSubmit={handleCreatePic} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Pilih Proyek Penugasan <span className="text-violet-600 dark:text-violet-400">*</span>
+                  </label>
+                  <select
+                    value={newPicProjectId}
+                    onChange={(e) => setNewPicProjectId(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih Proyek Tujuan --</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code ? `[${p.code}] ` : ""}{p.name} ({p.location})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Nama Lengkap PIC <span className="text-violet-600 dark:text-violet-400">*</span>
                   </label>
                   <input
                     type="text"
-                    value={newPicPhone}
-                    onChange={(e) => setNewPicPhone(e.target.value)}
-                    placeholder="0812-3344-5566"
+                    value={newPicName}
+                    onChange={(e) => setNewPicName(e.target.value)}
+                    placeholder="e.g. Ir. Suryadi (Subkon Struktur)"
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Password Akun
-                </label>
-                <input
-                  type="text"
-                  value={newPicPassword}
-                  onChange={(e) => setNewPicPassword(e.target.value)}
-                  placeholder="Default: 123"
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                />
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Email Akun <span className="text-violet-600 dark:text-violet-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={newPicEmail}
+                      onChange={(e) => setNewPicEmail(e.target.value)}
+                      placeholder="suryadi@subkon.id"
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
 
-              <div className="flex justify-end gap-2.5 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddPicModal(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={picSubmitting}
-                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
-                >
-                  {picSubmitting ? "Menyimpan..." : "Simpan & Tugaskan PIC"}
-                </button>
-              </div>
-            </form>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Nomor WhatsApp <span className="text-violet-600 dark:text-violet-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newPicPhone}
+                      onChange={(e) => setNewPicPhone(e.target.value)}
+                      placeholder="0812-3344-5566"
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Password Akun
+                  </label>
+                  <input
+                    type="text"
+                    value={newPicPassword}
+                    onChange={(e) => setNewPicPassword(e.target.value)}
+                    placeholder="Default: 123"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddPicModal(false);
+                      setSelectedExistingUserId("");
+                    }}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={picSubmitting}
+                    className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
+                  >
+                    {picSubmitting ? "Menyimpan..." : "Simpan & Daftarkan PIC Baru"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

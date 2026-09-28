@@ -70,6 +70,7 @@ model User {
   employeeCode String?  @map("employee_code") @db.VarChar(50)
   projectId    String?  @map("project_id")
   project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectIds   String[] @default([]) @map("project_ids")
 
   projectsManagedAsPm Project[] @relation("ProjectPM")
   projectsManagedAsGm Project[] @relation("ProjectGM")
