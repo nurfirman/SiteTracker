@@ -3,7 +3,7 @@
 import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolInput, BulkFindingItemInput } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
-import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate, formatPhotoUrls, parsePhotoUrls } from "./utils";
+import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate, addBusinessDays, formatPhotoUrls, parsePhotoUrls } from "./utils";
 import { setSession, getSession, destroySession, requireAuth, SessionData } from "./auth";
 import { sanitizeText } from "./security";
 import { validateImagePayload } from "./storage";
@@ -1945,48 +1945,88 @@ export async function getFindings(filters?: {
         skip: skip,
       });
 
-      return dbFindings.map((f) => ({
-        id: f.id,
-        ticketCode: f.ticketCode,
-        projectId: f.projectId,
-        project: {
-          id: f.project.id,
-          name: f.project.name,
-          location: f.project.location,
-          createdAt: f.project.createdAt.toISOString(),
-        },
-        picId: f.picId,
-        pic: {
-          id: f.pic.id,
-          name: f.pic.name,
-          email: f.pic.email,
-          role: f.pic.role as Role,
-          phoneNumber: f.pic.phoneNumber,
-        },
-        reporterId: f.reporterId,
-        reporter: {
-          id: f.reporter.id,
-          name: f.reporter.name,
-          email: f.reporter.email,
-          role: f.reporter.role as Role,
-          phoneNumber: f.reporter.phoneNumber,
-        },
-        locationDetail: f.locationDetail,
-        coordinates: f.coordinates,
-        category: f.category as Category,
-        description: f.description,
-        photoFindingUrl: f.photoFindingUrl,
-        status: f.status as FindingStatus,
-        picResponse: f.picResponse,
-        photoResolutionUrl: f.photoResolutionUrl,
-        rejectionNote: f.rejectionNote,
-        reportNumber: (f as any).reportNumber || null,
-        inspectionDate: (f as any).inspectionDate ? (f as any).inspectionDate.toISOString() : null,
-        createdAt: f.createdAt.toISOString(),
-        dueDate: f.dueDate ? f.dueDate.toISOString() : null,
-        resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
-        closedAt: f.closedAt ? f.closedAt.toISOString() : null,
-      }));
+      // Kumpulkan reportNumber untuk mengambil tanggal created_at laporan terkait
+      const reportNumbers = Array.from(
+        new Set(
+          dbFindings
+            .map((f: any) => f.reportNumber)
+            .filter((rn): rn is string => Boolean(rn && rn.trim()))
+        )
+      );
+
+      const reportDateMap = new Map<string, Date>();
+      if (reportNumbers.length > 0) {
+        try {
+          const reports = await (prisma as any).patrolReport.findMany({
+            where: { reportNumber: { in: reportNumbers } },
+            select: { reportNumber: true, createdAt: true },
+          });
+          for (const r of reports) {
+            if (r.reportNumber && r.createdAt) {
+              reportDateMap.set(r.reportNumber, new Date(r.createdAt));
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to fetch patrol reports for SLA calculation:", err);
+        }
+      }
+
+      return dbFindings.map((f) => {
+        const repNum = (f as any).reportNumber || null;
+        let effectiveDueDate: string | null = null;
+        if (repNum && reportDateMap.has(repNum)) {
+          effectiveDueDate = addBusinessDays(reportDateMap.get(repNum)!, 14).toISOString();
+        } else if (repNum && f.dueDate) {
+          effectiveDueDate = f.dueDate.toISOString();
+        } else if (!repNum) {
+          effectiveDueDate = null;
+        } else {
+          effectiveDueDate = f.dueDate ? f.dueDate.toISOString() : null;
+        }
+
+        return {
+          id: f.id,
+          ticketCode: f.ticketCode,
+          projectId: f.projectId,
+          project: {
+            id: f.project.id,
+            name: f.project.name,
+            location: f.project.location,
+            createdAt: f.project.createdAt.toISOString(),
+          },
+          picId: f.picId,
+          pic: {
+            id: f.pic.id,
+            name: f.pic.name,
+            email: f.pic.email,
+            role: f.pic.role as Role,
+            phoneNumber: f.pic.phoneNumber,
+          },
+          reporterId: f.reporterId,
+          reporter: {
+            id: f.reporter.id,
+            name: f.reporter.name,
+            email: f.reporter.email,
+            role: f.reporter.role as Role,
+            phoneNumber: f.reporter.phoneNumber,
+          },
+          locationDetail: f.locationDetail,
+          coordinates: f.coordinates,
+          category: f.category as Category,
+          description: f.description,
+          photoFindingUrl: f.photoFindingUrl,
+          status: f.status as FindingStatus,
+          picResponse: f.picResponse,
+          photoResolutionUrl: f.photoResolutionUrl,
+          rejectionNote: f.rejectionNote,
+          reportNumber: repNum,
+          inspectionDate: (f as any).inspectionDate ? (f as any).inspectionDate.toISOString() : null,
+          createdAt: f.createdAt.toISOString(),
+          dueDate: effectiveDueDate,
+          resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
+          closedAt: f.closedAt ? f.closedAt.toISOString() : null,
+        };
+      });
     } catch (e) {
       console.warn("Neon DB query failed for getFindings, using in-memory fallback:", e);
     }
@@ -2038,6 +2078,25 @@ export async function getFindingById(id: string): Promise<Finding | null> {
       });
 
       if (f) {
+        const repNum = (f as any).reportNumber || null;
+        let effectiveDueDate: string | null = null;
+        if (repNum) {
+          try {
+            const report = await (prisma as any).patrolReport.findUnique({
+              where: { reportNumber: repNum },
+              select: { createdAt: true },
+            });
+            if (report && report.createdAt) {
+              effectiveDueDate = addBusinessDays(new Date(report.createdAt), 14).toISOString();
+            }
+          } catch (err) {
+            console.warn("Failed to fetch report for finding SLA:", err);
+          }
+        }
+        if (!effectiveDueDate) {
+          effectiveDueDate = repNum && f.dueDate ? f.dueDate.toISOString() : null;
+        }
+
         return {
           id: f.id,
           ticketCode: f.ticketCode,
@@ -2073,10 +2132,10 @@ export async function getFindingById(id: string): Promise<Finding | null> {
           picResponse: f.picResponse,
           photoResolutionUrl: f.photoResolutionUrl,
           rejectionNote: f.rejectionNote,
-          reportNumber: (f as any).reportNumber || null,
+          reportNumber: repNum,
           inspectionDate: (f as any).inspectionDate ? (f as any).inspectionDate.toISOString() : null,
           createdAt: f.createdAt.toISOString(),
-          dueDate: f.dueDate ? f.dueDate.toISOString() : null,
+          dueDate: effectiveDueDate,
           resolvedAt: f.resolvedAt ? f.resolvedAt.toISOString() : null,
           closedAt: f.closedAt ? f.closedAt.toISOString() : null,
         };
@@ -2133,7 +2192,8 @@ export async function createFinding(payload: {
     const now = new Date();
     // Poin 8: Tanggal Inspeksi Lapangan (default today jika tidak diisi)
     const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
-    const dueDate = calculateDueDate(payload.category, inspectionDateObj);
+    // SLA 14 hari kerja dihitung dari tanggal laporan / pembuatan database (now), bukan dari tanggal temuan/patrol
+    const dueDate = calculateDueDate(payload.category, now);
 
     // Poin 12 & 13: Penomoran temuan berurutan tanpa reset dengan format EEE-DDD-XXXX
     // EEE: Kode Employee (PXXXXX)
@@ -2308,11 +2368,11 @@ export async function updateFinding(payload: {
 
     let dueDateObj = targetFinding.dueDate
       ? new Date(targetFinding.dueDate)
-      : calculateDueDate(targetFinding.category, inspectionDateObj);
+      : calculateDueDate(targetFinding.category, targetFinding.createdAt ? new Date(targetFinding.createdAt) : new Date());
     if (payload.dueDate) {
       dueDateObj = new Date(payload.dueDate);
     } else if (payload.category && payload.category !== targetFinding.category) {
-      dueDateObj = calculateDueDate(payload.category, inspectionDateObj);
+      dueDateObj = calculateDueDate(payload.category, targetFinding.createdAt ? new Date(targetFinding.createdAt) : new Date());
     }
 
     const updateData: any = {
@@ -2794,6 +2854,7 @@ export interface EmailReportPayload {
   division?: string;
   reportNumber?: string;
   recipients: string[];
+  ccRecipients?: string[];
   subject: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
   messageNote?: string;
@@ -2811,6 +2872,8 @@ export interface EmailReportPayload {
   pmName?: string;
   gmName?: string;
   reportDate?: string;
+  reportCreatedAt?: string | Date;
+  responseDueDate?: string | Date;
 }
 
 export async function getMailServiceStatus(): Promise<{
@@ -2845,6 +2908,15 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
       return { success: false, message: "Subjek email laporan wajib diisi." };
     }
 
+    const allRecipientsSummary = [
+      payload.recipients.join(", "),
+      payload.ccRecipients && payload.ccRecipients.length > 0
+        ? `CC: ${payload.ccRecipients.join(", ")}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
     // Otomatis simpan arsip laporan ke database dan update relasi reportNumber ke daftar temuan
     try {
       await savePatrolReport({
@@ -2858,7 +2930,7 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         picId: payload.picId,
         inspectionType: payload.inspectionType || "ROUTINE",
         presentInspectors: payload.presentInspectors || null,
-        recipients: payload.recipients.join(", "),
+        recipients: allRecipientsSummary,
         subject: payload.subject,
         messageNote: payload.messageNote,
         findingsCount: payload.findingsCount,
@@ -2868,10 +2940,16 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
       console.warn("Gagal auto-save patrol report ke database:", saveErr);
     }
 
+    const reportCreatedDate = payload.reportCreatedAt ? new Date(payload.reportCreatedAt) : new Date();
+    const responseDueDate = payload.responseDueDate
+      ? new Date(payload.responseDueDate)
+      : addBusinessDays(reportCreatedDate, 14);
+
     // Jika Azure OAuth sudah diisi di .env, kirim langsung via Microsoft Graph API
     if (isAzureMailConfigured()) {
       const azureResult = await sendEmailViaAzureGraph({
         recipients: payload.recipients,
+        ccRecipients: payload.ccRecipients,
         subject: payload.subject,
         projectName: payload.projectName,
         division: payload.division,
@@ -2888,6 +2966,8 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
         pmName: payload.pmName,
         gmName: payload.gmName,
         reportDate: payload.reportDate,
+        reportCreatedAt: reportCreatedDate,
+        responseDueDate: responseDueDate,
       });
 
       const session = await getSession();
@@ -2912,15 +2992,19 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
     // Jika belum diisi, jalankan simulasi internal dengan log bukti pengiriman
     const logId = "SIM-MAIL-" + Date.now().toString().slice(-6);
     const timestamp = new Date().toISOString();
+    const allSimList = [
+      ...payload.recipients,
+      ...(payload.ccRecipients ? payload.ccRecipients.map((c) => `[CC] ${c}`) : []),
+    ];
 
     return {
       success: true,
-      message: `[Mode Simulasi & Tersimpan di Database] Laporan berhasil disimpan & disiapkan untuk ${payload.recipients.length} penerima (${payload.recipients.join(", ")}).`,
+      message: `[Mode Simulasi & Tersimpan di Database] Laporan berhasil disimpan & disiapkan untuk ${payload.recipients.length} penerima utama${payload.ccRecipients && payload.ccRecipients.length > 0 ? ` & ${payload.ccRecipients.length} tembusan (CC)` : ""}.`,
       deliveryLog: {
         id: logId,
         timestamp,
-        recipientsCount: payload.recipients.length,
-        recipientsList: payload.recipients,
+        recipientsCount: allSimList.length,
+        recipientsList: allSimList,
         provider: "Internal Simulation Dispatcher",
       },
     };
@@ -3021,6 +3105,7 @@ export async function runPatrolSlaReminderEngine(options?: {
         const dbFindings = await prisma.finding.findMany({
           where: {
             status: "OPEN",
+            reportNumber: { not: null },
             createdAt: {
               lte: thresholdDate,
             },
@@ -3407,11 +3492,18 @@ export async function savePatrolReport(payload: SavePatrolReportInput): Promise<
           },
         });
 
+        const reportBaseDate = record.createdAt ? new Date(record.createdAt) : new Date();
+        const reportSlaDueDate = addBusinessDays(reportBaseDate, 14);
+
         // Hubungkan (tag) temuan-temuan terkait dengan reportNumber ini (relasi one-to-many)
+        // dan perbarui batas SLA respon 14 hari kerja terhitung dari tanggal report
         if (payload.findingIds && payload.findingIds.length > 0) {
           await (prisma.finding as any).updateMany({
             where: { id: { in: payload.findingIds } },
-            data: { reportNumber },
+            data: {
+              reportNumber,
+              dueDate: reportSlaDueDate,
+            },
           });
         } else if (payload.projectId && payload.projectId !== "ALL") {
           await (prisma.finding as any).updateMany({
@@ -3419,7 +3511,10 @@ export async function savePatrolReport(payload: SavePatrolReportInput): Promise<
               projectId: payload.projectId,
               reportNumber: null,
             },
-            data: { reportNumber },
+            data: {
+              reportNumber,
+              dueDate: reportSlaDueDate,
+            },
           });
         }
 
@@ -3492,10 +3587,11 @@ export async function savePatrolReport(payload: SavePatrolReportInput): Promise<
       inMemoryPatrolReports.unshift(savedReport);
     }
 
-    // Tag in-memory findings
+    // Tag in-memory findings and sync dueDate
+    const fallbackSlaDueDate = addBusinessDays(new Date(), 14).toISOString();
     if (payload.findingIds && payload.findingIds.length > 0) {
       inMemoryFindings = inMemoryFindings.map((f) =>
-        payload.findingIds?.includes(f.id) ? { ...f, reportNumber } : f
+        payload.findingIds?.includes(f.id) ? { ...f, reportNumber, dueDate: fallbackSlaDueDate } : f
       );
     }
 
@@ -3802,7 +3898,8 @@ export async function createBulkPatrolFindings(
       const item = payload.items[i];
       const nextSeq = await getNextTicketSequence();
       const ticketCode = formatTicketCode(reporterEmpCode, divCode, nextSeq);
-      const dueDate = calculateDueDate(item.category, inspectionDateObj);
+      // SLA 14 hari kerja dihitung dari tanggal laporan / pembuatan (now), bukan dari tanggal inspeksi patroli
+      const dueDate = calculateDueDate(item.category, now);
 
       const cleanLocation =
         item.locationDetail && item.locationDetail.trim().length > 0

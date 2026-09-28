@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { FindingCard } from "@/components/FindingCard";
 import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
 import { SideBySideModal } from "@/components/SideBySideModal";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -468,19 +469,15 @@ export default function DashboardPage() {
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 Filter Proyek:
               </label>
-              <select
+              <ProjectCombobox
+                projects={projects}
                 value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
+                onChange={(newProjId) => setSelectedProject(newProjId)}
                 disabled={currentUser.role === "PIC"}
-                className="w-full px-3 py-2.5 min-h-[44px] text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white disabled:opacity-60"
-              >
-                {currentUser.role !== "PIC" && <option value="ALL">Semua Proyek</option>}
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                showAllOption={currentUser.role !== "PIC"}
+                allOptionLabel="Semua Proyek"
+                size="sm"
+              />
             </div>
 
             {/* Filter Kategori */}

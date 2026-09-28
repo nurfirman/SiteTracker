@@ -17,7 +17,8 @@ import {
   getSystemSettings,
 } from "@/lib/actions";
 import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
-import { formatDate, getSlaStatus, exportFindingsToCsv, parsePhotoUrls } from "@/lib/utils";
+import { formatDate, getSlaStatus, exportFindingsToCsv, parsePhotoUrls, addBusinessDays } from "@/lib/utils";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import {
   Printer,
   FileText,
@@ -89,6 +90,7 @@ export default function ReportsPage() {
   const [customReportNumber, setCustomReportNumber] = useState<string>("");
   const [presentInspectors, setPresentInspectors] = useState<string>("");
   const [recalledReportNumber, setRecalledReportNumber] = useState<string | null>(null);
+  const [recalledReportCreatedAt, setRecalledReportCreatedAt] = useState<string | null>(null);
   const [systemLogoUrl, setSystemLogoUrl] = useState<string>("");
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
@@ -114,6 +116,7 @@ export default function ReportsPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState<string[]>([]);
   const [includeBod, setIncludeBod] = useState(false);
+  const [includeAdvisor, setIncludeAdvisor] = useState(false);
   const [showOtherRecipients, setShowOtherRecipients] = useState(false);
   const [customEmailInput, setCustomEmailInput] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
@@ -359,7 +362,7 @@ export default function ReportsPage() {
   const totalResolved = findings.filter((f) => f.status === "RESOLVED").length;
   const totalClosed = findings.filter((f) => f.status === "CLOSED").length;
   const totalOverdue = findings.filter(
-    (f) => f.status !== "CLOSED" && getSlaStatus(f.dueDate, f.status).isOverdue
+    (f) => f.status !== "CLOSED" && getSlaStatus(f.dueDate, f.status, f.reportNumber || resolvedReportNumber).isOverdue
   ).length;
 
   // Rekapitulasi Statistik Per Project (Berapa di project itu yang OPEN, RESOLVED, CLOSED)
@@ -421,7 +424,7 @@ export default function ReportsPage() {
       else if (f.status === "RESOLVED") entry.resolved += 1;
       else if (f.status === "CLOSED") entry.closed += 1;
 
-      if (f.status !== "CLOSED" && getSlaStatus(f.dueDate, f.status).isOverdue) {
+      if (f.status !== "CLOSED" && getSlaStatus(f.dueDate, f.status, f.reportNumber || resolvedReportNumber).isOverdue) {
         entry.overdue += 1;
       }
     });
@@ -468,10 +471,12 @@ export default function ReportsPage() {
     null;
 
   const bodUsers = users.filter((u) => u.role === "BOD");
+  const advisorUsers = users.filter((u) => u.role?.toLowerCase() === "advisor");
 
   const otherUsers = users.filter(
     (u) =>
       u.role !== "BOD" &&
+      u.role?.toLowerCase() !== "advisor" &&
       u.id !== activePmUser?.id &&
       u.id !== activeGmUser?.id &&
       !activeProjectPics.some((pic) => pic.id === u.id)
@@ -505,8 +510,9 @@ export default function ReportsPage() {
       initialRecipients.push(activeGmUser.email);
     }
 
-    // Default: Dewan Direksi (BOD) Opsional (tidak di-checklist otomatis)
+    // Default: Dewan Direksi (BOD) & Advisor Opsional (tidak di-checklist otomatis)
     setIncludeBod(false);
+    setIncludeAdvisor(false);
     setShowOtherRecipients(false);
     setEmailRecipients(initialRecipients);
     setShowEmailModal(true);
@@ -514,13 +520,10 @@ export default function ReportsPage() {
 
   const handleToggleIncludeBod = (checked: boolean) => {
     setIncludeBod(checked);
-    const bodEmails = bodUsers.map((b) => b.email);
-    if (checked) {
-      const merged = Array.from(new Set([...emailRecipients, ...bodEmails]));
-      setEmailRecipients(merged);
-    } else {
-      setEmailRecipients(emailRecipients.filter((e) => !bodEmails.includes(e)));
-    }
+  };
+
+  const handleToggleIncludeAdvisor = (checked: boolean) => {
+    setIncludeAdvisor(checked);
   };
 
   const handleSendEmail = async (e: React.FormEvent) => {
@@ -536,12 +539,25 @@ export default function ReportsPage() {
         activePicObj?.name ||
         (activeProjectPics.length > 0 ? activeProjectPics.map((p) => p.name).join(", ") : undefined);
 
+      const ccRecipientsList: string[] = [];
+      if (includeBod) {
+        bodUsers.forEach((b) => {
+          if (b.email && !ccRecipientsList.includes(b.email)) ccRecipientsList.push(b.email);
+        });
+      }
+      if (includeAdvisor) {
+        advisorUsers.forEach((a) => {
+          if (a.email && !ccRecipientsList.includes(a.email)) ccRecipientsList.push(a.email);
+        });
+      }
+
       const res = await sendReportEmail({
         projectId: selectedProject,
         projectName: activeProjectObj ? activeProjectObj.name : "Seluruh Proyek",
         division: activeProjectObj?.division || undefined,
         reportNumber: resolvedReportNumber,
         recipients: emailRecipients,
+        ccRecipients: ccRecipientsList.length > 0 ? ccRecipientsList : undefined,
         subject: emailSubject,
         reportType: reportType,
         messageNote: emailNote,
@@ -559,6 +575,7 @@ export default function ReportsPage() {
         pmName: activePmUser?.name || undefined,
         gmName: activeGmUser?.name || undefined,
         reportDate: reportDate,
+        reportCreatedAt: recalledReportCreatedAt || new Date().toISOString(),
       });
 
       if (res.success) {
@@ -643,6 +660,11 @@ export default function ReportsPage() {
     if (rep.reportNumber) {
       setCustomReportNumber(rep.reportNumber);
       setRecalledReportNumber(rep.reportNumber);
+    }
+    if (rep.createdAt) {
+      setRecalledReportCreatedAt(typeof rep.createdAt === "string" ? rep.createdAt : rep.createdAt.toISOString());
+    } else {
+      setRecalledReportCreatedAt(null);
     }
     if (rep.presentInspectors) setPresentInspectors(rep.presentInspectors);
     else setPresentInspectors("");
@@ -915,21 +937,17 @@ export default function ReportsPage() {
                     <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
                       <Building2 size={13} className="text-violet-600 dark:text-violet-400" /> Filter Proyek
                     </label>
-                    <select
+                    <ProjectCombobox
+                      projects={projects}
                       value={selectedProject}
-                      onChange={(e) => {
-                        setSelectedProject(e.target.value);
+                      onChange={(newProjId) => {
+                        setSelectedProject(newProjId);
                         setSelectedPic("ALL");
                       }}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
-                    >
-                      <option value="ALL">-- Semua Proyek --</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.code ? `[${p.code}] ` : ""}{p.name}
-                        </option>
-                      ))}
-                    </select>
+                      showAllOption={true}
+                      allOptionLabel="-- Semua Proyek --"
+                      size="sm"
+                    />
                   </div>
 
                   {/* Filter 2: PIC */}
@@ -1691,7 +1709,7 @@ export default function ReportsPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800 print:divide-slate-300">
                           {findings.map((item) => {
-                            const sla = getSlaStatus(item.dueDate, item.status);
+                            const sla = getSlaStatus(item.dueDate, item.status, item.reportNumber || resolvedReportNumber);
 
                             return (
                               <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 print:hover:bg-transparent">
@@ -1870,7 +1888,7 @@ export default function ReportsPage() {
                       <span>Distribusi Proyek & Divisi (Otomatis)</span>
                     </label>
                     <span className="text-[11px] text-violet-600 dark:text-violet-400 font-extrabold">
-                      {emailRecipients.length} Penerima Terpilih
+                      {emailRecipients.length + (includeBod ? bodUsers.length : 0) + (includeAdvisor ? advisorUsers.length : 0)} Penerima Terpilih
                     </span>
                   </div>
 
@@ -1999,7 +2017,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
-                {/* 2. DISTRIBUSI DEWAN DIREKSI (BOD) - OPSIONAL */}
+                {/* 2. DISTRIBUSI DEWAN DIREKSI (BOD) - OPSIONAL (CC) */}
                 <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800/60 space-y-2">
                   <div
                     className="flex items-center justify-between cursor-pointer"
@@ -2020,7 +2038,7 @@ export default function ReportsPage() {
                             Tembusan ke Dewan Direksi (BOD)
                           </span>
                           <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 uppercase">
-                            Opsional
+                            Opsional • CC
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
@@ -2031,7 +2049,44 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <span className="text-[11px] font-extrabold text-purple-700 dark:text-purple-300 shrink-0">
-                      {includeBod ? "Disertakan" : "Lewati"}
+                      {includeBod ? "Disertakan (CC)" : "Lewati"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. DISTRIBUSI ADVISOR (CC) - OPSIONAL */}
+                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => handleToggleIncludeAdvisor(!includeAdvisor)}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeAdvisor
+                            ? "bg-indigo-600 border-indigo-600 text-white"
+                            : "border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900"
+                          }`}
+                      >
+                        {includeAdvisor && <Check size={12} strokeWidth={3} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-slate-900 dark:text-white">
+                            Tembusan ke Advisor (CC)
+                          </span>
+                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 uppercase">
+                            Opsional • CC
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                          {advisorUsers.length > 0
+                            ? advisorUsers.map((a) => `${a.name} (${a.email})`).join(", ")
+                            : "Akun dengan role Advisor (belum ada yang terdaftar)"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-extrabold text-indigo-700 dark:text-indigo-300 shrink-0">
+                      {includeAdvisor ? "Disertakan (CC)" : "Lewati"}
                     </span>
                   </div>
                 </div>
@@ -2142,6 +2197,8 @@ export default function ReportsPage() {
                 <p>Divisi: <strong>{activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})</strong></p>
                 <p>Format: <strong>{reportType === "INTERNAL_PATROL" ? "Form Standar Internal Patrol" : "Rekapitulasi Eksekutif"}</strong></p>
                 <p>Total Temuan Terlampir: <strong>{totalFindings} Tiket</strong> (Open: {totalOpen}, Resolved: {totalResolved}, Closed: {totalClosed})</p>
+                <p>Tgl Report: <strong>{new Date(recalledReportCreatedAt || new Date()).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</strong></p>
+                <p>Tgl Respon: <strong className="text-red-600 dark:text-red-400">{addBusinessDays(new Date(recalledReportCreatedAt || new Date()), 14).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} (14 hari kerja)</strong></p>
               </div>
 
               {/* Actions */}

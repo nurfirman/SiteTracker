@@ -3,10 +3,11 @@
  * SiteTracker CMD Construction Patrol Management System
  */
 
-import { getAppBaseUrl } from "./utils";
+import { getAppBaseUrl, addBusinessDays } from "./utils";
 
 export interface SendAzureMailOptions {
   recipients: string[];
+  ccRecipients?: string[];
   subject: string;
   projectName: string;
   division?: string;
@@ -23,6 +24,8 @@ export interface SendAzureMailOptions {
   pmName?: string;
   gmName?: string;
   reportDate?: string;
+  reportCreatedAt?: string | Date;
+  responseDueDate?: string | Date;
 }
 
 export function isAzureMailConfigured(): boolean {
@@ -111,6 +114,26 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
       month: "long",
       year: "numeric",
     });
+
+  const reportCreatedDate = options.reportCreatedAt
+    ? new Date(options.reportCreatedAt)
+    : new Date();
+
+  const reportCreatedDateFormatted = reportCreatedDate.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const responseDueDate = options.responseDueDate
+    ? new Date(options.responseDueDate)
+    : addBusinessDays(reportCreatedDate, 14);
+
+  const responseDueDateFormatted = responseDueDate.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return `
 <!DOCTYPE html>
@@ -250,6 +273,17 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Tipe Format:</td>
                   <td style="padding: 6px 10px; color: #6d28d9; font-weight: 800;">${options.reportType}</td>
                 </tr>
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Tgl Report:</td>
+                  <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${reportCreatedDateFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Tgl Respon:</td>
+                  <td style="padding: 6px 10px; color: #dc2626; font-weight: 800;">
+                    ${responseDueDateFormatted}
+                    <span style="font-size: 11px; color: #64748b; font-weight: normal; margin-left: 6px;">(14 hari kerja)</span>
+                  </td>
+                </tr>
               </table>
 
               <!-- Action Callout -->
@@ -321,15 +355,31 @@ export async function sendEmailViaAzureGraph(
     },
   }));
 
-  const graphPayload = {
-    message: {
-      subject: options.subject,
-      body: {
-        contentType: "HTML",
-        content: emailHtml,
-      },
-      toRecipients: toRecipients,
+  const ccRecipients = options.ccRecipients && options.ccRecipients.length > 0
+    ? options.ccRecipients
+        .filter((email) => email && email.trim().length > 0)
+        .map((email) => ({
+          emailAddress: {
+            address: email.trim(),
+          },
+        }))
+    : [];
+
+  const messagePayload: any = {
+    subject: options.subject,
+    body: {
+      contentType: "HTML",
+      content: emailHtml,
     },
+    toRecipients: toRecipients,
+  };
+
+  if (ccRecipients.length > 0) {
+    messagePayload.ccRecipients = ccRecipients;
+  }
+
+  const graphPayload = {
+    message: messagePayload,
     saveToSentItems: "true",
   };
 
@@ -367,14 +417,19 @@ export async function sendEmailViaAzureGraph(
     );
   }
 
+  const allRecipientsList = [
+    ...options.recipients,
+    ...(options.ccRecipients ? options.ccRecipients.map((e) => `[CC] ${e}`) : []),
+  ];
+
   return {
     success: true,
-    message: `Laporan resmi berhasil dikirimkan via Azure Microsoft Graph ke ${options.recipients.length} penerima (${options.recipients.join(", ")})!`,
+    message: `Laporan resmi berhasil dikirimkan via Azure Microsoft Graph ke ${options.recipients.length} penerima utama${options.ccRecipients && options.ccRecipients.length > 0 ? ` & ${options.ccRecipients.length} tembusan (CC)` : ""}!`,
     deliveryLog: {
       id: logId,
       timestamp,
-      recipientsCount: options.recipients.length,
-      recipientsList: options.recipients,
+      recipientsCount: allRecipientsList.length,
+      recipientsList: allRecipientsList,
     },
   };
 }

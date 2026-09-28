@@ -21,7 +21,7 @@ export function FindingCard({
   onQuickResolve,
   currentUserRole,
 }: FindingCardProps) {
-  const sla = getSlaStatus(finding.dueDate, finding.status);
+  const sla = getSlaStatus(finding.dueDate, finding.status, finding.reportNumber);
 
   return (
     <div className="group relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between">
@@ -32,11 +32,9 @@ export function FindingCard({
             {finding.ticketCode}
           </span>
           <div className="flex items-center gap-1.5">
-            {finding.dueDate && (
-              <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 ${sla.badgeClass}`}>
-                <Clock size={11} /> {sla.label}
-              </span>
-            )}
+            <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 ${sla.badgeClass}`}>
+              <Clock size={11} /> {sla.label}
+            </span>
             <StatusBadge status={finding.status} size="sm" />
           </div>
         </div>

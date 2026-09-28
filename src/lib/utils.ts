@@ -78,19 +78,35 @@ export function generateTicketCode(
 
 
 /**
- * Menambahkan hari kerja (business days) dengan melewatkan Sabtu dan Minggu
+ * Menambahkan hari kerja (business days) dengan melewatkan Sabtu dan Minggu.
+ * Tanggal mulai (jika jatuh pada hari kerja) dihitung sebagai hari kerja pertama (inklusif).
+ * Contoh: 14 hari kerja dari Kamis 17 Sep 2026 adalah Selasa 6 Okt 2026.
  */
 export function addBusinessDays(startDate: Date, daysToAdd: number): Date {
+  if (daysToAdd <= 0) return new Date(startDate.getTime());
+
   const result = new Date(startDate.getTime());
-  let added = 0;
+  // Jika tanggal mulai jatuh pada hari Sabtu (6), geser ke hari kerja pertama (Senin)
+  if (result.getDay() === 6) {
+    result.setDate(result.getDate() + 2);
+  } else if (result.getDay() === 0) {
+    // Jika Minggu (0), geser ke hari kerja pertama (Senin)
+    result.setDate(result.getDate() + 1);
+  }
+
+  // Hari pertama kerja (result saat ini) sudah terhitung 1 hari kerja
+  let added = 1;
   while (added < daysToAdd) {
     result.setDate(result.getDate() + 1);
     const day = result.getDay();
-    // 0 = Minggu, 6 = Sabtu
     if (day !== 0 && day !== 6) {
       added++;
     }
   }
+
+  // Set waktu jatuh tempo ke akhir hari kerja (23:59:59) agar batas toleransi penuh sampai akhir hari
+  result.setHours(23, 59, 59, 999);
+
   return result;
 }
 
@@ -101,9 +117,47 @@ export function calculateDueDate(category: string, createdAtDate: Date = new Dat
   return addBusinessDays(createdAtDate, 14);
 }
 
-export function getSlaStatus(dueDateInput?: string | Date | null, status?: string) {
-  if (!dueDateInput || status === "CLOSED") {
-    return { label: "SLA OK", isOverdue: false, badgeClass: "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300" };
+function formatSlaDuration(hours: number): string {
+  const absHours = Math.abs(hours);
+  if (absHours >= 24) {
+    const days = Math.round(absHours / 24);
+    return `${days} hari`;
+  }
+  if (absHours >= 1) {
+    return `${absHours} jam`;
+  }
+  return "< 1 jam";
+}
+
+export function getSlaStatus(
+  dueDateInput?: string | Date | null,
+  status?: string,
+  reportNumber?: string | null
+) {
+  if (status === "CLOSED") {
+    return {
+      label: "SLA OK",
+      isOverdue: false,
+      badgeClass: "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300",
+    };
+  }
+
+  // Jika temuan belum dimasukkan ke laporan resmi (reportNumber kosong / belum dilaporkan),
+  // SLA 14 hari kerja belum dimulai sehingga tidak berstatus OVERDUE.
+  if (!reportNumber || !reportNumber.trim()) {
+    return {
+      label: "Belum Dilaporkan",
+      isOverdue: false,
+      badgeClass: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+    };
+  }
+
+  if (!dueDateInput) {
+    return {
+      label: "Belum Dilaporkan",
+      isOverdue: false,
+      badgeClass: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+    };
   }
 
   const dueDate = typeof dueDateInput === "string" ? new Date(dueDateInput) : dueDateInput;
@@ -112,19 +166,19 @@ export function getSlaStatus(dueDateInput?: string | Date | null, status?: strin
 
   if (diffHours < 0) {
     return {
-      label: `OVERDUE (${Math.abs(diffHours)}j lalu)`,
+      label: `OVERDUE (${formatSlaDuration(diffHours)} lalu)`,
       isOverdue: true,
       badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950/80 dark:text-red-300 animate-pulse",
     };
-  } else if (diffHours <= 12) {
+  } else if (diffHours <= 24) {
     return {
-      label: `SLA < ${diffHours}j lagi`,
+      label: `SLA ${formatSlaDuration(diffHours)} lagi`,
       isOverdue: false,
       badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300",
     };
   } else {
     return {
-      label: `SLA ${diffHours}j lagi`,
+      label: `SLA ${formatSlaDuration(diffHours)} lagi`,
       isOverdue: false,
       badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300",
     };

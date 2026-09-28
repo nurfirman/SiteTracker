@@ -7,6 +7,7 @@ import { useRole } from "@/components/RoleContext";
 import { FindingCard } from "@/components/FindingCard";
 import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
 import { SideBySideModal } from "@/components/SideBySideModal";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import Link from "next/link";
 import {
   ClipboardList,
@@ -158,18 +159,14 @@ export default function AllFindingsPage() {
                 <label className="block text-xs font-bold text-slate-500 mb-1">
                   Proyek Lapangan
                 </label>
-                <select
+                <ProjectCombobox
+                  projects={projects}
                   value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
-                  className="w-full px-3 py-2.5 min-h-[44px] text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                >
-                  <option value="ALL">Semua Proyek Aktif</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(newProjId) => setSelectedProject(newProjId)}
+                  showAllOption={true}
+                  allOptionLabel="Semua Proyek Aktif"
+                  size="sm"
+                />
               </div>
 
               {/* Filter Kategori */}

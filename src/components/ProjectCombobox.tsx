@@ -5,7 +5,7 @@ import { Project } from "@/types";
 import { Search, ChevronDown, Check, Building2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface ProjectComboboxProps {
+export interface ProjectComboboxProps {
   projects: Project[];
   value: string;
   onChange: (projectId: string) => void;
@@ -13,6 +13,9 @@ interface ProjectComboboxProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  showAllOption?: boolean;
+  allOptionLabel?: string;
+  size?: "sm" | "default";
 }
 
 export function ProjectCombobox({
@@ -23,12 +26,16 @@ export function ProjectCombobox({
   disabled = false,
   placeholder = "-- Pilih / Cari Proyek Konstruksi --",
   className,
+  showAllOption = false,
+  allOptionLabel = "-- Semua Proyek --",
+  size = "default",
 }: ProjectComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const isAllSelected = showAllOption && (value === "ALL" || !value);
   const selectedProject = projects.find((p) => p.id === value);
 
   // Close dropdown when clicking outside
@@ -56,11 +63,14 @@ export function ProjectCombobox({
   const filteredProjects = projects.filter((p) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
-    const codeMatch = p.code?.toLowerCase().includes(q) || false;
-    const nameMatch = p.name.toLowerCase().includes(q);
-    const divMatch = p.division?.toLowerCase().includes(q) || false;
-    return codeMatch || nameMatch || divMatch;
+    const codeMatch = p.code ? p.code.toLowerCase().includes(q) : false;
+    const nameMatch = p.name ? p.name.toLowerCase().includes(q) : false;
+    const divMatch = p.division ? p.division.toLowerCase().includes(q) : false;
+    const locMatch = p.location ? p.location.toLowerCase().includes(q) : false;
+    return codeMatch || nameMatch || divMatch || locMatch;
   });
+
+  const isSm = size === "sm";
 
   return (
     <div ref={dropdownRef} className={cn("relative w-full", className)}>
@@ -70,16 +80,26 @@ export function ProjectCombobox({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full px-4 py-3.5 min-h-[48px] text-left text-sm font-semibold rounded-2xl border-2 transition-all flex items-center justify-between gap-2 shadow-xs",
+          "w-full text-left transition-all flex items-center justify-between gap-2 shadow-xs",
+          isSm
+            ? "px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl border"
+            : "px-4 py-3.5 min-h-[48px] text-sm font-semibold rounded-2xl border-2",
           isOpen
             ? "border-violet-500 bg-white dark:bg-slate-800 ring-2 ring-violet-500/20"
+            : isSm
+            ? "border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600"
             : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600",
           disabled && "opacity-50 cursor-not-allowed",
-          selectedProject ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"
+          selectedProject || isAllSelected
+            ? "text-slate-900 dark:text-white"
+            : "text-slate-400 dark:text-slate-500"
         )}
       >
-        <div className="flex items-center gap-2.5 truncate min-w-0">
-          <Building2 size={18} className="text-violet-600 dark:text-violet-400 shrink-0" />
+        <div className="flex items-center gap-2 truncate min-w-0">
+          <Building2
+            size={isSm ? 15 : 18}
+            className="text-violet-600 dark:text-violet-400 shrink-0"
+          />
           {selectedProject ? (
             <span className="truncate font-bold">
               {selectedProject.code ? (
@@ -89,12 +109,16 @@ export function ProjectCombobox({
               ) : null}
               {selectedProject.name}
             </span>
+          ) : isAllSelected ? (
+            <span className="truncate font-bold text-slate-800 dark:text-slate-200">
+              {allOptionLabel}
+            </span>
           ) : (
-            <span>{placeholder}</span>
+            <span className="truncate">{placeholder}</span>
           )}
         </div>
         <ChevronDown
-          size={18}
+          size={isSm ? 16 : 18}
           className={cn(
             "text-slate-400 shrink-0 transition-transform duration-200",
             isOpen && "rotate-180 text-violet-600"
@@ -117,17 +141,28 @@ export function ProjectCombobox({
 
       {/* Popover / Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-80 flex flex-col">
+        <div className="absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-80 flex flex-col min-w-[280px]">
           {/* Search Box Header */}
           <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80">
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Ketik kode (PRJ-...) atau nama proyek..."
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setIsOpen(false);
+                  } else if (e.key === "Enter" && filteredProjects.length === 1) {
+                    onChange(filteredProjects[0].id);
+                    setIsOpen(false);
+                  }
+                }}
+                placeholder="Cari kode [2026...] atau nama proyek..."
                 className="w-full pl-9 pr-8 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-violet-500"
               />
               {searchQuery && (
@@ -140,11 +175,56 @@ export function ProjectCombobox({
                 </button>
               )}
             </div>
+            {searchQuery && (
+              <p className="text-[10px] text-slate-400 mt-1.5 px-1 font-medium">
+                Ditemukan {filteredProjects.length} dari {projects.length} proyek
+              </p>
+            )}
           </div>
 
           {/* List of Projects */}
           <div className="overflow-y-auto p-1.5 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 max-h-60">
-            {filteredProjects.length === 0 ? (
+            {/* Opsi Semua Proyek (Global) jika diizinkan */}
+            {showAllOption && (!searchQuery.trim() || "semua proyek all global".includes(searchQuery.toLowerCase().trim())) && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("ALL");
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all flex items-center justify-between gap-2",
+                  isAllSelected
+                    ? "bg-violet-600 text-white font-bold"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Building2
+                    size={15}
+                    className={
+                      isAllSelected
+                        ? "text-white"
+                        : "text-violet-600 dark:text-violet-400"
+                    }
+                  />
+                  <div>
+                    <span className="font-bold">{allOptionLabel}</span>
+                    <p
+                      className={cn(
+                        "text-[10px]",
+                        isAllSelected ? "text-violet-100" : "text-slate-400 dark:text-slate-500"
+                      )}
+                    >
+                      Menampilkan semua temuan dari seluruh proyek ({projects.length} proyek aktif)
+                    </p>
+                  </div>
+                </div>
+                {isAllSelected && <Check size={16} className="text-white shrink-0" />}
+              </button>
+            )}
+
+            {filteredProjects.length === 0 && (!showAllOption || searchQuery.trim()) ? (
               <div className="p-4 text-center text-xs text-slate-400 font-medium">
                 Tidak ada proyek yang sesuai dengan pencarian "{searchQuery}"
               </div>
@@ -160,7 +240,7 @@ export function ProjectCombobox({
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all flex items-center justify-between gap-2 group",
+                      "w-full text-left px-3 py-2 rounded-xl text-xs transition-all flex items-center justify-between gap-2 group",
                       isSelected
                         ? "bg-violet-600 text-white font-bold"
                         : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
@@ -182,14 +262,16 @@ export function ProjectCombobox({
                         )}
                         <span className="truncate font-semibold">{p.name}</span>
                       </div>
-                      <p
-                        className={cn(
-                          "text-[10px] mt-0.5 truncate",
-                          isSelected ? "text-violet-100" : "text-slate-400 dark:text-slate-500"
-                        )}
-                      >
-                        {p.location} {p.division ? `• ${p.division}` : ""}
-                      </p>
+                      {(p.location || p.division) && (
+                        <p
+                          className={cn(
+                            "text-[10px] mt-0.5 truncate",
+                            isSelected ? "text-violet-100" : "text-slate-400 dark:text-slate-500"
+                          )}
+                        >
+                          {p.location} {p.division ? `• ${p.division}` : ""}
+                        </p>
+                      )}
                     </div>
 
                     {isSelected && <Check size={16} className="text-white shrink-0" />}
