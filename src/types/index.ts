@@ -1,4 +1,4 @@
-export type Role = "CMD" | "PIC" | "SM" | "PM" | "GM" | "BOD" | "ADMIN" | "PENDING" | "Advisor" | (string & {});
+export type Role = "CMD" | "PIC" | "SM" | "PM" | "DH" | "DM" | "SC" | "GM" | "BOD" | "ADMIN" | "PENDING" | "Advisor" | (string & {});
 
 export type Category = 
   | "K3_SAFETY" 
@@ -16,10 +16,14 @@ export interface Project {
   name: string;
   location: string;
   division?: string | null;
-  pmId?: string | null;
-  pm?: User | null;
+  pmId?: string | null;   // Div Head (DH) — field DB tetap pmId
+  pm?: User | null;       // Div Head user object
   gmId?: string | null;
   gm?: User | null;
+  dmId?: string | null;   // Department Manager (DM)
+  dm?: User | null;
+  scId?: string | null;   // Section Manager (SC)
+  sc?: User | null;
   createdAt: string | Date;
 }
 
@@ -147,19 +151,34 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     description: "Akses Terisolasi Khusus Proyek Sendiri: Hanya dapat melihat & merespon tugas proyeknya.",
   },
   SM: {
-    label: "SM / PM (Site Manager / Project Manager)",
+    label: "SM (Site Manager)",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
     description: "Akses Multi-Proyek Lapangan: Mengawasi & mengkoordinasikan PIC di beberapa site proyek.",
   },
   PM: {
-    label: "GM / DivHead / DepMan",
+    label: "PM (Project Manager)",
+    badgeClass: "bg-cyan-100 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800",
+    description: "Manajemen Proyek: Perencanaan, pelaksanaan, dan pengendalian proyek konstruksi.",
+  },
+  DH: {
+    label: "DH (Div Head / Kepala Divisi)",
     badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
-    description: "Akses Manajemen Divisi / Departemen: Evaluasi SLA, monitoring kepatuhan dan pencapaian target proyek.",
+    description: "Akses Manajemen Divisi: Evaluasi SLA, monitoring kepatuhan dan pencapaian target seluruh proyek divisi.",
+  },
+  DM: {
+    label: "DM (Department Manager)",
+    badgeClass: "bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-950/60 dark:text-violet-300 dark:border-violet-800",
+    description: "Akses Manajemen Departemen: Supervisi lintas proyek dalam departemen, evaluasi KPI dan koordinasi tim.",
+  },
+  SC: {
+    label: "SC (Section Manager)",
+    badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
+    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan patroli per seksi.",
   },
   GM: {
-    label: "SecMan (Section Manager)",
-    badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
-    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan patroli.",
+    label: "GM (General Manager)",
+    badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800",
+    description: "Akses Pengawasan Umum: Pemantauan kepatuhan seluruh divisi dan eskalasi ke BOD.",
   },
   BOD: {
     label: "Board of Directors (BOD)",
@@ -169,7 +188,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   ADMIN: {
     label: "Administrator Sistem",
     badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800",
-    description: "Pengelola Master Proyek, Penugasan PIC/SM/PM, dan Konfigurasi Matriks.",
+    description: "Pengelola Master Proyek, Penugasan PIC/SM/DH/DM/SC, dan Konfigurasi Matriks.",
   },
   PENDING: {
     label: "Menunggu Penugasan Admin",

@@ -105,7 +105,9 @@ export default function AdminSettingsPage() {
     CMD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
     PIC: { canCreateFinding: false, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
     SM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
-    PM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    DH: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    DM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    SC: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     GM: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     BOD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     Advisor: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
@@ -129,6 +131,8 @@ export default function AdminSettingsPage() {
   const [newProjectDivision, setNewProjectDivision] = useState("");
   const [newProjectPmId, setNewProjectPmId] = useState("");
   const [newProjectGmId, setNewProjectGmId] = useState("");
+  const [newProjectDmId, setNewProjectDmId] = useState("");
+  const [newProjectScId, setNewProjectScId] = useState("");
   const [projectSubmitting, setProjectSubmitting] = useState(false);
 
   // Edit Project Assignment Modal State
@@ -137,6 +141,8 @@ export default function AdminSettingsPage() {
   const [editDivision, setEditDivision] = useState("");
   const [editPmId, setEditPmId] = useState("");
   const [editGmId, setEditGmId] = useState("");
+  const [editDmId, setEditDmId] = useState("");
+  const [editScId, setEditScId] = useState("");
   const [projectEditSubmitting, setProjectEditSubmitting] = useState(false);
 
   // Forms State for Adding / Assigning PIC
@@ -217,6 +223,8 @@ export default function AdminSettingsPage() {
         division: newProjectDivision.trim() || undefined,
         pmId: newProjectPmId || undefined,
         gmId: newProjectGmId || undefined,
+        dmId: newProjectDmId || undefined,
+        scId: newProjectScId || undefined,
       });
       if (res.success) {
         showToast(res.message || "Proyek baru berhasil dibuat!");
@@ -226,6 +234,8 @@ export default function AdminSettingsPage() {
         setNewProjectDivision("");
         setNewProjectPmId("");
         setNewProjectGmId("");
+        setNewProjectDmId("");
+        setNewProjectScId("");
         setShowAddProjectModal(false);
         loadAdminData();
       } else {
@@ -243,6 +253,8 @@ export default function AdminSettingsPage() {
     setEditDivision(project.division || "");
     setEditPmId(project.pmId || "");
     setEditGmId(project.gmId || "");
+    setEditDmId((project as any).dmId || "");
+    setEditScId((project as any).scId || "");
     setShowEditProjectModal(true);
   };
 
@@ -255,6 +267,8 @@ export default function AdminSettingsPage() {
         division: editDivision.trim() || null,
         pmId: editPmId || null,
         gmId: editGmId || null,
+        dmId: editDmId || null,
+        scId: editScId || null,
       });
       if (res.success) {
         showToast(res.message);
@@ -433,7 +447,7 @@ export default function AdminSettingsPage() {
     if (!assignTargetUser) return;
     setAssignSubmitting(true);
     try {
-      const isGlobalRole = ["CMD", "GM", "BOD", "ADMIN", "Advisor"].includes(assignRole);
+      const isGlobalRole = ["CMD", "DH", "DM", "SC", "GM", "BOD", "ADMIN", "Advisor"].includes(assignRole);
       const res = await updateUserRoleAndProject(
         assignTargetUser.id,
         assignRole,
@@ -772,8 +786,10 @@ export default function AdminSettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {projects.map((project) => {
               const assignedPics = users.filter((u) => u.role === "PIC" && u.projectId === project.id);
-              const pmUser = project.pm || users.find((u) => u.id === project.pmId);
+              const dhUser = project.pm || users.find((u) => u.id === project.pmId);
               const gmUser = project.gm || users.find((u) => u.id === project.gmId);
+              const dmUser = (project as any).dm || users.find((u) => u.id === (project as any).dmId);
+              const scUser = (project as any).sc || users.find((u) => u.id === (project as any).scId);
 
               return (
                 <div
@@ -812,11 +828,11 @@ export default function AdminSettingsPage() {
                       <span>{project.location}</span>
                     </p>
 
-                    {/* Hierarchy: PM & GM Info */}
+                    {/* Hierarchy: DH, GM, DM, SC Info */}
                     <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 text-xs space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                          Pimpinan Divisi & Proyek
+                          Pimpinan Divisi &amp; Proyek
                         </span>
                         <button
                           type="button"
@@ -827,15 +843,43 @@ export default function AdminSettingsPage() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
                           <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block">
-                            Project Manager (PM)
+                            DH (Div Head)
                           </span>
-                          {pmUser ? (
+                          {dhUser ? (
                             <div className="truncate mt-0.5">
-                              <p className="font-bold text-slate-900 dark:text-white truncate">{pmUser.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{pmUser.email}</p>
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{dhUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{dhUser.email}</p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
+                          )}
+                        </div>
+
+                        <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 block">
+                            GM (General Manager)
+                          </span>
+                          {gmUser ? (
+                            <div className="truncate mt-0.5">
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{gmUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{gmUser.email}</p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
+                          )}
+                        </div>
+
+                        <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-[9px] font-black uppercase text-violet-600 dark:text-violet-400 block">
+                            DM (Dept. Manager)
+                          </span>
+                          {dmUser ? (
+                            <div className="truncate mt-0.5">
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{dmUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{dmUser.email}</p>
                             </div>
                           ) : (
                             <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
@@ -844,12 +888,12 @@ export default function AdminSettingsPage() {
 
                         <div className="p-2 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700">
                           <span className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 block">
-                            General Manager (GM)
+                            SC (Section Mgr)
                           </span>
-                          {gmUser ? (
+                          {scUser ? (
                             <div className="truncate mt-0.5">
-                              <p className="font-bold text-slate-900 dark:text-white truncate">{gmUser.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{gmUser.email}</p>
+                              <p className="font-bold text-slate-900 dark:text-white truncate">{scUser.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{scUser.email}</p>
                             </div>
                           ) : (
                             <p className="text-[11px] text-slate-400 italic mt-0.5">Belum ditentukan</p>
@@ -906,7 +950,7 @@ export default function AdminSettingsPage() {
                       className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                     >
                       <Sliders size={13} />
-                      <span>Atur Divisi/PM/GM</span>
+                      <span>Atur DH/GM/DM/SC</span>
                     </button>
                     <button
                       onClick={() => {
@@ -1882,19 +1926,19 @@ export default function AdminSettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Project Manager (PM)
+                    DH (Div Head) Penanggung Jawab
                   </label>
                   <select
                     value={newProjectPmId}
                     onChange={(e) => setNewProjectPmId(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                   >
-                    <option value="">-- Pilih PM Penanggung Jawab --</option>
+                    <option value="">-- Pilih DH (Div Head) --</option>
                     {users
-                      .filter((u) => u.role === "PM")
-                      .map((pm) => (
-                        <option key={pm.id} value={pm.id}>
-                          {pm.name}
+                      .filter((u) => u.role === "DH")
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
                         </option>
                       ))}
                   </select>
@@ -1902,19 +1946,59 @@ export default function AdminSettingsPage() {
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    General Manager (GM)
+                    GM (General Manager)
                   </label>
                   <select
                     value={newProjectGmId}
                     onChange={(e) => setNewProjectGmId(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                   >
-                    <option value="">-- Pilih GM Divisi --</option>
+                    <option value="">-- Pilih GM --</option>
                     {users
                       .filter((u) => u.role === "GM")
-                      .map((gm) => (
-                        <option key={gm.id} value={gm.id}>
-                          {gm.name}
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    DM (Department Manager)
+                  </label>
+                  <select
+                    value={newProjectDmId}
+                    onChange={(e) => setNewProjectDmId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih DM (Dept. Manager) --</option>
+                    {users
+                      .filter((u) => u.role === "DM")
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    SC (Section Manager)
+                  </label>
+                  <select
+                    value={newProjectScId}
+                    onChange={(e) => setNewProjectScId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Pilih SC (Section Mgr) --</option>
+                    {users
+                      .filter((u) => u.role === "SC")
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
                         </option>
                       ))}
                   </select>
@@ -1942,7 +2026,7 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* MODAL: EDIT PENUGASAN PROYEK (DIVISI, PM, GM) */}
+      {/* MODAL: EDIT PENUGASAN PROYEK (DIVISI, DH, GM, DM, SC) */}
       {showEditProjectModal && editingProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5">
@@ -1993,19 +2077,19 @@ export default function AdminSettingsPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Project Manager (PM) Penanggung Jawab
+                  DH (Div Head) Penanggung Jawab
                 </label>
                 <select
                   value={editPmId}
                   onChange={(e) => setEditPmId(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
-                  <option value="">-- Belum Ditentukan / Tidak Ada PM --</option>
+                  <option value="">-- Belum Ditentukan / Tidak Ada DH --</option>
                   {users
-                    .filter((u) => u.role === "PM")
-                    .map((pm) => (
-                      <option key={pm.id} value={pm.id}>
-                        {pm.name} ({pm.email})
+                    .filter((u) => u.role === "DH")
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
                       </option>
                     ))}
                 </select>
@@ -2013,7 +2097,7 @@ export default function AdminSettingsPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  General Manager (GM) Divisi
+                  GM (General Manager) Divisi
                 </label>
                 <select
                   value={editGmId}
@@ -2023,14 +2107,54 @@ export default function AdminSettingsPage() {
                   <option value="">-- Belum Ditentukan / Tidak Ada GM --</option>
                   {users
                     .filter((u) => u.role === "GM")
-                    .map((gm) => (
-                      <option key={gm.id} value={gm.id}>
-                        {gm.name} ({gm.email})
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  DM (Department Manager)
+                </label>
+                <select
+                  value={editDmId}
+                  onChange={(e) => setEditDmId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">-- Belum Ditentukan / Tidak Ada DM --</option>
+                  {users
+                    .filter((u) => u.role === "DM")
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  SC (Section Manager)
+                </label>
+                <select
+                  value={editScId}
+                  onChange={(e) => setEditScId(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">-- Belum Ditentukan / Tidak Ada SC --</option>
+                  {users
+                    .filter((u) => u.role === "SC")
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
                       </option>
                     ))}
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  GM dan PIC akan otomatis menerima reminder email jika temuan patroli belum direspon lebih dari batas waktu SLA.
+                  DH, GM, DM, SC dan PIC akan otomatis menerima reminder email jika temuan patroli belum direspon melebihi batas SLA.
                 </p>
               </div>
 
@@ -2337,14 +2461,16 @@ export default function AdminSettingsPage() {
                 >
                   <option value="PIC">PIC (Penanggung Jawab Perbaikan Proyek)</option>
                   <option value="CMD">CMD (Inspector Lapangan / Patrol ISO)</option>
-                  <option value="SM">SM / PM (Site Manager / Project Manager)</option>
-                  <option value="PM">GM / DivHead / DepMan (Manajemen Divisi / Dept)</option>
-                  <option value="GM">SecMan (Section Manager)</option>
+                  <option value="SM">SM (Site Manager)</option>
+                  <option value="DH">DH (Div Head / Kepala Divisi)</option>
+                  <option value="DM">DM (Department Manager)</option>
+                  <option value="SC">SC (Section Manager)</option>
+                  <option value="GM">GM (General Manager)</option>
                   <option value="BOD">BOD (Board of Directors - Pemantau Eksekutif)</option>
                   <option value="Advisor">Advisor (Konsultan / Advisor Teknis Proyek)</option>
                   <option value="ADMIN">ADMIN (Administrator Sistem)</option>
                   {Object.keys(rolePermissions)
-                    .filter((r) => !["PIC", "CMD", "SM", "PM", "GM", "BOD", "Advisor", "ADMIN", "PENDING"].includes(r))
+                    .filter((r) => !["PIC", "CMD", "SM", "DH", "DM", "SC", "GM", "BOD", "Advisor", "ADMIN", "PENDING"].includes(r))
                     .map((customR) => (
                       <option key={customR} value={customR}>
                         {customR} (Custom Role)

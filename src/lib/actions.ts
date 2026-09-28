@@ -764,8 +764,10 @@ export async function createProject(payload: {
   name: string;
   location: string;
   division?: string;
-  pmId?: string;
+  pmId?: string;   // Div Head (DH)
   gmId?: string;
+  dmId?: string;   // Department Manager (DM)
+  scId?: string;   // Section Manager (SC)
 }): Promise<{ success: boolean; project?: Project; message?: string }> {
   try {
     const cleanName = sanitizeText(payload.name);
@@ -774,6 +776,8 @@ export async function createProject(payload: {
     const cleanDivision = payload.division ? sanitizeText(payload.division).trim() : null;
     const cleanPmId = payload.pmId?.trim() || null;
     const cleanGmId = payload.gmId?.trim() || null;
+    const cleanDmId = payload.dmId?.trim() || null;
+    const cleanScId = payload.scId?.trim() || null;
 
     if (!cleanName || cleanName.length < 3) {
       return { success: false, message: "Nama proyek minimal 3 karakter." };
@@ -826,6 +830,8 @@ export async function createProject(payload: {
       division: cleanDivision,
       pmId: cleanPmId,
       gmId: cleanGmId,
+      dmId: cleanDmId,
+      scId: cleanScId,
       createdAt: new Date().toISOString(),
     };
 
@@ -839,6 +845,8 @@ export async function createProject(payload: {
             division: cleanDivision,
             pmId: cleanPmId,
             gmId: cleanGmId,
+            dmId: cleanDmId,
+            scId: cleanScId,
           },
         });
         newProj.id = created.id;
@@ -869,14 +877,18 @@ export async function updateProjectAssignment(
   projectId: string,
   payload: {
     division?: string | null;
-    pmId?: string | null;
+    pmId?: string | null;   // Div Head (DH)
     gmId?: string | null;
+    dmId?: string | null;   // Department Manager (DM)
+    scId?: string | null;   // Section Manager (SC)
   }
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cleanDivision = payload.division ? sanitizeText(payload.division).trim() : null;
     const cleanPmId = payload.pmId?.trim() || null;
     const cleanGmId = payload.gmId?.trim() || null;
+    const cleanDmId = payload.dmId?.trim() || null;
+    const cleanScId = payload.scId?.trim() || null;
 
     if (hasValidDatabaseUrl()) {
       try {
@@ -886,6 +898,8 @@ export async function updateProjectAssignment(
             division: cleanDivision,
             pmId: cleanPmId,
             gmId: cleanGmId,
+            dmId: cleanDmId,
+            scId: cleanScId,
           },
         });
       } catch (dbErr) {
@@ -898,6 +912,8 @@ export async function updateProjectAssignment(
       memProj.division = cleanDivision;
       memProj.pmId = cleanPmId;
       memProj.gmId = cleanGmId;
+      (memProj as any).dmId = cleanDmId;
+      (memProj as any).scId = cleanScId;
     }
 
     safeRevalidate("/");
@@ -905,7 +921,7 @@ export async function updateProjectAssignment(
     safeRevalidate("/admin");
     safeRevalidate("/reports");
 
-    return { success: true, message: "Penugasan Divisi, PM & GM proyek berhasil diperbarui!" };
+    return { success: true, message: "Penugasan Divisi, DH, GM, DM & SC proyek berhasil diperbarui!" };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal memperbarui penugasan proyek." };
   }
@@ -987,8 +1003,10 @@ export async function importProjectsAndPicsFromCsv(
     const picPhoneIdx = findCol(["no_hp_pic", "nohp", "telepon", "phone", "hp", "no_hp", "wa"]);
     const picPasswordIdx = findCol(["password_pic", "password", "kata_sandi", "pwd"]);
     const divisionIdx = findCol(["divisi", "division", "wilayah", "divisi_proyek"]);
-    const pmEmailIdx = findCol(["email_pm", "pm_email", "pm"]);
+    const pmEmailIdx = findCol(["email_dh", "dh_email", "email_pm", "pm_email", "dh", "pm"]);
     const gmEmailIdx = findCol(["email_gm", "gm_email", "gm"]);
+    const dmEmailIdx = findCol(["email_dm", "dm_email", "dm"]);
+    const scEmailIdx = findCol(["email_sc", "sc_email", "sc"]);
 
     if (nameIdx === -1) {
       return {
@@ -1048,9 +1066,13 @@ export async function importProjectsAndPicsFromCsv(
       const rawDivision = divisionIdx !== -1 && cols[divisionIdx] ? sanitizeText(cols[divisionIdx]).trim() : null;
       const rawPmEmail = pmEmailIdx !== -1 && cols[pmEmailIdx] ? sanitizeText(cols[pmEmailIdx]).toLowerCase().trim() : null;
       const rawGmEmail = gmEmailIdx !== -1 && cols[gmEmailIdx] ? sanitizeText(cols[gmEmailIdx]).toLowerCase().trim() : null;
+      const rawDmEmail = dmEmailIdx !== -1 && cols[dmEmailIdx] ? sanitizeText(cols[dmEmailIdx]).toLowerCase().trim() : null;
+      const rawScEmail = scEmailIdx !== -1 && cols[scEmailIdx] ? sanitizeText(cols[scEmailIdx]).toLowerCase().trim() : null;
 
       const matchedPmId = rawPmEmail ? userEmailMap.get(rawPmEmail) || null : null;
       const matchedGmId = rawGmEmail ? userEmailMap.get(rawGmEmail) || null : null;
+      const matchedDmId = rawDmEmail ? userEmailMap.get(rawDmEmail) || null : null;
+      const matchedScId = rawScEmail ? userEmailMap.get(rawScEmail) || null : null;
 
       // Validation
       if (!rawName || rawName.length < 2) {
@@ -1113,6 +1135,8 @@ export async function importProjectsAndPicsFromCsv(
               division: rawDivision,
               pmId: matchedPmId,
               gmId: matchedGmId,
+              dmId: matchedDmId,
+              scId: matchedScId,
             },
           });
           newProjectObj = {
@@ -1123,6 +1147,8 @@ export async function importProjectsAndPicsFromCsv(
             division: createdDb.division || rawDivision,
             pmId: createdDb.pmId || matchedPmId,
             gmId: createdDb.gmId || matchedGmId,
+            dmId: createdDb.dmId || matchedDmId,
+            scId: createdDb.scId || matchedScId,
             createdAt: createdDb.createdAt.toISOString(),
           };
         } catch (dbErr: any) {
@@ -1135,6 +1161,8 @@ export async function importProjectsAndPicsFromCsv(
             division: rawDivision,
             pmId: matchedPmId,
             gmId: matchedGmId,
+            dmId: matchedDmId,
+            scId: matchedScId,
             createdAt: new Date().toISOString(),
           };
         }
@@ -1147,6 +1175,8 @@ export async function importProjectsAndPicsFromCsv(
           division: rawDivision,
           pmId: matchedPmId,
           gmId: matchedGmId,
+          dmId: matchedDmId,
+          scId: matchedScId,
           createdAt: new Date().toISOString(),
         };
       }
@@ -1365,6 +1395,8 @@ export async function getProjects(): Promise<Project[]> {
         include: {
           pm: true,
           gm: true,
+          dm: true,
+          sc: true,
         },
       });
       return dbProjects.map((p: any) => ({
@@ -1374,25 +1406,13 @@ export async function getProjects(): Promise<Project[]> {
         location: p.location,
         division: p.division || null,
         pmId: p.pmId || null,
-        pm: p.pm
-          ? {
-              id: p.pm.id,
-              name: p.pm.name,
-              email: p.pm.email,
-              role: p.pm.role,
-              phoneNumber: p.pm.phoneNumber,
-            }
-          : null,
+        pm: p.pm ? { id: p.pm.id, name: p.pm.name, email: p.pm.email, role: p.pm.role, phoneNumber: p.pm.phoneNumber } : null,
         gmId: p.gmId || null,
-        gm: p.gm
-          ? {
-              id: p.gm.id,
-              name: p.gm.name,
-              email: p.gm.email,
-              role: p.gm.role,
-              phoneNumber: p.gm.phoneNumber,
-            }
-          : null,
+        gm: p.gm ? { id: p.gm.id, name: p.gm.name, email: p.gm.email, role: p.gm.role, phoneNumber: p.gm.phoneNumber } : null,
+        dmId: p.dmId || null,
+        dm: p.dm ? { id: p.dm.id, name: p.dm.name, email: p.dm.email, role: p.dm.role, phoneNumber: p.dm.phoneNumber } : null,
+        scId: p.scId || null,
+        sc: p.sc ? { id: p.sc.id, name: p.sc.name, email: p.sc.email, role: p.sc.role, phoneNumber: p.sc.phoneNumber } : null,
         createdAt: p.createdAt.toISOString(),
       }));
     } catch (e) {
@@ -1402,11 +1422,9 @@ export async function getProjects(): Promise<Project[]> {
   return inMemoryProjects.map((p) => {
     const pm = inMemoryUsers.find((u) => u.id === p.pmId) || null;
     const gm = inMemoryUsers.find((u) => u.id === p.gmId) || null;
-    return {
-      ...p,
-      pm,
-      gm,
-    };
+    const dm = inMemoryUsers.find((u) => u.id === (p as any).dmId) || null;
+    const sc = inMemoryUsers.find((u) => u.id === (p as any).scId) || null;
+    return { ...p, pm, gm, dm, sc };
   });
 }
 

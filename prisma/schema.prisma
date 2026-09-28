@@ -15,6 +15,9 @@ enum Role {
   PIC
   SM
   PM
+  DH
+  DM
+  SC
   GM
   BOD
   ADMIN
@@ -42,10 +45,14 @@ model Project {
   name      String    @db.VarChar(255)
   location  String    @db.VarChar(255)
   division  String?   @db.VarChar(100)
-  pmId      String?   @map("pm_id")
+  pmId      String?   @map("pm_id")   // Div Head (DH) - label diganti UI
   pm        User?     @relation("ProjectPM", fields: [pmId], references: [id], onDelete: SetNull)
   gmId      String?   @map("gm_id")
   gm        User?     @relation("ProjectGM", fields: [gmId], references: [id], onDelete: SetNull)
+  dmId      String?   @map("dm_id")   // Department Manager (DM)
+  dm        User?     @relation("ProjectDM", fields: [dmId], references: [id], onDelete: SetNull)
+  scId      String?   @map("sc_id")   // Section Manager (SC)
+  sc        User?     @relation("ProjectSC", fields: [scId], references: [id], onDelete: SetNull)
   createdAt DateTime  @default(now()) @map("created_at")
 
   users     User[]
@@ -66,6 +73,8 @@ model User {
 
   projectsManagedAsPm Project[] @relation("ProjectPM")
   projectsManagedAsGm Project[] @relation("ProjectGM")
+  projectsManagedAsDm Project[] @relation("ProjectDM")
+  projectsManagedAsSc Project[] @relation("ProjectSC")
 
   findingsAssigned Finding[] @relation("PicFindings")
   findingsReported Finding[] @relation("ReporterFindings")
