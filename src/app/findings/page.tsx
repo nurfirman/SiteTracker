@@ -86,7 +86,7 @@ export default function AllFindingsPage() {
             Semua Temuan Patroli Lapangan
           </h1>
           <p className="text-sm text-slate-500">
-            Daftar lengkap seluruh tiket temuan K3, Kualitas, 5R, Jadwal, dan Material.
+            Daftar lengkap seluruh temuan K3, Kualitas, 5R, Jadwal, dan Material.
           </p>
         </div>
 
@@ -141,7 +141,7 @@ export default function AllFindingsPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari Tiket (CMD-2026-001), Lokasi, atau Deskripsi..."
+                  placeholder="Cari Temuan (CMD-2026-001), Lokasi, atau Deskripsi..."
                   className="w-full pl-12 pr-4 py-3 min-h-[48px] text-sm font-semibold rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:text-white"
                 />
               </div>
@@ -191,7 +191,7 @@ export default function AllFindingsPage() {
               {/* Filter Status */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  Status Tiket
+                  Status Temuan
                 </label>
                 <select
                   value={selectedStatus}
@@ -242,7 +242,10 @@ export default function AllFindingsPage() {
         onClose={() => setSelectedModalFinding(null)}
         onApprove={handleApproveFinding}
         onReject={handleRejectFinding}
-        isPmOrBod={currentUser.role === "PM" || currentUser.role === "GM" || currentUser.role === "BOD" || currentUser.role === "ADMIN"}
+        canValidate={
+          !["PIC", "SM", "PENDING"].includes(currentUser.role) ||
+          (!!selectedModalFinding && selectedModalFinding.reporterId === currentUser.id)
+        }
       />
     </div>
   );

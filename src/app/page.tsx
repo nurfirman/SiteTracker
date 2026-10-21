@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
+  XCircle,
   PlusCircle,
   Filter,
   RefreshCw,
@@ -65,7 +66,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (currentUser.role === "PIC" && currentUser.projectId) {
+    if (["PIC", "SM"].includes(currentUser.role) && currentUser.projectId) {
       setSelectedProject(currentUser.projectId);
     } else {
       setSelectedProject("ALL");
@@ -84,6 +85,7 @@ export default function DashboardPage() {
   // Stats calculation
   const totalOpen = findings.filter((f) => f.status === "OPEN").length;
   const totalResolved = findings.filter((f) => f.status === "RESOLVED").length;
+  const totalRejected = findings.filter((f) => f.status === "OPEN" && !!f.rejectionNote).length;
   const totalClosed = findings.filter((f) => f.status === "CLOSED").length;
   const totalAll = findings.length;
 
@@ -99,7 +101,7 @@ export default function DashboardPage() {
   const handleApproveFinding = async (findingId: string) => {
     const res = await validateFinding({ findingId, action: "APPROVE" });
     if (res.success) {
-      showToast("Berhasil menyetujui perbaikan. Status tiket CLOSED.");
+      showToast("Berhasil menyetujui perbaikan. Status temuan CLOSED.");
     }
     loadData();
   };
@@ -130,8 +132,8 @@ export default function DashboardPage() {
             <span>
               {currentUser.role === "PENDING"
                 ? "Menunggu Penugasan Role & Proyek dari Administrator"
-                : currentUser.role === "PIC"
-                ? `Portal Penanggung Jawab Proyek (${currentUser.project?.name || "Site Lapangan"})`
+                : ["PIC", "SM"].includes(currentUser.role)
+                ? `Portal Site Manager (${currentUser.project?.name || "Site Lapangan"})`
                 : currentUser.role === "ADMIN"
                 ? "Portal Administrator Master Proyek & Hak Akses"
                 : "Sistem Patroli K3 & Mutu Konstruksi"}
@@ -143,10 +145,10 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-700 dark:text-slate-300 max-w-2xl leading-relaxed font-medium">
             {currentUser.role === "PENDING"
               ? "Akun Anda telah berhasil terdaftar. Saat ini status akun Anda masih dalam proses peninjauan oleh Administrator. Data temuan proyek akan ditampilkan di sini setelah peran dan penugasan proyek Anda disetujui."
-              : currentUser.role === "PIC"
+              : ["PIC", "SM"].includes(currentUser.role)
               ? "Tampilan antarmuka Anda terisolasi khusus proyek penugasan. Tindak lanjuti temuan yang masih berstatus OPEN dan unggah bukti perbaikan."
               : currentUser.role === "ADMIN"
-              ? "Kelola master proyek, penugasan PIC, setting toleransi SLA kategori, dan konfigurasi wewenang peran sistem."
+              ? "Kelola master proyek, penugasan Site Manager, setting toleransi SLA kategori, dan konfigurasi wewenang peran sistem."
               : "Sistem pemantauan temuan patroli lapangan real-time untuk memastikan keselamatan K3 (ISO 45001) dan mutu fisik proyek (ISO 9001)."}
           </p>
         </div>
@@ -162,7 +164,7 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          {currentUser.role === "PIC" && (
+          {["PIC", "SM"].includes(currentUser.role) && (
             <Link
               href="/pic/tasks"
               className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-sm font-black text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-md shadow-violet-500/25 active:scale-95 transition-all"
@@ -230,107 +232,128 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* SUMMARY CARDS (RINGKASAN STATUS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Card OPEN */}
             <div className="p-6 bg-white dark:bg-slate-900 border-2 border-red-200 dark:border-red-900/60 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black tracking-wider uppercase text-red-800 dark:text-red-400">
                   Temuan Open (Perlu Tindakan)
                 </span>
-            <div className="p-2.5 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 rounded-2xl">
-              <AlertCircle size={24} />
+                <div className="p-2.5 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 rounded-2xl">
+                  <AlertCircle size={24} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white">
+                  {totalOpen}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Temuan Open</span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                Memerlukan perbaikan segera oleh Site Manager.
+              </p>
+            </div>
+
+            {/* Card RESOLVED */}
+            <div className="p-6 bg-white dark:bg-slate-900 border-2 border-amber-200 dark:border-amber-900/60 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black tracking-wider uppercase text-amber-900 dark:text-amber-400">
+                  Menunggu Validasi Inspector
+                </span>
+                <div className="p-2.5 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 rounded-2xl">
+                  <Clock size={24} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white">
+                  {totalResolved}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Temuan Resolved</span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                PIC/SM sudah kirim perbaikan. Siap divalidasi Inspector/Pelapor.
+              </p>
+            </div>
+
+            {/* Card REJECTED (VALIDASI DITOLAK) */}
+            <div className="p-6 bg-white dark:bg-slate-900 border-2 border-rose-300 dark:border-rose-900/70 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black tracking-wider uppercase text-rose-800 dark:text-rose-400">
+                  Validasi Ditolak (Revisi)
+                </span>
+                <div className="p-2.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 rounded-2xl">
+                  <XCircle size={24} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white">
+                  {totalRejected}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Perlu Revisi</span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                Perbaikan ditolak Inspector/PM. Perlu perbaikan ulang oleh PIC/SM.
+              </p>
+            </div>
+
+            {/* Card CLOSED */}
+            <div className="p-6 bg-white dark:bg-slate-900 border-2 border-emerald-200 dark:border-emerald-900/60 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black tracking-wider uppercase text-emerald-900 dark:text-emerald-400">
+                  Selesai & Diverifikasi (Closed)
+                </span>
+                <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-2xl">
+                  <CheckCircle2 size={24} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white">
+                  {totalClosed}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Temuan Closed</span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                Tuntas dikerjakan dan telah disetujui Inspector/PM.
+              </p>
+            </div>
+
+            {/* Card TOTAL */}
+            <div className="p-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black tracking-wider uppercase text-slate-800 dark:text-slate-400">
+                  Total Temuan Patroli
+                </span>
+                <div className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 rounded-2xl">
+                  <Layers size={24} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-slate-900 dark:text-white">
+                  {totalAll}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Total Temuan</span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
+                {["PIC", "SM"].includes(currentUser.role) ? "Total temuan pada proyek ini." : "Akumulasi temuan patroli di seluruh proyek."}
+              </p>
             </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-slate-900 dark:text-white">
-              {totalOpen}
-            </span>
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Tiket Open</span>
-          </div>
-          <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-            Memerlukan perbaikan segera oleh PIC Lapangan.
-          </p>
-        </div>
 
-        {/* Card RESOLVED */}
-        <div className="p-6 bg-white dark:bg-slate-900 border-2 border-amber-200 dark:border-amber-900/60 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black tracking-wider uppercase text-amber-900 dark:text-amber-400">
-              Menunggu Validasi PM
-            </span>
-            <div className="p-2.5 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 rounded-2xl">
-              <Clock size={24} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-slate-900 dark:text-white">
-              {totalResolved}
-            </span>
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Tiket Resolved</span>
-          </div>
-          <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-            PIC sudah kirim perbaikan. Siap diverifikasi PM.
-          </p>
-        </div>
-
-        {/* Card CLOSED */}
-        <div className="p-6 bg-white dark:bg-slate-900 border-2 border-emerald-200 dark:border-emerald-900/60 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black tracking-wider uppercase text-emerald-900 dark:text-emerald-400">
-              Selesai & Diverifikasi (Closed)
-            </span>
-            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-2xl">
-              <CheckCircle2 size={24} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-slate-900 dark:text-white">
-              {totalClosed}
-            </span>
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Tiket Closed</span>
-          </div>
-          <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-            Tuntas dikerjakan dan telah disetujui PM.
-          </p>
-        </div>
-
-        {/* Card TOTAL */}
-        <div className="p-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm hover:shadow-md transition-all space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black tracking-wider uppercase text-slate-800 dark:text-slate-400">
-              Total Temuan Patroli
-            </span>
-            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 rounded-2xl">
-              <Layers size={24} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black text-slate-900 dark:text-white">
-              {totalAll}
-            </span>
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Tiket Total</span>
-          </div>
-          <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-            {currentUser.role === "PIC" ? "Total temuan pada proyek ini." : "Akumulasi temuan patroli di seluruh proyek."}
-          </p>
-        </div>
-      </div>
-
-      {/* SECTION VALIDASI PM (SIDE-BY-SIDE HIGHLIGHT) */}
-      {(["PM", "GM", "BOD", "ADMIN", "SM"].includes(currentUser.role) || resolvedForValidation.length > 0) && (
+      {/* SECTION VALIDASI INSPECTOR (SIDE-BY-SIDE HIGHLIGHT) */}
+      {(!["PIC", "SM", "PENDING"].includes(currentUser.role) || resolvedForValidation.length > 0) && (
         <div className="p-6 bg-violet-50/70 dark:bg-violet-950/20 border-2 border-violet-300 dark:border-violet-800/80 rounded-3xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-600 text-white font-extrabold text-xs rounded-lg uppercase tracking-wider mb-1">
-                <Clock size={14} /> Antrean Validasi PM / GM / BOD
+                <Clock size={14} /> Antrean Validasi Inspector (CMD / PM / Manajemen)
               </span>
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
-                Verifikasi Hasil Perbaikan PIC ({resolvedForValidation.length} Tiket Menunggu)
+                Validasi Hasil Perbaikan Site Manager ({resolvedForValidation.length} Temuan Menunggu)
               </h2>
             </div>
 
             <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
-              Bandingkan foto sebelum & sesudah untuk memberikan persetujuan
+              Bandingkan foto sebelum & sesudah untuk memberikan validasi persetujuan
             </span>
           </div>
 
@@ -341,7 +364,7 @@ export default function DashboardPage() {
                 Tidak Ada Antrean Validasi
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                Seluruh perbaikan yang dikirim PIC telah diverifikasi oleh PM.
+                Seluruh perbaikan yang dikirim Site Manager telah divalidasi oleh Tim Inspector / Pelapor.
               </p>
             </div>
           ) : (
@@ -451,7 +474,7 @@ export default function DashboardPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari kode tiket (CMD-2026-001), deskripsi, atau lokasi..."
+                placeholder="Cari kode temuan (CMD-2026-001), deskripsi, atau lokasi..."
                 className="w-full pl-12 pr-4 py-3 min-h-[48px] text-sm font-semibold rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:text-white"
               />
             </div>
@@ -473,8 +496,8 @@ export default function DashboardPage() {
                 projects={projects}
                 value={selectedProject}
                 onChange={(newProjId) => setSelectedProject(newProjId)}
-                disabled={currentUser.role === "PIC"}
-                showAllOption={currentUser.role !== "PIC"}
+                disabled={["PIC", "SM"].includes(currentUser.role)}
+                showAllOption={!["PIC", "SM"].includes(currentUser.role)}
                 allOptionLabel="Semua Proyek"
                 size="sm"
               />
@@ -502,7 +525,7 @@ export default function DashboardPage() {
             {/* Filter Status */}
             <div>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                Filter Status Tiket:
+                Filter Status Temuan:
               </label>
               <select
                 value={selectedStatus}
@@ -554,7 +577,10 @@ export default function DashboardPage() {
         onClose={() => setSelectedModalFinding(null)}
         onApprove={handleApproveFinding}
         onReject={handleRejectFinding}
-        isPmOrBod={currentUser.role === "PM" || currentUser.role === "GM" || currentUser.role === "BOD" || currentUser.role === "ADMIN"}
+        canValidate={
+          !["PIC", "SM", "PENDING"].includes(currentUser.role) ||
+          (!!selectedModalFinding && selectedModalFinding.reporterId === currentUser.id)
+        }
       />
     </div>
   );

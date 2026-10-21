@@ -114,12 +114,12 @@ export default function LoginPage() {
         if (targetUser) {
           setCurrentUser(targetUser);
         }
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       } else {
         setErrorMessage(res.message || "Email atau password salah.");
       }
     } catch (err: any) {
+      console.error("Login error:", err);
       setErrorMessage(err.message || "Terjadi kesalahan saat verifikasi login.");
     } finally {
       setSubmitting(false);
@@ -303,8 +303,8 @@ export default function LoginPage() {
                 setSuccessMessage(null);
               }}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "LOGIN"
-                  ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-                  : "text-slate-400 hover:text-white"
+                ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+                : "text-slate-400 hover:text-white"
                 }`}
             >
               <Lock size={13} />
@@ -319,8 +319,8 @@ export default function LoginPage() {
                 setSuccessMessage(null);
               }}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "REGISTER"
-                  ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-                  : "text-slate-400 hover:text-white"
+                ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+                : "text-slate-400 hover:text-white"
                 }`}
             >
               <UserPlus size={13} />
@@ -337,8 +337,8 @@ export default function LoginPage() {
                 setSuccessMessage(null);
               }}
               className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all ${authMode === "RESET_PASSWORD"
-                  ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-                  : "text-slate-400 hover:text-white"
+                ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+                : "text-slate-400 hover:text-white"
                 }`}
             >
               <KeyRound size={13} />
@@ -347,14 +347,14 @@ export default function LoginPage() {
           </div>
 
           {/* Neon Auth Badge Info */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-violet-950/40 border border-violet-800/60 rounded-xl text-[11px]">
+          {/* <div className="flex items-center justify-between px-3 py-1.5 bg-violet-950/40 border border-violet-800/60 rounded-xl text-[11px]">
             <span className="text-violet-300 font-bold flex items-center gap-1.5">
               <Database size={13} className="text-violet-400" /> Fasilitas Neon Auth
             </span>
             <span className="text-emerald-400 font-extrabold flex items-center gap-1">
               <ShieldCheck size={12} /> Serverless Postgres
             </span>
-          </div>
+          </div> */}
 
           {errorMessage && (
             <div className="p-3.5 bg-red-950/80 border border-red-800 text-red-300 text-xs font-bold rounded-2xl flex items-center gap-2.5 animate-in fade-in duration-200">
@@ -556,7 +556,7 @@ export default function LoginPage() {
                 className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 min-h-[48px] bg-violet-600 hover:bg-violet-500 text-white font-black text-sm rounded-xl shadow-xl shadow-violet-500/25 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
               >
                 <UserPlus size={18} />
-                <span>{submitting ? "Mendaftarkan ke Neon Auth..." : "Daftar Akun Sekarang"}</span>
+                <span>{submitting ? "Mendaftarkan ke Online Auth..." : "Daftar Akun Sekarang"}</span>
               </button>
             </form>
           )}

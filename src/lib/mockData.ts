@@ -135,7 +135,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: "usr-pic-1",
-    name: "Ahmad Fauzi (PIC Site SCBD)",
+    name: "Ahmad Fauzi (Site Manager SCBD)",
     email: "ahmad.fauzi@sitetracker.id",
     role: "PIC",
     phoneNumber: "0813-8899-0011",
@@ -147,7 +147,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: "usr-pic-2",
-    name: "Bambang Wijaya (PIC Site Ciawi)",
+    name: "Bambang Wijaya (Site Manager Ciawi)",
     email: "bambang.w@sitetracker.id",
     role: "PIC",
     phoneNumber: "0815-4433-2211",
@@ -159,7 +159,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: "usr-pic-3",
-    name: "Deni Kurniawan (PIC Site RS Medika)",
+    name: "Deni Kurniawan (Site Manager RS Medika)",
     email: "deni.k@sitetracker.id",
     role: "PIC",
     phoneNumber: "0817-6655-4433",

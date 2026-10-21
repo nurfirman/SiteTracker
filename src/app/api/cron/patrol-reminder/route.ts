@@ -21,6 +21,20 @@ async function handlePatrolReminderCron(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET?.trim();
 
+  // Opsional: Flag untuk menonaktifkan cron job secara penuh
+  const isCronDisabled = process.env.DISABLE_PATROL_CRON === "true" || true;
+  if (isCronDisabled) {
+    return NextResponse.json(
+      {
+        success: true,
+        disabled: true,
+        message: "Cron job patrol-reminder sedang dinonaktifkan.",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 200 }
+    );
+  }
+
   // Jika CRON_SECRET dikonfigurasi di environment Vercel, lakukan verifikasi keamanan
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json(

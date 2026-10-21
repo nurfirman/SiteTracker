@@ -194,7 +194,7 @@ export function getStatusDetails(status: FindingStatus) {
         badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800",
         dotClass: "bg-red-500 animate-pulse",
         iconName: "AlertCircle",
-        description: "Temuan belum ditangani oleh PIC",
+        description: "Temuan belum ditangani oleh Site Manager",
       };
     case "RESOLVED":
       return {
@@ -203,7 +203,7 @@ export function getStatusDetails(status: FindingStatus) {
         badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
         dotClass: "bg-amber-500",
         iconName: "Clock",
-        description: "PIC telah mengirimkan perbaikan, menunggu persetujuan PM",
+        description: "Site Manager telah mengirimkan perbaikan, menunggu persetujuan PM",
       };
     case "CLOSED":
       return {
@@ -228,17 +228,17 @@ export function getStatusDetails(status: FindingStatus) {
 
 export function exportFindingsToCsv(findings: any[], filename = "rekap_temuan_sitetracker.csv") {
   const headers = [
-    "Kode Tiket",
+    "Kode Temuan",
     "Proyek",
     "Kategori",
     "Lokasi Area",
     "Deskripsi Temuan",
-    "Action By",
+    "Site Manager",
     "Pelapor (CMD)",
     "Status",
     "Tanggal Dibuat",
     "Due Date SLA",
-    "Respon PIC",
+    "Respon Site Manager",
     "Tanggal Selesai",
     "Catatan Rejection PM"
   ];

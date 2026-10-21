@@ -193,7 +193,7 @@ export default function FindingDetailPage() {
   if (loading) {
     return (
       <div className="py-20 text-center text-slate-500 font-semibold">
-        Memuat detail tiket temuan...
+        Memuat detail temuan...
       </div>
     );
   }
@@ -202,7 +202,7 @@ export default function FindingDetailPage() {
     return (
       <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border space-y-4">
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
-        <h2 className="text-xl font-bold">Tiket Temuan Tidak Ditemukan</h2>
+        <h2 className="text-xl font-bold">Temuan Tidak Ditemukan</h2>
         <Link href="/" className="inline-block px-4 py-2 bg-slate-900 text-white rounded-xl">
           Kembali ke Dashboard
         </Link>
@@ -210,10 +210,10 @@ export default function FindingDetailPage() {
     );
   }
 
-  const canEdit = currentUser.role !== "PIC" && currentUser.role !== "PENDING";
+  const canEdit = !["PIC", "SM", "PENDING"].includes(currentUser.role);
+  const isInspector = !["PIC", "SM", "PENDING"].includes(currentUser.role);
   const canVerify = finding.status === "RESOLVED" && (
-    currentUser.id === finding.reporterId ||
-    ["PM", "GM", "BOD", "ADMIN", "Advisor"].includes(currentUser.role)
+    currentUser.id === finding.reporterId || isInspector
   );
 
   return (
@@ -303,7 +303,7 @@ export default function FindingDetailPage() {
               </span>
             </div>
             <div className="space-y-0.5">
-              <span className="text-slate-400 block font-semibold">Action By (Penanggung Jawab):</span>
+              <span className="text-slate-400 block font-semibold">Site Manager (Penanggung Jawab):</span>
               <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 {finding.pic?.name || "Ahmad Fauzi"}
               </span>
@@ -311,11 +311,11 @@ export default function FindingDetailPage() {
           </div>
         </div>
 
-        {/* Respon PIC jika ada */}
+        {/* Respon Site Manager jika ada */}
         {finding.picResponse && (
           <div className="p-6 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 space-y-2">
             <span className="text-xs font-black uppercase text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-              <Sparkles size={16} /> Laporan Perbaikan PIC
+              <Sparkles size={16} /> Laporan Perbaikan Site Manager
             </span>
             <p className="text-base font-bold text-slate-900 dark:text-amber-100">
               "{finding.picResponse}"
@@ -332,7 +332,7 @@ export default function FindingDetailPage() {
         {finding.rejectionNote && (
           <div className="p-6 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900 space-y-2">
             <span className="text-xs font-black uppercase text-red-800 dark:text-red-300 flex items-center gap-1.5">
-              <AlertCircle size={16} /> Catatan Perbaikan Ulang dari PM
+              <AlertCircle size={16} /> Catatan Validasi Ditolak / Perbaikan Ulang (Inspector)
             </span>
             <p className="text-base font-bold text-red-900 dark:text-red-200">
               "{finding.rejectionNote}"
@@ -485,14 +485,14 @@ export default function FindingDetailPage() {
             ) : (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-slate-600 dark:text-slate-300">
-                  Tiket ini berstatus 🔴 <strong>OPEN</strong>. Penanggung Jawab (PIC) dapat mengunggah bukti perbaikan.
+                  Temuan ini berstatus 🔴 <strong>OPEN</strong>. Penanggung Jawab (Site Manager) dapat mengunggah bukti perbaikan.
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowPicForm(true)}
                   className="w-full sm:w-auto px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-lg shadow-violet-500/25 active:scale-95 transition-all"
                 >
-                  Tindak Lanjuti Tiket (Unggah Perbaikan)
+                  Tindak Lanjuti Temuan (Unggah Perbaikan)
                 </button>
               </div>
             )
@@ -608,10 +608,10 @@ export default function FindingDetailPage() {
           {finding.status === "RESOLVED" && !showRejectForm && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-50/80 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800">
               <div className="text-sm text-slate-700 dark:text-slate-300">
-                Tiket ini berstatus 🟡 <strong>RESOLVED (Telah Diperbaiki PIC)</strong>.
+                Temuan ini berstatus 🟡 <strong>RESOLVED (Telah Diperbaiki Site Manager)</strong>.
                 {canVerify
-                  ? " Sebagai Pelapor atau Project Manager / Management, silakan tinjau foto perbaikan di atas dan berikan verifikasi:"
-                  : ` Menunggu verifikasi dari Pelapor (${finding.reporter?.name || "CMD"}) atau Project Manager.`}
+                  ? " Sebagai Pelapor atau Inspector / Verifikator, silakan tinjau foto perbaikan di atas dan berikan validasi:"
+                  : ` Menunggu validasi dari Pelapor (${finding.reporter?.name || "Inspector/CMD"}) atau Tim Inspector.`}
               </div>
 
               {canVerify && (
@@ -677,7 +677,7 @@ export default function FindingDetailPage() {
             <div className="p-4 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-900 dark:text-emerald-200 text-sm font-bold rounded-2xl flex items-center gap-3">
               <CheckCircle2 size={24} className="text-emerald-600" />
               <div>
-                Tiket ini telah 🟢 <strong>CLOSED (Selesai & Diverifikasi)</strong>. Seluruh perbaikan telah tuntas disetujui.
+                Temuan ini telah 🟢 <strong>CLOSED (Selesai & Diverifikasi)</strong>. Seluruh perbaikan telah tuntas disetujui.
               </div>
             </div>
           )}
@@ -696,7 +696,7 @@ export default function FindingDetailPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-black">Edit Data Temuan Patroli</h3>
-                  <p className="text-xs text-slate-300">Tiket: {finding.ticketCode}</p>
+                  <p className="text-xs text-slate-300">Kode Temuan: {finding.ticketCode}</p>
                 </div>
               </div>
               <button
@@ -760,11 +760,11 @@ export default function FindingDetailPage() {
                 )}
               </div>
 
-              {/* PIC */}
+              {/* Site Manager */}
               {availablePics.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Action By (Penanggung Jawab)
+                    Site Manager (Penanggung Jawab)
                   </label>
                   <select
                     value={editPicId}

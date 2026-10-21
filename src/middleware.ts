@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export const SESSION_COOKIE_NAME = "sitetracker_session";
+export const SESSION_COOKIE_NAME = "projecttracker_session";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

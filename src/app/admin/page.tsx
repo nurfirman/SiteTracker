@@ -374,14 +374,14 @@ export default function AdminSettingsPage() {
         password: newPicPassword,
       });
       if (res.success) {
-        showToast(res.message || "PIC baru berhasil ditugaskan!");
+        showToast(res.message || "Site Manager baru berhasil ditugaskan!");
         setNewPicName("");
         setNewPicEmail("");
         setNewPicPhone("");
         setShowAddPicModal(false);
         loadAdminData();
       } else {
-        showToast(res.message || "Gagal menambahkan PIC.", "error");
+        showToast(res.message || "Gagal menambahkan Site Manager.", "error");
       }
     } catch (err: any) {
       showToast(err.message || "Terjadi kesalahan.", "error");
@@ -412,14 +412,14 @@ export default function AdminSettingsPage() {
         showToast(res.message, "error");
       }
     } catch (err: any) {
-      showToast(err.message || "Gagal mengalokasikan PIC.", "error");
+      showToast(err.message || "Gagal mengalokasikan Site Manager.", "error");
     } finally {
       setPicSubmitting(false);
     }
   };
 
   const handleUnassignPic = async (userId: string, projectId: string, userName: string) => {
-    if (!confirm(`Lepaskan penugasan PIC '${userName}' dari proyek ini?`)) return;
+    if (!confirm(`Lepaskan penugasan Site Manager '${userName}' dari proyek ini?`)) return;
     try {
       const res = await unassignUserFromProject(userId, projectId);
       if (res.success) {
@@ -429,7 +429,7 @@ export default function AdminSettingsPage() {
         showToast(res.message, "error");
       }
     } catch (err: any) {
-      showToast(err.message || "Gagal melepaskan PIC dari proyek.", "error");
+      showToast(err.message || "Gagal melepaskan Site Manager dari proyek.", "error");
     }
   };
 
@@ -569,8 +569,8 @@ export default function AdminSettingsPage() {
 
   // Editable RBAC Handlers (Poin 11 & 16)
   const togglePermission = (role: string, permKey: string) => {
-    if (role === "PIC" && permKey === "canCreateFinding") {
-      showToast("Role PIC secara baku tidak diizinkan membuat temuan patroli.", "error");
+    if (["PIC", "SM"].includes(role) && permKey === "canCreateFinding") {
+      showToast("Role Site Manager secara baku tidak diizinkan membuat temuan patroli.", "error");
       return;
     }
     setRolePermissions((prev) => ({
@@ -626,17 +626,17 @@ export default function AdminSettingsPage() {
     {
       key: "canCreateFinding",
       name: "1. Pencatatan Temuan Baru (/findings/new)",
-      description: "Mengambil foto temuan, input GPS, dan menerbitkan tiket OPEN. Khusus PIC dilarang menerbitkan temuan.",
+      description: "Mengambil foto temuan, input GPS, dan menerbitkan temuan OPEN. Khusus Site Manager dilarang menerbitkan temuan.",
     },
     {
       key: "canResolveFinding",
       name: "2. Tindak Lanjut & Upload Bukti (/pic/tasks)",
-      description: "Mengunggah foto sesudah perbaikan dan mengisi respon tindakan perbaikan PIC.",
+      description: "Mengunggah foto sesudah perbaikan dan mengisi respon tindakan perbaikan Site Manager.",
     },
     {
       key: "canVerifyFinding",
       name: "3. Verifikasi Side-by-Side (Approve / Reject)",
-      description: "Otoritas memvalidasi perbaikan dan menutup tiket (CLOSED) atau mengembalikan untuk perbaikan ulang (revisi ke OPEN).",
+      description: "Otoritas memvalidasi perbaikan dan menutup temuan (CLOSED) atau mengembalikan untuk perbaikan ulang (revisi ke OPEN).",
     },
     {
       key: "canDownloadReport",
@@ -646,7 +646,7 @@ export default function AdminSettingsPage() {
     {
       key: "canManageAdmin",
       name: "5. Akses Manajemen Portal Admin (/admin)",
-      description: "Menambahkan proyek baru, penugasan PIC, audit log, custom logo, dan konfigurasi sistem.",
+      description: "Menambahkan proyek baru, penugasan Site Manager, audit log, custom logo, dan konfigurasi sistem.",
     },
   ];
 
@@ -656,8 +656,8 @@ export default function AdminSettingsPage() {
       {toastMsg && (
         <div
           className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${toastMsg.type === "success"
-              ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
-              : "bg-red-950 text-red-300 border-red-800"
+            ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
+            : "bg-red-950 text-red-300 border-red-800"
             }`}
         >
           {toastMsg.type === "success" ? (
@@ -676,10 +676,10 @@ export default function AdminSettingsPage() {
             <Sliders size={14} /> Administrator Portal
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Tata Kelola Master Proyek, PIC & Kategori Temuan
+            Tata Kelola Master Proyek, Site Manager & Kategori Temuan
           </h1>
           <p className="text-sm text-slate-300 max-w-2xl">
-            Modul administrator untuk mengelola proyek konstruksi, penugasan PIC per lokasi, kategori temuan, batasan SLA, dan matriks hak akses peran.
+            Modul administrator untuk mengelola proyek konstruksi, penugasan Site Manager per lokasi, kategori temuan, batasan SLA, dan matriks hak akses peran.
           </p>
         </div>
 
@@ -697,7 +697,7 @@ export default function AdminSettingsPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition-all active:scale-95"
           >
             <UserPlus size={16} />
-            <span>+ Tambah PIC Proyek</span>
+            <span>+ Tambah Site Manager Proyek</span>
           </button>
 
           <button
@@ -720,19 +720,19 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("projects_pics")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "projects_pics"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <Building2 size={18} />
-          <span>Kelola Proyek & PIC ({projects.length})</span>
+          <span>Kelola Proyek & Site Manager ({projects.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("divisions")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "divisions"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <Layers size={18} />
@@ -742,8 +742,8 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("categories")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "categories"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <Tag size={18} />
@@ -753,8 +753,8 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("matrix")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "matrix"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <ShieldCheck size={18} />
@@ -764,8 +764,8 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("users")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "users"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <Users size={18} />
@@ -775,8 +775,8 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("audit_log")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "audit_log"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <FileSpreadsheet size={18} />
@@ -786,8 +786,8 @@ export default function AdminSettingsPage() {
         <button
           onClick={() => setActiveTab("settings")}
           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === "settings"
-              ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
             }`}
         >
           <Sliders size={18} />
@@ -801,10 +801,10 @@ export default function AdminSettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                Master Proyek Konstruksi & Alokasi PIC
+                Master Proyek Konstruksi & Alokasi Site Manager
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Setiap temuan patroli difilter secara ketat berdasarkan PIC yang ditugaskan di proyek bersangkutan.
+                Setiap temuan patroli difilter secara ketat berdasarkan Site Manager yang ditugaskan di proyek bersangkutan.
               </p>
             </div>
 
@@ -813,7 +813,7 @@ export default function AdminSettingsPage() {
                 onClick={() => setShowImportModal(true)}
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95"
               >
-                <FileSpreadsheet size={15} /> Impor CSV (Proyek & PIC)
+                <FileSpreadsheet size={15} /> Impor CSV (Proyek & Site Manager)
               </button>
               <button
                 onClick={() => setShowAddProjectModal(true)}
@@ -825,14 +825,14 @@ export default function AdminSettingsPage() {
                 onClick={() => setShowAddPicModal(true)}
                 className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-1.5 active:scale-95"
               >
-                <UserPlus size={15} /> Alokasikan PIC Baru
+                <UserPlus size={15} /> Alokasikan Site Manager Baru
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {projects.map((project) => {
-              const assignedPics = users.filter((u) => u.role === "PIC" && (u.projectId === project.id || (u.projectIds && u.projectIds.includes(project.id))));
+              const assignedPics = users.filter((u) => ["PIC", "SM"].includes(u.role) && (u.projectId === project.id || (u.projectIds && u.projectIds.includes(project.id))));
               const dhUser = project.pm || users.find((u) => u.id === project.pmId);
               const gmUser = project.gm || users.find((u) => u.id === project.gmId);
               const dmUser = (project as any).dm || users.find((u) => u.id === (project as any).dmId);
@@ -953,13 +953,13 @@ export default function AdminSettingsPage() {
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                          PIC Penanggung Jawab ({assignedPics.length})
+                          Site Manager Penanggung Jawab ({assignedPics.length})
                         </span>
                       </div>
 
                       {assignedPics.length === 0 ? (
                         <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl text-center">
-                          <p className="text-xs text-red-600 font-bold">Belum ada PIC ditugaskan</p>
+                          <p className="text-xs text-red-600 font-bold">Belum ada Site Manager ditugaskan</p>
                           <button
                             onClick={() => {
                               setNewPicProjectId(project.id);
@@ -967,7 +967,7 @@ export default function AdminSettingsPage() {
                             }}
                             className="mt-1 text-[11px] font-extrabold text-red-700 underline"
                           >
-                            + Tambah PIC Sekarang
+                            + Tambah Site Manager Sekarang
                           </button>
                         </div>
                       ) : (
@@ -1017,7 +1017,7 @@ export default function AdminSettingsPage() {
                       className="flex-1 py-2 px-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-violet-500/20"
                     >
                       <UserPlus size={13} />
-                      <span>+ PIC Proyek</span>
+                      <span>+ Site Manager Proyek</span>
                     </button>
                   </div>
                 </div>
@@ -1197,7 +1197,7 @@ export default function AdminSettingsPage() {
 
                   <div className="pt-2 text-[10px] text-slate-400 flex items-center gap-1">
                     <Clock size={12} className="text-violet-600 dark:text-violet-400" />
-                    <span>Auto-calculated saat tiket diterbitkan</span>
+                    <span>Auto-calculated saat temuan diterbitkan</span>
                   </div>
                 </div>
               );
@@ -1218,7 +1218,7 @@ export default function AdminSettingsPage() {
                 Matriks Hak Akses & Wewenang Peran (Editable RBAC)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Klik ikon untuk mengaktifkan atau menonaktifkan hak akses setiap peran secara langsung. Khusus peran PIC dikunci tidak boleh membuat temuan.
+                Klik ikon untuk mengaktifkan atau menonaktifkan hak akses setiap peran secara langsung. Khusus peran Site Manager dikunci tidak boleh membuat temuan.
               </p>
             </div>
 
@@ -1260,8 +1260,8 @@ export default function AdminSettingsPage() {
                     >
                       <span className="block">{r}</span>
                       <span className="text-[10px] font-normal text-slate-400 block">
-                        {r === "PIC"
-                          ? "Subkontraktor"
+                        {r === "PIC" || r === "SM"
+                          ? "Site Manager"
                           : r === "Advisor"
                             ? "Advisor Teknis"
                             : r === "CMD"
@@ -1285,15 +1285,15 @@ export default function AdminSettingsPage() {
                     {Object.keys(rolePermissions).map((role) => {
                       const isEnabled = !!rolePermissions[role]?.[feat.key];
 
-                      // Special Rule Poin 11: PIC CANNOT CREATE FINDING
-                      if (role === "PIC" && feat.key === "canCreateFinding") {
+                      // Special Rule Poin 11: PIC / SM CANNOT CREATE FINDING
+                      if (["PIC", "SM"].includes(role) && feat.key === "canCreateFinding") {
                         return (
                           <td key={role} className="p-4 text-center">
                             <span
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-xl text-[10px] font-black border border-red-200 dark:border-red-900"
-                              title="Role PIC dibatasi dan dilarang menerbitkan temuan patroli baru"
+                              title="Role Site Manager dibatasi dan dilarang menerbitkan temuan patroli baru"
                             >
-                              <Lock size={12} /> Dilarang (PIC)
+                              <Lock size={12} /> Dilarang (SM)
                             </span>
                           </td>
                         );
@@ -1305,8 +1305,8 @@ export default function AdminSettingsPage() {
                             type="button"
                             onClick={() => togglePermission(role, feat.key)}
                             className={`p-2 rounded-xl border transition-all active:scale-95 ${isEnabled
-                                ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                              ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
                               }`}
                             title={`Ubah status izin '${feat.name}' untuk role '${role}'`}
                           >
@@ -1355,7 +1355,7 @@ export default function AdminSettingsPage() {
               onClick={() => setShowAddPicModal(true)}
               className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
             >
-              <UserPlus size={15} /> Tambah PIC Baru
+              <UserPlus size={15} /> Tambah Site Manager Baru
             </button>
           </div>
 
@@ -1372,7 +1372,7 @@ export default function AdminSettingsPage() {
                       Permohonan Akun Baru Menunggu Penugasan ({users.filter((u) => u.role === "PENDING").length} Akun)
                     </h3>
                     <p className="text-xs text-rose-700 dark:text-rose-400">
-                      Pengguna berikut baru mendaftar via Neon Auth dan belum dapat mencatat/merespon temuan sebelum Admin menentukan Role & Proyeknya.
+                      Pengguna berikut baru mendaftar via Online Auth dan belum dapat mencatat/merespon temuan sebelum Admin menentukan Role & Proyeknya.
                     </p>
                   </div>
                 </div>
@@ -1519,7 +1519,7 @@ export default function AdminSettingsPage() {
                 Rekam Jejak & Audit Log Aktivitas Pengguna
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Merekam otomatis setiap aktivitas dari login/logout, penambahan/perubahan temuan, respon PIC, verifikasi PM, pengiriman laporan, hingga konfigurasi sistem.
+                Merekam otomatis setiap aktivitas dari login/logout, penambahan/perubahan temuan, respon Site Manager, verifikasi PM, pengiriman laporan, hingga konfigurasi sistem.
               </p>
             </div>
 
@@ -1542,7 +1542,7 @@ export default function AdminSettingsPage() {
                 type="text"
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                placeholder="Cari berdasarkan nama user, email, kode tiket, atau rincian aktivitas..."
+                placeholder="Cari berdasarkan nama user, email, kode temuan, atau rincian aktivitas..."
                 className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 font-medium"
               />
             </div>
@@ -1558,7 +1558,7 @@ export default function AdminSettingsPage() {
                 <option value="LOGOUT">🚪 Logout Akun</option>
                 <option value="CREATE_FINDING">🔴 Buat Temuan Baru</option>
                 <option value="UPDATE_FINDING">✏️ Edit Data Temuan</option>
-                <option value="RESOLVE_FINDING">🟡 Respon Perbaikan PIC</option>
+                <option value="RESOLVE_FINDING">🟡 Respon Perbaikan Site Manager</option>
                 <option value="VALIDATE_FINDING">🟢 Verifikasi PM (Approve/Reject)</option>
                 <option value="SEND_REPORT_EMAIL">📧 Kirim Email Laporan</option>
                 <option value="DOWNLOAD_REPORT">📥 Unduh / Export Laporan</option>
@@ -1602,7 +1602,7 @@ export default function AdminSettingsPage() {
                       <th className="p-3.5 whitespace-nowrap min-w-[150px]">Waktu (WIB)</th>
                       <th className="p-3.5 min-w-[180px]">Pengguna / Aktor</th>
                       <th className="p-3.5 min-w-[140px]">Aksi / Event</th>
-                      <th className="p-3.5 min-w-[130px]">Objek / Tiket</th>
+                      <th className="p-3.5 min-w-[130px]">Objek / Temuan</th>
                       <th className="p-3.5 min-w-[280px]">Rincian Aktivitas</th>
                       <th className="p-3.5 min-w-[100px]">IP / Client</th>
                     </tr>
@@ -1797,7 +1797,7 @@ export default function AdminSettingsPage() {
                   Pembersihan Data Temuan Lapangan
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl">
-                  Fitur untuk menghapus dan me-reset seluruh rekam jejak temuan patroli, dokumentasi foto bukti, dan status penanganan tiket pada semua proyek konstruksi.
+                  Fitur untuk menghapus dan me-reset seluruh rekam jejak temuan patroli, dokumentasi foto bukti, dan status penanganan temuan pada semua proyek konstruksi.
                 </p>
               </div>
 
@@ -1821,21 +1821,21 @@ export default function AdminSettingsPage() {
                 <span className="text-[10px] text-slate-400">Seluruh proyek aktif</span>
               </div>
               <div className="p-4 bg-red-50 dark:bg-red-950/50 rounded-2xl border border-red-200 dark:border-red-900/60">
-                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider block">🔴 Tiket OPEN</span>
+                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider block">🔴 Temuan OPEN</span>
                 <span className="text-2xl font-black text-red-700 dark:text-red-300 mt-1 block">
                   {findings.filter((f) => f.status === "OPEN").length}
                 </span>
                 <span className="text-[10px] text-red-500 dark:text-red-400">Belum diselesaikan</span>
               </div>
               <div className="p-4 bg-amber-50 dark:bg-amber-950/50 rounded-2xl border border-amber-200 dark:border-amber-900/60">
-                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">🟡 Tiket RESOLVED</span>
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">🟡 Temuan RESOLVED</span>
                 <span className="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1 block">
                   {findings.filter((f) => f.status === "RESOLVED").length}
                 </span>
                 <span className="text-[10px] text-amber-600 dark:text-amber-400">Menunggu verifikasi PM</span>
               </div>
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 rounded-2xl border border-emerald-200 dark:border-emerald-900/60">
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">🟢 Tiket CLOSED</span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">🟢 Temuan CLOSED</span>
                 <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1 block">
                   {findings.filter((f) => f.status === "CLOSED").length}
                 </span>
@@ -2211,7 +2211,7 @@ export default function AdminSettingsPage() {
                     ))}
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  DH, GM, DM, SC dan PIC akan otomatis menerima reminder email jika temuan patroli belum direspon melebihi batas SLA.
+                  DH, GM, DM, SC dan Site Manager akan otomatis menerima reminder email jika temuan patroli belum direspon melebihi batas SLA.
                 </p>
               </div>
 
@@ -2236,14 +2236,14 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* MODAL: ALOKASIKAN PIC KE PROYEK */}
+      {/* MODAL: ALOKASIKAN SITE MANAGER KE PROYEK */}
       {showAddPicModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <UserPlus size={20} className="text-violet-600 dark:text-violet-400" />
-                <span>Alokasikan PIC ke Proyek</span>
+                <span>Alokasikan Site Manager ke Proyek</span>
               </h3>
               <button
                 onClick={() => {
@@ -2261,11 +2261,10 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={() => setPicModalMode("EXISTING")}
-                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                  picModalMode === "EXISTING"
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${picModalMode === "EXISTING"
                     ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 <UserCheck size={14} />
                 <span>Pilih User Terdaftar</span>
@@ -2273,11 +2272,10 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={() => setPicModalMode("NEW")}
-                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                  picModalMode === "NEW"
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${picModalMode === "NEW"
                     ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 <UserPlus size={14} />
                 <span>Daftarkan User Baru</span>
@@ -2415,13 +2413,13 @@ export default function AdminSettingsPage() {
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Nama Lengkap PIC <span className="text-violet-600 dark:text-violet-400">*</span>
+                    Nama Lengkap Site Manager <span className="text-violet-600 dark:text-violet-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={newPicName}
                     onChange={(e) => setNewPicName(e.target.value)}
-                    placeholder="e.g. Ir. Suryadi (Subkon Struktur)"
+                    placeholder="e.g. Ir. Suryadi (Site Manager Struktur)"
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                   />
@@ -2486,7 +2484,7 @@ export default function AdminSettingsPage() {
                     disabled={picSubmitting}
                     className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
                   >
-                    {picSubmitting ? "Menyimpan..." : "Simpan & Daftarkan PIC Baru"}
+                    {picSubmitting ? "Menyimpan..." : "Simpan & Daftarkan Site Manager Baru"}
                   </button>
                 </div>
               </form>
@@ -2540,7 +2538,7 @@ export default function AdminSettingsPage() {
                 )}
               </div>
               <p className="text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
-                Seluruh tiket temuan patroli, dokumentasi foto sebelum/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
+                Seluruh temuan patroli, dokumentasi foto sebelum/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
               </p>
             </div>
 
@@ -2662,7 +2660,7 @@ export default function AdminSettingsPage() {
                   required
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
-                  <option value="PIC">PIC (Penanggung Jawab Perbaikan Proyek)</option>
+                  <option value="PIC">Site Manager (SM) / Penanggung Jawab Perbaikan</option>
                   <option value="CMD">CMD (Inspector Lapangan / Patrol ISO)</option>
                   <option value="SM">SM (Site Manager)</option>
                   <option value="DH">DH (Div Head / Kepala Divisi)</option>
@@ -2703,8 +2701,8 @@ export default function AdminSettingsPage() {
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  {assignRole === "PIC"
-                    ? "Wajib pilih proyek: PIC akan diisolasi hanya pada tiket proyek ini."
+                  {assignRole === "PIC" || assignRole === "SM"
+                    ? "Wajib pilih proyek: Site Manager akan diisolasi hanya pada temuan proyek ini."
                     : "Opsional: CMD, SM, PM, GM, BOD, dan Admin dapat mengakses lintas proyek."}
                 </p>
               </div>
@@ -2733,7 +2731,7 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* MODAL: IMPOR PROYEK & PIC DARI CSV */}
+      {/* MODAL: IMPOR PROYEK & SITE MANAGER DARI CSV */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
@@ -2745,10 +2743,10 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                    Impor Data Proyek & PIC dari CSV
+                    Impor Data Proyek & Site Manager dari CSV
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Daftarkan proyek dan akun PIC secara massal. Proyek yang sudah ada akan otomatis dilewati.
+                    Daftarkan proyek dan akun Site Manager secara massal. Proyek yang sudah ada akan otomatis dilewati.
                   </p>
                 </div>
               </div>
@@ -2828,8 +2826,8 @@ export default function AdminSettingsPage() {
                               <th className="p-2">Kode</th>
                               <th className="p-2">Nama Proyek</th>
                               <th className="p-2">Lokasi</th>
-                              <th className="p-2">PIC</th>
-                              <th className="p-2">Email PIC</th>
+                              <th className="p-2">Site Manager</th>
+                              <th className="p-2">Email Site Manager</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[11px]">

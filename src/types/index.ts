@@ -146,14 +146,14 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     description: "Akses Semua Kasus: Patroli lapangan, catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
-    label: "Action By (Pelaksana / Penanggung Jawab)",
-    badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
-    description: "Akses Terisolasi Khusus Proyek Sendiri: Hanya dapat melihat & merespon tugas proyeknya.",
+    label: "Site Manager (SM) / Penanggung Jawab",
+    badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
+    description: "Akses Site Manager Lapangan: Memantau & merespon tindak lanjut temuan proyek.",
   },
   SM: {
-    label: "SM (Site Manager)",
+    label: "Site Manager (SM)",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
-    description: "Akses Multi-Proyek Lapangan: Mengawasi & mengkoordinasikan PIC di beberapa site proyek.",
+    description: "Akses Site Manager Lapangan: Memantau & merespon tindak lanjut temuan proyek.",
   },
   PM: {
     label: "PM (Project Manager)",
@@ -188,7 +188,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   ADMIN: {
     label: "Administrator Sistem",
     badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800",
-    description: "Pengelola Master Proyek, Penugasan PIC/SM/DH/DM/SC, dan Konfigurasi Matriks.",
+    description: "Pengelola Master Proyek, Penugasan Site Manager/DH/DM/SC, dan Konfigurasi Matriks.",
   },
   PENDING: {
     label: "Menunggu Penugasan Admin",

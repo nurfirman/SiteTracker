@@ -21,7 +21,7 @@ with sync_playwright() as p:
     # Context CMD
     context_cmd = browser.new_context(viewport={"width": 1366, "height": 850})
     context_cmd.add_cookies([{
-        "name": "sitetracker_session",
+        "name": "projecttracker_session",
         "value": CMD_COOKIE,
         "domain": "localhost",
         "path": "/"
@@ -80,7 +80,7 @@ with sync_playwright() as p:
     # Context PIC
     context_pic = browser.new_context(viewport={"width": 1366, "height": 850})
     context_pic.add_cookies([{
-        "name": "sitetracker_session",
+        "name": "projecttracker_session",
         "value": PIC_COOKIE,
         "domain": "localhost",
         "path": "/"

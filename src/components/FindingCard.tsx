@@ -5,7 +5,7 @@ import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 import { formatDate, getSlaStatus } from "../lib/utils";
-import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2 } from "lucide-react";
+import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 
 interface FindingCardProps {
@@ -35,6 +35,11 @@ export function FindingCard({
             <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 ${sla.badgeClass}`}>
               <Clock size={11} /> {sla.label}
             </span>
+            {finding.status === "OPEN" && finding.rejectionNote && (
+              <span className="px-2 py-0.5 text-[11px] font-black rounded-md bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800 flex items-center gap-1 shadow-xs">
+                <XCircle size={11} className="text-rose-600 dark:text-rose-400" /> Ditolak (Revisi)
+              </span>
+            )}
             <StatusBadge status={finding.status} size="sm" />
           </div>
         </div>
@@ -52,6 +57,18 @@ export function FindingCard({
             <span className="truncate">{finding.locationDetail}</span>
           </p>
         </div>
+
+        {/* Notifikasi Catatan Penolakan jika ada */}
+        {finding.status === "OPEN" && finding.rejectionNote && (
+          <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 rounded-xl space-y-0.5">
+            <span className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-400 flex items-center gap-1">
+              <XCircle size={12} /> Catatan Revisi Inspector:
+            </span>
+            <p className="text-xs font-semibold text-rose-900 dark:text-rose-200 line-clamp-2">
+              "{finding.rejectionNote}"
+            </p>
+          </div>
+        )}
 
         {/* Thumbnail Image Comparison Preview */}
         <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-800 h-44 mt-2">
@@ -85,7 +102,7 @@ export function FindingCard({
               <Calendar size={13} /> {finding.inspectionDate ? `Inspeksi: ${formatDate(finding.inspectionDate).replace(" WIB", "")}` : formatDate(finding.createdAt)}
             </span>
             <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
-              <UserCheck size={13} className="text-blue-500" /> PIC: {finding.pic?.name.split(" ")[0] || "PIC"}
+              <UserCheck size={13} className="text-blue-500" /> SM: {finding.pic?.name.split(" ")[0] || "SM"}
             </span>
           </div>
         </div>
@@ -101,7 +118,7 @@ export function FindingCard({
           <ArrowRight size={15} />
         </Link>
 
-        {currentUserRole === "PIC" && finding.status === "OPEN" && onQuickResolve && (
+        {(currentUserRole === "PIC" || currentUserRole === "SM") && finding.status === "OPEN" && onQuickResolve && (
           <button
             onClick={() => onQuickResolve(finding)}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[44px] text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 rounded-xl shadow-md shadow-violet-500/25 transition-all active:scale-95"

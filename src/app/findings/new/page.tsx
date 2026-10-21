@@ -83,7 +83,7 @@ export default function NewFindingPage() {
       return;
     }
     if (!selectedPicId) {
-      setErrorMsg("Mohon pilih Action By (Penanggung Jawab temuan).");
+      setErrorMsg("Mohon pilih Site Manager (Penanggung Jawab temuan).");
       return;
     }
     if (category === "CUSTOM" && !customCategory.trim()) {
@@ -146,21 +146,21 @@ export default function NewFindingPage() {
         </span>
       </div>
 
-      {/* PIC OR PENDING ROLE RESTRICTION */}
-      {currentUser.role === "PIC" || currentUser.role === "PENDING" ? (
+      {/* PIC / SM OR PENDING ROLE RESTRICTION */}
+      {["PIC", "SM"].includes(currentUser.role) || currentUser.role === "PENDING" ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-rose-300 dark:border-rose-900/60 p-8 shadow-xl text-center space-y-4">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
             <AlertTriangle size={32} />
           </div>
           <h3 className="text-xl font-black text-slate-900 dark:text-white">
-            {currentUser.role === "PIC"
-              ? "Wewenang Dibatasi: Role PIC Tidak Dapat Menginput Temuan"
+            {["PIC", "SM"].includes(currentUser.role)
+              ? "Wewenang Dibatasi: Role Site Manager Tidak Dapat Menginput Temuan"
               : "Wewenang Belum Diatur (Status: PENDING)"}
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            {currentUser.role === "PIC"
-              ? "Role PIC bertindak sebagai pihak penanggung jawab perbaikan (rekanan/subkontraktor) dan tidak memiliki hak akses menerbitkan temuan patroli baru."
-              : "Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan tiket temuan patroli baru. Silakan hubungi Administrator Proyek untuk mengonfigurasi role Anda."}
+            {["PIC", "SM"].includes(currentUser.role)
+              ? "Role Site Manager bertindak sebagai pihak penanggung jawab perbaikan dan tidak memiliki hak akses menerbitkan temuan patroli baru."
+              : "Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan temuan patroli baru. Silakan hubungi Administrator Proyek untuk mengonfigurasi role Anda."}
           </p>
           <div className="pt-3 flex justify-center gap-3">
             <Link
@@ -194,7 +194,7 @@ export default function NewFindingPage() {
             Catat Temuan Baru Lapangan
           </h1>
           <p className="text-sm text-slate-300">
-            Isi formulir temuan. Tiket temuan berstatus 🔴 OPEN akan otomatis diteruskan ke PIC terkait.
+            Isi formulir temuan. Temuan berstatus 🔴 OPEN akan otomatis diteruskan ke Site Manager terkait.
           </p>
         </div>
 
@@ -202,10 +202,10 @@ export default function NewFindingPage() {
           <div className="p-12 text-center space-y-4">
             <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto animate-bounce" />
             <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Tiket Berhasil Dibuat!
+              Temuan Berhasil Dibuat!
             </h2>
             <p className="text-base text-slate-600 dark:text-slate-300">
-              Kode Tiket: <strong className="text-violet-600 dark:text-violet-400 font-mono text-xl">{successTicket}</strong>
+              Kode Temuan: <strong className="text-violet-600 dark:text-violet-400 font-mono text-xl">{successTicket}</strong>
             </p>
             <p className="text-sm text-slate-500">
               Mengarahkan ke halaman detail temuan...
@@ -256,7 +256,7 @@ export default function NewFindingPage() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  3. Action By (Penanggung Jawab) <span className="text-red-500">*</span>
+                  3. Site Manager (Penanggung Jawab) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -266,7 +266,7 @@ export default function NewFindingPage() {
                     className="w-full px-4 py-3.5 min-h-[48px] text-base font-semibold rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                   >
                     {availablePics.length === 0 ? (
-                      <option value="">-- Tidak Ada Action By untuk proyek ini --</option>
+                      <option value="">-- Tidak Ada Site Manager untuk proyek ini --</option>
                     ) : (
                       availablePics.map((u) => (
                         <option key={u.id} value={u.id}>
@@ -335,7 +335,7 @@ export default function NewFindingPage() {
                 className="w-full inline-flex items-center justify-center gap-2 px-8 py-4 min-h-[56px] text-lg font-black text-white bg-violet-600 hover:bg-violet-500 rounded-2xl shadow-xl shadow-violet-500/25 active:scale-98 transition-all disabled:opacity-50"
               >
                 <Send className="w-6 h-6" />
-                <span>{submitting ? "Menyimpan Tiket..." : "Kirim Tiket Temuan Patroli (OPEN)"}</span>
+                <span>{submitting ? "Menyimpan Temuan..." : "Kirim Temuan Patroli (OPEN)"}</span>
               </button>
             </div>
           </form>

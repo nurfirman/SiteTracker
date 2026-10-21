@@ -185,10 +185,10 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Pencatatan Lapangan (CMD)</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Inspector CMD melakukan patroli, mengambil foto bukti temuan, koordinat GPS, dan menugaskan PIC area.
+                Inspector CMD melakukan patroli, mengambil foto bukti temuan, koordinat GPS, dan menugaskan Site Manager area.
               </p>
               <div className="mt-4 text-xs font-bold text-red-400 bg-red-950/40 p-3 rounded-xl border border-red-900/50">
-                Status Tiket: <span className="underline font-black">OPEN 🔴</span>
+                Status Temuan: <span className="underline font-black">OPEN 🔴</span>
               </div>
             </div>
 
@@ -197,12 +197,12 @@ export default function LandingPage() {
               <div className="w-10 h-10 rounded-full bg-violet-600 text-white font-black text-lg flex items-center justify-center mb-6">
                 2
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Tindak Lanjut & Foto (PIC)</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Tindak Lanjut & Foto (Site Manager)</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Subkontraktor/PIC menerima tiket di portal tasks, memperbaiki masalah fisik, & mengunggah foto perbaikan.
+                Site Manager menerima temuan di portal tasks, memperbaiki masalah fisik, & mengunggah foto perbaikan.
               </p>
               <div className="mt-4 text-xs font-bold text-amber-400 bg-amber-950/40 p-3 rounded-xl border border-amber-900/50">
-                Status Tiket: <span className="underline font-black">RESOLVED 🟡</span>
+                Status Temuan: <span className="underline font-black">RESOLVED 🟡</span>
               </div>
             </div>
 
@@ -216,7 +216,7 @@ export default function LandingPage() {
                 Project Manager membandingkan foto Sebelum vs Sesudah secara langsung di Modal UI, lalu Approve atau Reject.
               </p>
               <div className="mt-4 text-xs font-bold text-emerald-400 bg-emerald-950/40 p-3 rounded-xl border border-emerald-900/50">
-                Status Tiket: <span className="underline font-black">CLOSED 🟢</span>
+                Status Temuan: <span className="underline font-black">CLOSED 🟢</span>
               </div>
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-lg font-bold text-white">Petugas K3 / Inspector CMD</h3>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                  Tidak perlu menulis laporan manual di kertas. Cukup foto dari HP, kompres otomatis, pilih lokasi & PIC, lalu kirim seketika.
+                  Tidak perlu menulis laporan manual di kertas. Cukup foto dari HP, kompres otomatis, pilih lokasi & Site Manager, lalu kirim seketika.
                 </p>
               </div>
             </div>
@@ -253,7 +253,7 @@ export default function LandingPage() {
                 <Building2 size={28} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Subkontraktor / PIC Lapangan</h3>
+                <h3 className="text-lg font-bold text-white">Site Manager / Penanggung Jawab Lapangan</h3>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
                   Notifikasi jelas tentang lokasi persis dan bahaya yang harus diperbaiki. Langsung unggah foto sesudah perbaikan tanpa debat.
                 </p>

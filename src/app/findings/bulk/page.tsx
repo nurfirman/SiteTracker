@@ -499,24 +499,24 @@ export default function BulkPatrolPage() {
                 />
               </div>
 
-              {/* Default Action By Proyek */}
+              {/* Default Site Manager Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Action By (Penanggung Jawab Default)
+                  Site Manager (Penanggung Jawab Default)
                 </label>
                 <select
                   value={defaultPicId}
                   onChange={(e) => {
                     const newPic = e.target.value;
                     setDefaultPicId(newPic);
-                    // Update item yang belum punya PIC spesifik
+                    // Update item yang belum punya Site Manager spesifik
                     setItems((prev) =>
                       prev.map((it) => (!it.picId ? { ...it, picId: newPic } : it))
                     );
                   }}
                   className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 >
-                  <option value="">-- Pilih Action By Default --</option>
+                  <option value="">-- Pilih Site Manager Default --</option>
                   {availablePics.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.role})
@@ -674,7 +674,7 @@ export default function BulkPatrolPage() {
                           rows={3}
                           value={item.description}
                           onChange={(e) => updateItem(index, { description: e.target.value })}
-                          placeholder="Jelaskan kondisi ketidaksesuaian di lapangan dan arahan perbaikan untuk PIC..."
+                          placeholder="Jelaskan kondisi ketidaksesuaian di lapangan dan arahan perbaikan untuk Site Manager..."
                           className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500 leading-relaxed"
                         />
                       </div>

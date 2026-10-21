@@ -157,7 +157,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 <tr>
                   <td>
                     <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
-                      PROJECTTRACKER REPORT
+                      PROJECT TRACKER REPORT
                     </div>
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; line-height: 1.3;">
                       ${options.projectName}
@@ -180,7 +180,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 Yth. Bapak/Ibu Tim Proyek & Manajemen,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Berikut terlampir rangkuman resmi laporan hasil patroli pengawasan lapangan untuk proyek <strong>${options.projectName}</strong> per tanggal <strong>${inspectionDateFormatted}</strong>.
+                Berikut terlampir rangkuman resmi laporan hasil patroli pengawasan lapangan untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
               </p>
 
               <!-- Optional Note -->
@@ -248,7 +248,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 </tr>` : ""}
                 ${options.picName ? `
                 <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">PIC Lapangan:</td>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Site Manager:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.picName}</td>
                 </tr>` : ""}
                 ${options.pmName ? `
@@ -289,10 +289,10 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
               <!-- Action Callout -->
               <div style="text-align: center; margin: 30px 0 10px 0;">
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                  Detail bukti foto temuan dan tindak lanjut perbaikan dapat diakses langsung oleh PIC pada portal web:
+                  Detail bukti foto temuan dan tindak lanjut perbaikan dapat diakses langsung oleh Site Manager pada portal web:
                 </p>
                 <a href="${getAppBaseUrl()}/pic/tasks" target="_blank" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);">
-                  Buka Portal PIC & Tindak Lanjuti Temuan &rarr;
+                  Buka Portal Site Manager & Tindak Lanjuti Temuan &rarr;
                 </a>
               </div>
 
@@ -304,7 +304,6 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
                 Email otomatis dari <strong>ProjectTracker</strong> (Construction Quality & Safety Monitoring).<br>
-                Dikirim menggunakan Microsoft Graph API (Azure Entra ID OAuth 2.0).
               </p>
             </td>
           </tr>
@@ -357,12 +356,12 @@ export async function sendEmailViaAzureGraph(
 
   const ccRecipients = options.ccRecipients && options.ccRecipients.length > 0
     ? options.ccRecipients
-        .filter((email) => email && email.trim().length > 0)
-        .map((email) => ({
-          emailAddress: {
-            address: email.trim(),
-          },
-        }))
+      .filter((email) => email && email.trim().length > 0)
+      .map((email) => ({
+        emailAddress: {
+          address: email.trim(),
+        },
+      }))
     : [];
 
   const messagePayload: any = {
@@ -497,7 +496,7 @@ export function generateEscalationReminderEmailHtml(
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Peringatan Eskalasi SLA H+7 - ${options.projectName}</title>
+  <title>Peringatan Eskalasi H+7 - ${options.projectName}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
@@ -505,11 +504,11 @@ export function generateEscalationReminderEmailHtml(
       <td align="center">
         <table role="presentation" width="100%" style="max-width: 650px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
           
-          <!-- Header Banner (Crimson Red for SLA Escalation) -->
+          <!-- Header Banner (Crimson Red for Escalation) -->
           <tr>
             <td style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 60%, #b91c1c 100%); padding: 32px 30px; text-align: left; color: #ffffff;">
               <span style="display: inline-block; background-color: rgba(254, 202, 202, 0.25); border: 1px solid rgba(254, 202, 202, 0.4); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 12px; color: #fecaca;">
-                🚨 Peringatan Keterlambatan SLA (H+7)
+                🚨 Peringatan Keterlambatan  (H+7)
               </span>
               <h1 style="margin: 0; font-size: 22px; font-weight: 900; line-height: 1.3; color: #ffffff;">
                 Eskalasi Temuan Patroli Belum Direspon
@@ -527,8 +526,8 @@ export function generateEscalationReminderEmailHtml(
               <!-- Warning Callout Box -->
               <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
-                  <strong>Pemberitahuan kepada PIC Proyek & General Manager (GM):</strong><br>
-                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan patroli</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari PIC di lapangan.
+                  <strong>Pemberitahuan kepada Site Manager Proyek & General Manager (GM):</strong><br>
+                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan patroli</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di lapangan.
                 </p>
               </div>
 
@@ -551,7 +550,7 @@ export function generateEscalationReminderEmailHtml(
                 </tr>` : ""}
                 ${options.picName ? `
                 <tr>
-                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">PIC Lapangan:</td>
+                  <td style="padding: 4px 8px; color: #64748b; font-weight: 600;">Site Manager:</td>
                   <td style="padding: 4px 8px; color: #b45309; font-weight: 800;">${options.picName}</td>
                 </tr>` : ""}
                 <tr>
@@ -562,7 +561,7 @@ export function generateEscalationReminderEmailHtml(
 
               <!-- Overdue Findings Table -->
               <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: #0f172a;">
-                Daftar Tiket Terlambat Respon:
+                Daftar Temuan Terlambat Respon:
               </h3>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border: 1px solid #fee2e2; border-radius: 12px; overflow: hidden; margin-bottom: 26px;">
                 <thead>
@@ -580,10 +579,10 @@ export function generateEscalationReminderEmailHtml(
               <!-- Action Callout Button -->
               <div style="text-align: center; margin: 30px 0 10px 0;">
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                  PIC dimohon segera mengakses portal dan mengunggah bukti perbaikan:
+                  Site Manager dimohon segera mengakses portal dan mengunggah bukti perbaikan:
                 </p>
                 <a href="${getAppBaseUrl()}/pic/tasks" target="_blank" style="display: inline-block; background-color: #dc2626; color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);">
-                  Buka Portal PIC & Respon Temuan Sekarang &rarr;
+                  Buka Portal Site Manager & Respon Temuan Sekarang &rarr;
                 </a>
               </div>
 
@@ -594,7 +593,7 @@ export function generateEscalationReminderEmailHtml(
           <tr>
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
-                Email eskalasi otomatis terjadwal via <strong>Vercel Cron & Microsoft Graph API</strong>.<br>
+                Email eskalasi otomatis terjadwal via <strong> ProjectTracker Online </strong>.<br>
                 Sistem ProjectTracker &copy; ${new Date().getFullYear()}
               </p>
             </td>
@@ -642,7 +641,7 @@ export async function sendEscalationReminderViaAzureGraph(
     },
   }));
 
-  const subject = `[REMINDER SLA H+7] Peringatan Temuan Patroli Belum Direspon (>7 Hari) - ${options.projectName}`;
+  const subject = `[REMINDER H+7] Peringatan Temuan Patroli Belum Direspon (>7 Hari) - ${options.projectName}`;
 
   const graphPayload = {
     message: {
@@ -669,7 +668,7 @@ export async function sendEscalationReminderViaAzureGraph(
     body: JSON.stringify(graphPayload),
   });
 
-  const logId = "SLA-REMINDER-" + Date.now().toString().slice(-6);
+  const logId = "REMINDER-" + Date.now().toString().slice(-6);
   const timestamp = new Date().toISOString();
 
   if (!graphResponse.ok) {
@@ -691,7 +690,7 @@ export async function sendEscalationReminderViaAzureGraph(
 
   return {
     success: true,
-    message: `Reminder SLA H+7 berhasil dikirimkan via Azure Microsoft Graph ke ${options.recipients.length} penerima (${options.recipients.join(", ")})!`,
+    message: `Reminder H+7 berhasil dikirimkan via Project Tracer Online System ke ${options.recipients.length} penerima (${options.recipients.join(", ")})!`,
     deliveryLog: {
       id: logId,
       timestamp,
@@ -737,7 +736,7 @@ export async function sendPasswordResetMail(
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reset Password SiteTracker CMD</title>
+  <title>Reset Password ProjectTracker CMD</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
@@ -747,7 +746,7 @@ export async function sendPasswordResetMail(
           <tr>
             <td style="background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%); padding: 30px 28px; text-align: left;">
               <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
-                KEAMANAN AKUN SITETRACKER
+                KEAMANAN AKUN ProjectTracker
               </div>
               <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 900; line-height: 1.3;">
                 Permintaan Reset Password
@@ -760,7 +759,7 @@ export async function sendPasswordResetMail(
                 Halo <strong>${options.recipientName}</strong>,
               </p>
               <p style="margin: 0 0 20px 0; font-size: 13px; line-height: 1.6; color: #475569;">
-                Kami menerima permintaan untuk mengatur ulang kata sandi (reset password) akun SiteTracker CMD Anda. Gunakan kode verifikasi di bawah ini untuk melanjutkan:
+                Kami menerima permintaan untuk mengatur ulang kata sandi (reset password) akun ProjectTracker CMD Anda. Gunakan kode verifikasi di bawah ini untuk melanjutkan:
               </p>
               
               <div style="text-align: center; margin: 24px 0;">
@@ -774,7 +773,7 @@ export async function sendPasswordResetMail(
 
               <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
                 <p style="margin: 0; font-size: 12px; color: #991b1b; line-height: 1.5;">
-                  <strong>Penting:</strong> Jangan pernah membagikan kode verifikasi ini kepada siapapun, termasuk pihak yang mengatasnamakan Administrator SiteTracker.
+                  <strong>Penting:</strong> Jangan pernah membagikan kode verifikasi ini kepada siapapun, termasuk pihak yang mengatasnamakan Administrator ProjectTracker.
                 </p>
               </div>
 
@@ -800,7 +799,7 @@ export async function sendPasswordResetMail(
 
   const graphPayload = {
     message: {
-      subject: "🔒 Kode Verifikasi Reset Password Akun SiteTracker CMD",
+      subject: "🔒 Kode Verifikasi Reset Password Akun ProjectTracker CMD",
       body: {
         contentType: "HTML",
         content: emailHtml,

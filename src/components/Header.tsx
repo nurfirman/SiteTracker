@@ -60,12 +60,12 @@ export function Header() {
     if (pathname.startsWith("/findings")) {
       return {
         title: "Daftar Temuan Patroli",
-        subtitle: "Monitoring Status Tiket & Riwayat Kualitas Konstruksi",
+        subtitle: "Monitoring Status Temuan & Riwayat Kualitas Konstruksi",
       };
     }
     if (pathname.startsWith("/pic/tasks")) {
       return {
-        title: currentUser.role === "PIC" ? "Tugas Saya (PIC Proyek)" : "Tugas Lapangan & Monitoring",
+        title: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Tugas Saya (Site Manager)" : "Tugas Lapangan & Monitoring",
         subtitle: "Daftar Tindak Lanjut & Pengunggahan Bukti Perbaikan",
       };
     }
@@ -78,13 +78,13 @@ export function Header() {
     if (pathname.startsWith("/projects")) {
       return {
         title: "Master Proyek & Tim",
-        subtitle: "Daftar Proyek Konstruksi & Personil PIC Penanggung Jawab",
+        subtitle: "Daftar Proyek Konstruksi & Personil Site Manager Penanggung Jawab",
       };
     }
     if (pathname.startsWith("/admin")) {
       return {
         title: "Tata Kelola & Pengaturan Admin",
-        subtitle: "Kelola Proyek, PIC, Kategori Temuan, SLA & Matriks Hak Akses",
+        subtitle: "Kelola Proyek, Site Manager, Kategori Temuan, SLA & Matriks Hak Akses",
       };
     }
     return {
@@ -178,7 +178,7 @@ export function Header() {
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
-                  {currentUser.role === "PIC" && currentUser.project
+                  {["PIC", "SM"].includes(currentUser.role) && currentUser.project
                     ? currentUser.project.name
                     : currentUser.email}
                 </p>

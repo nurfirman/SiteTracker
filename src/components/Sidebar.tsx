@@ -97,28 +97,26 @@ export function Sidebar() {
     // Findings List
     operationalItems.push({
       href: "/findings",
-      label: currentUser.role === "PIC" ? "Daftar Temuan Proyek" : "Semua Temuan Patroli",
+      label: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Daftar Temuan Proyek" : "Semua Temuan Patroli",
       icon: ClipboardList,
     });
 
-    // PIC Tasks / Field Action
+    // Site Manager Tasks / Field Action
     if (["PIC", "SM", "PM", "GM", "BOD", "ADMIN"].includes(currentUser.role)) {
       operationalItems.push({
         href: "/pic/tasks",
         label:
-          currentUser.role === "PIC"
-            ? "Tugas & Respon PIC"
-            : currentUser.role === "SM"
-            ? "Monitoring Lapangan (SM)"
+          (currentUser.role === "PIC" || currentUser.role === "SM")
+            ? "Tugas & Respon Site Manager"
             : currentUser.role === "GM"
             ? "Supervisi Divisi (GM)"
             : "Validasi Perbaikan (PM)",
         icon: CheckSquare,
         badge:
-          currentUser.role === "PIC"
+          (currentUser.role === "PIC" || currentUser.role === "SM")
             ? currentUser.project
               ? currentUser.project.name.split("-")[0].trim()
-              : "PIC"
+              : "SM"
             : undefined,
       });
     }

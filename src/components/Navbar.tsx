@@ -32,7 +32,7 @@ export function Navbar() {
       href: "/pic/tasks",
       label: "Tugas Saya",
       icon: CheckSquare,
-      badgeRole: "PIC",
+      badgeRole: "SM",
     },
     { href: "/findings", label: "Temuan", icon: ClipboardList },
     { href: "/reports", label: "Laporan PDF", icon: FileText },

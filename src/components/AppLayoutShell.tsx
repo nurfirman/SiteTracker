@@ -42,7 +42,7 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
                     </span>
                   </div>
                   <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed max-w-3xl">
-                    Halo <strong>{currentUser.name}</strong> ({currentUser.email}), akun Anda telah berhasil terdaftar di sistem. Saat ini Anda <strong>belum dapat mencatat temuan baru ataupun merespon tiket</strong> sampai Administrator selesai mengatur Role wewenang dan Proyek penugasan Anda.
+                    Halo <strong>{currentUser.name}</strong> ({currentUser.email}), akun Anda telah berhasil terdaftar di sistem. Saat ini Anda <strong>belum dapat mencatat temuan baru ataupun merespon temuan</strong> sampai Administrator selesai mengatur Role wewenang dan Proyek penugasan Anda.
                   </p>
                 </div>
               </div>

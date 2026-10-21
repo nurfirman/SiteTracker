@@ -228,9 +228,9 @@ export default function ReportsPage() {
     loadData();
   }, [selectedProject, selectedPic, periodMode, reportDate, reportMonth, startDate, endDate, recalledReportNumber]);
 
-  // Filtered PIC options
+  // Filtered Site Manager options
   const availablePics = users.filter((u) => {
-    if (u.role !== "PIC") return false;
+    if (!["PIC", "SM"].includes(u.role)) return false;
     if (selectedProject === "ALL") return true;
     return (
       u.projectId === selectedProject ||
@@ -451,7 +451,7 @@ export default function ReportsPage() {
 
   // Recipient resolution based on project and division hierarchy
   const activeProjectPics = users.filter((u) => {
-    if (u.role !== "PIC") return false;
+    if (!["PIC", "SM"].includes(u.role)) return false;
     if (selectedProject === "ALL") return true;
     return (
       u.projectId === selectedProject ||
@@ -632,7 +632,7 @@ export default function ReportsPage() {
       });
 
       if (res.success) {
-        showEmailToast(`Laporan [${resolvedReportNumber}] berhasil disimpan ke database Neon!`);
+        showEmailToast(`Laporan [${resolvedReportNumber}] berhasil disimpan ke database Online!`);
         loadArchiveReports();
       } else {
         showEmailToast(res.message, "error");
@@ -736,8 +736,8 @@ export default function ReportsPage() {
       {emailToast && (
         <div
           className={`fixed top-5 right-5 z-50 p-4 rounded-2xl border shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 text-xs font-black ${emailToast.type === "success"
-              ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
-              : "bg-red-950 text-red-300 border-red-800"
+            ? "bg-slate-900 text-emerald-400 border-emerald-500/50"
+            : "bg-red-950 text-red-300 border-red-800"
             }`}
         >
           {emailToast.type === "success" ? (
@@ -783,7 +783,7 @@ export default function ReportsPage() {
                     Cetak Form Patroli Lapangan & Pengiriman Email
                   </h1>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Pilih filter <strong>Proyek</strong> dan <strong>PIC</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
+                    Pilih filter <strong>Proyek</strong> dan <strong>Site Manager</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
                   </p>
                 </div>
 
@@ -818,7 +818,7 @@ export default function ReportsPage() {
                     onClick={handleSaveReportManual}
                     disabled={savingReport || findings.length === 0}
                     className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-                    title="Simpan konfigurasi laporan aktif ke database Neon"
+                    title="Simpan konfigurasi laporan aktif ke database Online"
                   >
                     <BookmarkCheck size={16} className={savingReport ? "animate-spin" : ""} />
                     <span>{savingReport ? "Menyimpan..." : "Simpan ke DB"}</span>
@@ -829,7 +829,7 @@ export default function ReportsPage() {
                     onClick={handleTriggerCronReminder}
                     disabled={runningCron}
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px] disabled:opacity-50"
-                    title="Picu engine Vercel Cron untuk periksa temuan OPEN > 7 hari dan kirim email eskalasi ke PIC & GM"
+                    title="Picu engine Vercel Cron untuk periksa temuan OPEN > 7 hari dan kirim email eskalasi ke Site Manager & GM"
                   >
                     <BellRing size={16} className={runningCron ? "animate-spin" : ""} />
                     <span>{runningCron ? "Memeriksa SLA..." : "Picu Cron Reminder (H+7)"}</span>
@@ -869,8 +869,8 @@ export default function ReportsPage() {
                 <button
                   onClick={() => setReportType("INTERNAL_PATROL")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${reportType === "INTERNAL_PATROL"
-                      ? "bg-violet-600 text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    ? "bg-violet-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                     }`}
                 >
                   <ClipboardCheck size={16} />
@@ -880,8 +880,8 @@ export default function ReportsPage() {
                 <button
                   onClick={() => setReportType("EXECUTIVE_REKAP")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${reportType === "EXECUTIVE_REKAP"
-                      ? "bg-violet-600 text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                    ? "bg-violet-600 text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                     }`}
                 >
                   <Layers size={16} />
@@ -902,8 +902,8 @@ export default function ReportsPage() {
                       type="button"
                       onClick={() => setPeriodMode("DAILY")}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "DAILY"
-                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                         }`}
                     >
                       Harian (Inspeksi Spesifik)
@@ -912,8 +912,8 @@ export default function ReportsPage() {
                       type="button"
                       onClick={() => setPeriodMode("MONTHLY")}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "MONTHLY"
-                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                         }`}
                     >
                       Bulanan (Semua / Per Proyek)
@@ -922,8 +922,8 @@ export default function ReportsPage() {
                       type="button"
                       onClick={() => setPeriodMode("PERIODICAL")}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${periodMode === "PERIODICAL"
-                          ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        ? "bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                         }`}
                     >
                       Periodical Patrol (Rentang Tanggal)
@@ -950,17 +950,17 @@ export default function ReportsPage() {
                     />
                   </div>
 
-                  {/* Filter 2: PIC */}
+                  {/* Filter 2: Site Manager */}
                   <div>
                     <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <UserCheck size={13} className="text-violet-600 dark:text-violet-400" /> Filter Action By
+                      <UserCheck size={13} className="text-violet-600 dark:text-violet-400" /> Filter Site Manager
                     </label>
                     <select
                       value={selectedPic}
                       onChange={(e) => setSelectedPic(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white min-h-[44px]"
                     >
-                      <option value="ALL">-- Semua Action By di Proyek Ini --</option>
+                      <option value="ALL">-- Semua Site Manager di Proyek Ini --</option>
                       {availablePics.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.phoneNumber})
@@ -1294,7 +1294,7 @@ export default function ReportsPage() {
 
                           return (
                             <tr key={item.id} className="border-b-2 border-black break-inside-avoid">
-                              {/* Kolom 1: Nomor urut format 001, 002, 003 tanpa ID tiket */}
+                              {/* Kolom 1: Nomor urut format 001, 002, 003 tanpa ID temuan */}
                               <td className="border-r border-black p-2 text-center align-top">
                                 <span className="text-base font-black block">{formattedNo}</span>
                               </td>
@@ -1686,7 +1686,7 @@ export default function ReportsPage() {
                 {/* Detailed Table */}
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-4">
-                    Daftar Detail Tiket Patroli Lapangan
+                    Daftar Detail Temuan Patroli Lapangan
                   </h3>
 
                   {loading ? (
@@ -1698,11 +1698,11 @@ export default function ReportsPage() {
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="border-b-2 border-slate-300 dark:border-slate-700 print:border-black bg-slate-100 dark:bg-slate-800 print:bg-slate-200 text-slate-900 dark:text-white print:text-black font-extrabold">
-                            <th className="p-3">Kode Tiket</th>
+                            <th className="p-3">Kode Temuan</th>
                             <th className="p-3">Proyek & Lokasi</th>
                             <th className="p-3">Kategori</th>
                             <th className="p-3">Deskripsi Masalah</th>
-                            <th className="p-3">PIC</th>
+                            <th className="p-3">Site Manager</th>
                             <th className="p-3">Status</th>
                             <th className="p-3">Tgl Lapor / SLA</th>
                           </tr>
@@ -1732,10 +1732,10 @@ export default function ReportsPage() {
                                 <td className="p-3 whitespace-nowrap font-extrabold">
                                   <span
                                     className={`px-2.5 py-1 rounded-md text-[10px] ${item.status === "OPEN"
-                                        ? "bg-red-100 text-red-800 print:bg-red-100"
-                                        : item.status === "RESOLVED"
-                                          ? "bg-amber-100 text-amber-800 print:bg-amber-100"
-                                          : "bg-emerald-100 text-emerald-800 print:bg-emerald-100"
+                                      ? "bg-red-100 text-red-800 print:bg-red-100"
+                                      : item.status === "RESOLVED"
+                                        ? "bg-amber-100 text-amber-800 print:bg-amber-100"
+                                        : "bg-emerald-100 text-emerald-800 print:bg-emerald-100"
                                       }`}
                                   >
                                     {item.status}
@@ -1860,8 +1860,8 @@ export default function ReportsPage() {
             {/* Status Provider Koneksi Azure */}
             <div
               className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-2 ${mailStatus?.isConfigured
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
-                  : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
                 }`}
             >
               <div className="flex items-center gap-2 truncate">
@@ -1902,15 +1902,15 @@ export default function ReportsPage() {
                             key={pic.id}
                             onClick={() => toggleRecipient(pic.email)}
                             className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                                ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-400/80 text-amber-950 dark:text-amber-200 font-semibold"
-                                : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
+                              ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-400/80 text-amber-950 dark:text-amber-200 font-semibold"
+                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
                               }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
                                 className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                    ? "bg-amber-600 border-amber-600 text-white"
-                                    : "border-slate-300 dark:border-slate-600"
+                                  ? "bg-amber-600 border-amber-600 text-white"
+                                  : "border-slate-300 dark:border-slate-600"
                                   }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
@@ -1941,15 +1941,15 @@ export default function ReportsPage() {
                           <div
                             onClick={() => toggleRecipient(activePmUser.email)}
                             className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                                ? "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400/80 text-emerald-950 dark:text-emerald-200 font-semibold"
-                                : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
+                              ? "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400/80 text-emerald-950 dark:text-emerald-200 font-semibold"
+                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
                               }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
                                 className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                    ? "bg-emerald-600 border-emerald-600 text-white"
-                                    : "border-slate-300 dark:border-slate-600"
+                                  ? "bg-emerald-600 border-emerald-600 text-white"
+                                  : "border-slate-300 dark:border-slate-600"
                                   }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
@@ -1982,15 +1982,15 @@ export default function ReportsPage() {
                           <div
                             onClick={() => toggleRecipient(activeGmUser.email)}
                             className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                                ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-400/80 text-blue-950 dark:text-blue-200 font-semibold"
-                                : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
+                              ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-400/80 text-blue-950 dark:text-blue-200 font-semibold"
+                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
                               }`}
                           >
                             <div className="flex items-center gap-2.5 truncate min-w-0">
                               <div
                                 className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                    ? "bg-blue-600 border-blue-600 text-white"
-                                    : "border-slate-300 dark:border-slate-600"
+                                  ? "bg-blue-600 border-blue-600 text-white"
+                                  : "border-slate-300 dark:border-slate-600"
                                   }`}
                               >
                                 {isChecked && <Check size={12} strokeWidth={3} />}
@@ -2026,8 +2026,8 @@ export default function ReportsPage() {
                     <div className="flex items-center gap-2.5">
                       <div
                         className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeBod
-                            ? "bg-purple-600 border-purple-600 text-white"
-                            : "border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900"
+                          ? "bg-purple-600 border-purple-600 text-white"
+                          : "border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900"
                           }`}
                       >
                         {includeBod && <Check size={12} strokeWidth={3} />}
@@ -2063,8 +2063,8 @@ export default function ReportsPage() {
                     <div className="flex items-center gap-2.5">
                       <div
                         className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeAdvisor
-                            ? "bg-indigo-600 border-indigo-600 text-white"
-                            : "border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900"
+                          ? "bg-indigo-600 border-indigo-600 text-white"
+                          : "border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900"
                           }`}
                       >
                         {includeAdvisor && <Check size={12} strokeWidth={3} />}
@@ -2118,8 +2118,8 @@ export default function ReportsPage() {
                                   key={u.id}
                                   onClick={() => toggleRecipient(u.email)}
                                   className={`text-left p-2 rounded-xl text-xs border transition-all flex items-center justify-between gap-1.5 ${isChecked
-                                      ? "bg-violet-50 dark:bg-violet-950/60 border-violet-500/80 text-violet-700 dark:text-violet-300 font-bold"
-                                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                                    ? "bg-violet-50 dark:bg-violet-950/60 border-violet-500/80 text-violet-700 dark:text-violet-300 font-bold"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                                     }`}
                                 >
                                   <div className="truncate">
@@ -2196,7 +2196,7 @@ export default function ReportsPage() {
                 </div>
                 <p>Divisi: <strong>{activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})</strong></p>
                 <p>Format: <strong>{reportType === "INTERNAL_PATROL" ? "Form Standar Internal Patrol" : "Rekapitulasi Eksekutif"}</strong></p>
-                <p>Total Temuan Terlampir: <strong>{totalFindings} Tiket</strong> (Open: {totalOpen}, Resolved: {totalResolved}, Closed: {totalClosed})</p>
+                <p>Total Temuan Terlampir: <strong>{totalFindings} Temuan</strong> (Open: {totalOpen}, Resolved: {totalResolved}, Closed: {totalClosed})</p>
                 <p>Tgl Report: <strong>{new Date(recalledReportCreatedAt || new Date()).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</strong></p>
                 <p>Tgl Respon: <strong className="text-red-600 dark:text-red-400">{addBusinessDays(new Date(recalledReportCreatedAt || new Date()), 14).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} (14 hari kerja)</strong></p>
               </div>
@@ -2234,7 +2234,7 @@ export default function ReportsPage() {
                   <BellRing size={13} /> Hasil Eksekusi Engine Reminder SLA H+7
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                  Pemeriksaan Eskalasi Tiket Terlambat (&gt; 7 Hari)
+                  Pemeriksaan Eskalasi Temuan Terlambat (&gt; 7 Hari)
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Simulasi / Eksekusi Cron Vercel: <code className="text-violet-600 dark:text-violet-400 font-mono">/api/cron/patrol-reminder</code>
@@ -2251,7 +2251,7 @@ export default function ReportsPage() {
             {/* Quick Metrics */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Tiket Open &gt; 7 Hari</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Temuan Open &gt; 7 Hari</span>
                 <span className="text-2xl font-black text-red-600 dark:text-red-400 mt-1 block">
                   {cronResultModal.overdueTicketsCount}
                 </span>
@@ -2300,7 +2300,7 @@ export default function ReportsPage() {
                         <strong>Penerima Eskalasi:</strong> {item.recipients.join(", ") || "-"}
                       </p>
                       <p>
-                        <strong>Tiket Terlambat Respon:</strong> {item.ticketCount} temuan (
+                        <strong>Temuan Terlambat Respon:</strong> {item.ticketCount} temuan (
                         {item.tickets.map(t => `${t.ticketCode} [${t.daysOpen} hari]`).join(", ")})
                       </p>
                       <p className="text-[10px] text-slate-400 italic">
@@ -2344,7 +2344,7 @@ export default function ReportsPage() {
                   Riwayat Laporan Terbit & Pemanggilan Ulang
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Seluruh laporan yang pernah dikirim/disimpan tersimpan di database Neon. Klik <strong>Panggil Laporan</strong> untuk memuat kembali form & gambar temuan secara utuh sewaktu-waktu.
+                  Seluruh laporan yang pernah dikirim/disimpan tersimpan di database Online. Klik <strong>Panggil Laporan</strong> untuk memuat kembali form & gambar temuan secara utuh sewaktu-waktu.
                 </p>
               </div>
               <button
@@ -2387,7 +2387,7 @@ export default function ReportsPage() {
             <div className="overflow-y-auto flex-1 border border-slate-200 dark:border-slate-800 rounded-2xl">
               {loadingArchive ? (
                 <div className="py-20 text-center text-slate-500 font-bold text-xs">
-                  Memuat arsip laporan dari database Neon...
+                  Memuat arsip laporan dari database Online...
                 </div>
               ) : savedReports.length === 0 ? (
                 <div className="py-20 px-6 text-center space-y-3">
@@ -2443,12 +2443,12 @@ export default function ReportsPage() {
                           <td className="p-3 whitespace-nowrap">
                             <span
                               className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${rep.inspectionType === "FINAL"
-                                  ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
-                                  : rep.inspectionType === "MIDDLE"
-                                    ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
-                                    : rep.inspectionType === "JOINT"
-                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
-                                      : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
+                                : rep.inspectionType === "MIDDLE"
+                                  ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
+                                  : rep.inspectionType === "JOINT"
+                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                    : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
                                 }`}
                             >
                               {rep.inspectionType === "JOINT"

@@ -135,7 +135,7 @@ def build_manual_docx():
     p_sub = doc.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(16)
-    r_sub = p_sub.add_run("SITETRACKER CMD — Sistem Digitalisasi Patroli & Validasi Mutu Fisik Konstruksi")
+    r_sub = p_sub.add_run("ProjectTracker CMD — Sistem Digitalisasi Patroli & Validasi Mutu Fisik Konstruksi")
     r_sub.font.name = "Calibri"
     r_sub.font.size = Pt(13)
     r_sub.font.color.rgb = RGBColor(79, 70, 229)
@@ -156,7 +156,7 @@ def build_manual_docx():
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
     
     # SECTION 1
-    add_heading_1(doc, "1. Pengenalan Aplikasi SiteTracker CMD")
+    add_heading_1(doc, "1. Pengenalan Aplikasi ProjectTracker CMD")
     add_body_p(doc, "SiteTracker CMD adalah sistem manajemen digital terintegrasi untuk pengawasan kepatuhan K3 (ISO 45001) dan pelacakan temuan mutu fisik konstruksi (ISO 9001). Aplikasi ini menghubungkan pihak Pemeriksa Lapangan (CMD/Safety), Pelaksana Lapangan (PIC Subkon), dan Manajemen Proyek (Site Manager / Project Manager) dalam satu alur kerja real-time.")
     
     add_body_p(doc, "Tersedia pembagian hak akses (Role-Based Access) yang jelas:")

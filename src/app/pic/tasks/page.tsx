@@ -206,7 +206,7 @@ export default function PicTasksPage() {
             Belum Ada Tugas Ditugaskan
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Akun Anda masih berstatus <strong>PENDING</strong>. Daftar tugas temuan lapangan akan otomatis muncul di sini setelah Administrator menetapkan Anda sebagai PIC proyek tertentu.
+            Akun Anda masih berstatus <strong>PENDING</strong>. Daftar tugas temuan lapangan akan otomatis muncul di sini setelah Administrator menetapkan Anda sebagai Site Manager proyek tertentu.
           </p>
           <div className="pt-2">
             <Link
@@ -225,7 +225,7 @@ export default function PicTasksPage() {
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Temuan Belum Ditangani</span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 border border-red-300 dark:border-red-800">
-                {tasks.length} Tiket OPEN
+                {tasks.length} Temuan OPEN
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -332,7 +332,7 @@ export default function PicTasksPage() {
 
                 {currentUser.role === "PENDING" ? (
                   <div className="w-full p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl text-center text-xs text-rose-800 dark:text-rose-300 font-bold">
-                    Akun PENDING: Menunggu persetujuan Admin untuk merespon tiket
+                    Akun PENDING: Menunggu persetujuan Admin untuk merespon temuan
                   </div>
                 ) : (
                   <button
@@ -486,7 +486,7 @@ export default function PicTasksPage() {
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] text-base font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 size={18} />
-                  <span>{submitting ? "Menyimpan..." : "Kirim Respon & Selesaikan Tiket (CLOSED)"}</span>
+                  <span>{submitting ? "Menyimpan..." : "Kirim Respon & Selesaikan Temuan (CLOSED)"}</span>
                 </button>
               </div>
             </form>

@@ -44,7 +44,7 @@ export default function ProjectsPage() {
           Daftar Proyek & Penanggung Jawab
         </h1>
         <p className="text-sm text-slate-500">
-          Ringkasan seluruh lokasi proyek aktif beserta tim inspector CMD, PIC Subkontraktor, dan PM.
+          Ringkasan seluruh lokasi proyek aktif beserta tim inspector CMD, Site Manager, dan PM.
         </p>
       </div>
 
@@ -111,7 +111,7 @@ export default function ProjectsPage() {
                     <div className="space-y-1.5">
                       {projectUsers.length === 0 ? (
                         <p className="text-xs text-slate-400 italic">
-                          Belum ada PIC terdaftar spesifik untuk lokasi ini.
+                          Belum ada Site Manager terdaftar spesifik untuk lokasi ini.
                         </p>
                       ) : (
                         projectUsers.map((u) => {

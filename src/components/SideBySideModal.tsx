@@ -23,6 +23,7 @@ interface SideBySideModalProps {
   onClose: () => void;
   onApprove: (findingId: string) => Promise<void>;
   onReject: (findingId: string, note: string) => Promise<void>;
+  canValidate?: boolean;
   isPmOrBod?: boolean;
 }
 
@@ -32,8 +33,10 @@ export function SideBySideModal({
   onClose,
   onApprove,
   onReject,
+  canValidate,
   isPmOrBod = true,
 }: SideBySideModalProps) {
+  const allowValidation = canValidate !== undefined ? canValidate : isPmOrBod;
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectionNote, setRejectionNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -118,17 +121,17 @@ export function SideBySideModal({
                 <strong className="text-slate-800 dark:text-slate-200">{finding.reporter?.name || "CMD Patrol"}</strong>
               </span>
               <span className="flex items-center gap-1">
-                <UserCheck size={14} className="text-purple-500" /> PIC Penanganan:{" "}
-                <strong className="text-slate-800 dark:text-slate-200">{finding.pic?.name || "PIC Lapangan"}</strong>
+                <UserCheck size={14} className="text-purple-500" /> Site Manager:{" "}
+                <strong className="text-slate-800 dark:text-slate-200">{finding.pic?.name || "Site Manager Lapangan"}</strong>
               </span>
             </div>
           </div>
 
-          {/* Catatan Penanganan PIC jika ada */}
+          {/* Catatan Penanganan Site Manager jika ada */}
           {finding.picResponse && (
             <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800 rounded-2xl space-y-1">
               <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                <Sparkles size={16} /> Respon / Bukti Tindak Lanjut PIC
+                <Sparkles size={16} /> Respon / Bukti Tindak Lanjut Site Manager
               </span>
               <p className="text-sm font-semibold text-slate-900 dark:text-amber-100">
                 "{finding.picResponse}"
@@ -145,7 +148,7 @@ export function SideBySideModal({
           {finding.rejectionNote && (
             <div className="p-4 bg-red-50 dark:bg-red-950/40 border-2 border-red-200 dark:border-red-800 rounded-2xl space-y-1">
               <span className="text-xs font-extrabold uppercase tracking-wider text-red-800 dark:text-red-300 flex items-center gap-1.5">
-                <AlertCircle size={16} /> Catatan Perbaikan Ulang (PM)
+                <AlertCircle size={16} /> Catatan Validasi Ditolak / Perbaikan Ulang
               </span>
               <p className="text-sm font-semibold text-red-900 dark:text-red-200">
                 "{finding.rejectionNote}"
@@ -249,8 +252,8 @@ export function SideBySideModal({
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left">
                 {finding.status === "RESOLVED"
-                  ? "Status tiket saat ini RESOLVED. PM dapat menyetujui atau menolak perbaikan."
-                  : `Status tiket: ${finding.status}`}
+                  ? "Status temuan saat ini RESOLVED. Inspector atau Pelapor dapat menyetujui atau menolak perbaikan."
+                  : `Status temuan: ${finding.status}`}
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
@@ -262,7 +265,7 @@ export function SideBySideModal({
                   Tutup
                 </button>
 
-                {isPmOrBod && finding.status === "RESOLVED" && (
+                {allowValidation && finding.status === "RESOLVED" && (
                   <>
                     <button
                       type="button"
