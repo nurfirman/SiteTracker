@@ -100,7 +100,7 @@ async function getAzureOAuthToken(): Promise<string> {
 function generateReportEmailHtml(options: SendAzureMailOptions): string {
   const reportTitle =
     options.reportType === "INTERNAL_PATROL"
-      ? "Form Lembar Hasil Patroli Lapangan (Internal Patrol)"
+      ? "Form Lembar Hasil Patrol Lapangan (Internal Patrol)"
       : "Laporan Rekapitulasi Eksekutif & Statistik Temuan";
 
   const inspectionDateFormatted = options.reportDate
@@ -180,7 +180,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 Yth. Bapak/Ibu Tim Proyek & Manajemen,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Berikut terlampir rangkuman resmi laporan hasil patroli pengawasan lapangan untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
+                Berikut terlampir rangkuman resmi laporan hasil Patrol pengawasan lapangan untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
               </p>
 
               <!-- Optional Note -->
@@ -262,7 +262,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                   <td style="padding: 6px 10px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
                 </tr>` : ""}
                 <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Petugas Patroli CMD:</td>
+                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Petugas Patrol CMD:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Lapangan"}</td>
                 </tr>
                 <tr>
@@ -511,7 +511,7 @@ export function generateEscalationReminderEmailHtml(
                 🚨 Peringatan Keterlambatan  (H+7)
               </span>
               <h1 style="margin: 0; font-size: 22px; font-weight: 900; line-height: 1.3; color: #ffffff;">
-                Eskalasi Temuan Patroli Belum Direspon
+                Eskalasi Temuan Patrol Belum Direspon
               </h1>
               <p style="margin: 8px 0 0 0; font-size: 13px; color: #fecaca; line-height: 1.5;">
                 Proyek: <strong>${options.projectName}</strong> ${options.division ? `(${options.division})` : ""}
@@ -527,7 +527,7 @@ export function generateEscalationReminderEmailHtml(
               <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
                   <strong>Pemberitahuan kepada Site Manager Proyek & General Manager (GM):</strong><br>
-                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan patroli</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di lapangan.
+                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan Patrol</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di lapangan.
                 </p>
               </div>
 
@@ -641,7 +641,7 @@ export async function sendEscalationReminderViaAzureGraph(
     },
   }));
 
-  const subject = `[REMINDER H+7] Peringatan Temuan Patroli Belum Direspon (>7 Hari) - ${options.projectName}`;
+  const subject = `[REMINDER H+7] Peringatan Temuan Patrol Belum Direspon (>7 Hari) - ${options.projectName}`;
 
   const graphPayload = {
     message: {
@@ -785,7 +785,7 @@ export async function sendPasswordResetMail(
           <tr>
             <td style="background-color: #f8fafc; padding: 18px 28px; border-top: 1px solid #e2e8f0; text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-                ProjectTracker Taiyo Sinar © 2026 — Sistem Manajemen Patroli Konstruksi Terpadu
+                ProjectTracker Taiyo Sinar © 2026 — Sistem Manajemen Patrol Konstruksi Terpadu
               </p>
             </td>
           </tr>

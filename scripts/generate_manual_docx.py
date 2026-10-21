@@ -135,7 +135,7 @@ def build_manual_docx():
     p_sub = doc.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(16)
-    r_sub = p_sub.add_run("ProjectTracker CMD — Sistem Digitalisasi Patroli & Validasi Mutu Fisik Konstruksi")
+    r_sub = p_sub.add_run("ProjectTracker CMD — Sistem Digitalisasi Patrol & Validasi Mutu Fisik Konstruksi")
     r_sub.font.name = "Calibri"
     r_sub.font.size = Pt(13)
     r_sub.font.color.rgb = RGBColor(79, 70, 229)
@@ -160,9 +160,9 @@ def build_manual_docx():
     add_body_p(doc, "SiteTracker CMD adalah sistem manajemen digital terintegrasi untuk pengawasan kepatuhan K3 (ISO 45001) dan pelacakan temuan mutu fisik konstruksi (ISO 9001). Aplikasi ini menghubungkan pihak Pemeriksa Lapangan (CMD/Safety), Pelaksana Lapangan (PIC Subkon), dan Manajemen Proyek (Site Manager / Project Manager) dalam satu alur kerja real-time.")
     
     add_body_p(doc, "Tersedia pembagian hak akses (Role-Based Access) yang jelas:")
-    add_body_p(doc, "Melakukan inspeksi patroli, mencatat tiket temuan, memverifikasi perbaikan, dan menerbitkan laporan resmi berkala.", "• CMD (Central Management / Safety Inspector): ")
+    add_body_p(doc, "Melakukan inspeksi patrol, mencatat tiket temuan, memverifikasi perbaikan, dan menerbitkan laporan resmi berkala.", "• CMD (Central Management / Safety Inspector): ")
     add_body_p(doc, "Melihat daftar pekerjaan yang harus diperbaiki pada proyeknya, serta mengunggah bukti hasil perbaikan (Before vs After).", "• PIC (Person In Charge / Pelaksana): ")
-    add_body_p(doc, "Memantau SLA proyek, memvalidasi hasil perbaikan, dan menandatangani berita acara laporan patroli.", "• Site Manager (SM) & Project Manager (PM): ")
+    add_body_p(doc, "Memantau SLA proyek, memvalidasi hasil perbaikan, dan menandatangani berita acara laporan patrol.", "• Site Manager (SM) & Project Manager (PM): ")
     add_body_p(doc, "Memantau dashboard KPI makro dan analitik seluruh proyek.", "• Direksi (GM / BOD / Advisor): ")
     
     add_heading_2(doc, "Halaman Masuk (Login & Akses Cepat)")
@@ -181,14 +181,14 @@ def build_manual_docx():
     add_heading_1(doc, "3. Panduan Pelaporan Temuan (Reporting Finding)")
     add_body_p(doc, "Dalam mencatat ketidaksesuaian di lapangan, SiteTracker menyediakan 2 mode input:")
     
-    add_heading_2(doc, "A. Mode Input Cepat (⚡ Input Patroli Bulk) — Disarankan di Lapangan")
+    add_heading_2(doc, "A. Mode Input Cepat (⚡ Input Patrol Bulk) — Disarankan di Lapangan")
     add_body_p(doc, "Fitur ini dirancang khusus untuk mempercepat pencatatan inspektur saat berkeliling di lapangan. Cukup tentukan proyek dan tanggal patroli satu kali di header, kemudian tambahkan beberapa baris temuan sekaligus tanpa perlu berpindah-pindah form.")
-    add_body_p(doc, "Buka menu Daftar Temuan, lalu klik tombol '⚡ Input Patroli Bulk' di pojok kanan atas.", "Langkah 1: ")
+    add_body_p(doc, "Buka menu Daftar Temuan, lalu klik tombol '⚡ Input Patrol Bulk' di pojok kanan atas.", "Langkah 1: ")
     add_body_p(doc, "Tentukan Proyek Target, Tanggal Inspeksi, dan PIC Utama.", "Langkah 2: ")
     add_body_p(doc, "Unggah foto temuan, pilih kategori bahaya, isi detail lokasi/lantai, dan catat instruksi perbaikan.", "Langkah 3: ")
     add_body_p(doc, "Klik '+ Tambah Baris Temuan' untuk item berikutnya.", "Langkah 4: ")
     add_body_p(doc, "Klik tombol 'Simpan & Terbitkan Semua Temuan'. Seluruh tiket akan dibuat serentak dengan nomor unik.", "Langkah 5: ")
-    add_screenshot_box(doc, "docs/screenshots/05_input_bulk_finding.png", "Antarmuka Input Cepat Patroli Bulk Multi-Temuan")
+    add_screenshot_box(doc, "docs/screenshots/05_input_bulk_finding.png", "Antarmuka Input Cepat Patrol Bulk Multi-Temuan")
     add_callout(doc, "Fitur Anotasi Foto: Anda dapat mengklik tombol coret/anotasi pada foto untuk melingkari bagian bahaya dengan garis merah atau memberi tanda panah agar titik masalah sangat jelas bagi PIC!", "TIPS EFISIENSI PATROLI")
 
     add_heading_2(doc, "B. Mode Input Temuan Tunggal (Single Finding)")

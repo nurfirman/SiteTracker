@@ -24,7 +24,7 @@ export default function LandingPage() {
       {/* Top Banner Accent */}
       <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-4 py-2 text-center text-xs font-black text-white flex items-center justify-center gap-2">
         <Sparkles size={16} />
-        <span>PROJECTTRACKER 2026 — Platform Digitalisasi Patroli K3 & Cacat Mutu Konstruksi Fisik</span>
+        <span>PROJECTTRACKER 2026 — Platform Digitalisasi Patrol K3 & Cacat Mutu Konstruksi Fisik</span>
         <span className="hidden sm:inline-block px-2 py-0.5 bg-slate-950 text-violet-300 rounded-full text-[10px]">ISO 45001 & ISO 9001 Compliant</span>
       </div>
 
@@ -39,7 +39,7 @@ export default function LandingPage() {
 
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight max-w-5xl mx-auto leading-none">
-            Patroli Lapangan Lebih Cepat. <br />
+            Patrol Lapangan Lebih Cepat. <br />
             <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-indigo-400 bg-clip-text text-transparent">
               Temuan K3 & Cacat Mutu Tuntas.
             </span>
@@ -47,7 +47,7 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <p className="mt-6 text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto font-normal leading-relaxed">
-            Aplikasi manajemen patroli konstruksi yang mengintegrasikan pencatatan foto bukti oleh **Inspector CMD**, tindakan perbaikan oleh **PIC Subkontraktor**, dan verifikasi visual **Side-by-Side oleh Project Manager**.
+            Aplikasi manajemen Patrol konstruksi yang mengintegrasikan pencatatan foto bukti oleh **Inspector CMD**, tindakan perbaikan oleh **PIC Subkontraktor**, dan verifikasi visual **Side-by-Side oleh Project Manager**.
           </p>
 
           {/* Action CTAs */}
@@ -141,7 +141,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Kebersihan 5R</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Puing sisa bekisting, tumpukan sampah material di saluran drainase, & kerapian area kerja patroli.
+                Puing sisa bekisting, tumpukan sampah material di saluran drainase, & kerapian area kerja Patrol.
               </p>
               <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-lg">
                 <Clock size={12} /> SLA Standar: 48 Jam
@@ -185,7 +185,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Pencatatan Lapangan (CMD)</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Inspector CMD melakukan patroli, mengambil foto bukti temuan, koordinat GPS, dan menugaskan Site Manager area.
+                Inspector CMD melakukan Patrol, mengambil foto bukti temuan, koordinat GPS, dan menugaskan Site Manager area.
               </p>
               <div className="mt-4 text-xs font-bold text-red-400 bg-red-950/40 p-3 rounded-xl border border-red-900/50">
                 Status Temuan: <span className="underline font-black">OPEN 🔴</span>
@@ -295,7 +295,7 @@ export default function LandingPage() {
             Siap Tingkatkan Kepatuhan K3 & Mutu Proyek Anda?
           </h2>
           <p className="mt-4 text-base sm:text-lg font-semibold text-purple-100 max-w-2xl mx-auto">
-            Gunakan ProjectTracker hari ini untuk pemantauan patroli fisik yang transparan, akuntabel, dan real-time.
+            Gunakan ProjectTracker hari ini untuk pemantauan Patrol fisik yang transparan, akuntabel, dan real-time.
           </p>
           <div className="mt-8 flex justify-center gap-4 flex-wrap">
             <Link

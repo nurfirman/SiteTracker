@@ -1,10 +1,10 @@
 export type Role = "CMD" | "PIC" | "SM" | "PM" | "DH" | "DM" | "SC" | "GM" | "BOD" | "ADMIN" | "PENDING" | "Advisor" | (string & {});
 
-export type Category = 
-  | "K3_SAFETY" 
-  | "QUALITY" 
-  | "KEBERSIHAN_5R" 
-  | "SCHEDULE" 
+export type Category =
+  | "K3_SAFETY"
+  | "QUALITY"
+  | "KEBERSIHAN_5R"
+  | "SCHEDULE"
   | "MATERIAL"
   | (string & {});
 
@@ -78,7 +78,7 @@ export interface BulkFindingItemInput {
   picId?: string;
 }
 
-export interface CreateBulkPatrolInput {
+export interface CreateBulkPatrolnput {
   projectId: string;
   inspectionDate: string;
   inspectionType: InspectionType;
@@ -125,7 +125,7 @@ export const CATEGORY_LABELS: Record<string, { label: string; icon: string; desc
   KEBERSIHAN_5R: {
     label: "Kebersihan 5R",
     icon: "Sparkles",
-    description: "Sampah material, lokasi kumuh, sisa bahan, kerapian area patroli.",
+    description: "Sampah material, lokasi kumuh, sisa bahan, kerapian area Patrol.",
   },
   SCHEDULE: {
     label: "Jadwal & Progres",
@@ -143,7 +143,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   CMD: {
     label: "Tim CMD / Patrol Inspector",
     badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800",
-    description: "Akses Semua Kasus: Patroli lapangan, catat temuan baru, dan audit kepatuhan.",
+    description: "Akses Semua Kasus: Patrol lapangan, catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
     label: "Site Manager (SM) / Penanggung Jawab",
@@ -173,7 +173,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   SC: {
     label: "SC (Section Manager)",
     badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
-    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan patroli per seksi.",
+    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan Patrol per seksi.",
   },
   GM: {
     label: "GM (General Manager)",

@@ -256,7 +256,7 @@ export default function BulkPatrolPage() {
   };
 
   const handleResetDraft = () => {
-    if (confirm("Apakah Anda yakin ingin mereset seluruh formulir draft laporan patroli ini?")) {
+    if (confirm("Apakah Anda yakin ingin mereset seluruh formulir draft laporan Patrol ini?")) {
       localStorage.removeItem(STORAGE_KEY);
       setItems([
         {
@@ -278,12 +278,12 @@ export default function BulkPatrolPage() {
     setErrorMsg(null);
 
     if (!selectedProjectId) {
-      setErrorMsg("Mohon pilih proyek lokasi patroli.");
+      setErrorMsg("Mohon pilih proyek lokasi Patrol.");
       return;
     }
 
     if (items.length === 0) {
-      setErrorMsg("Minimal harus ada 1 temuan dalam laporan patroli.");
+      setErrorMsg("Minimal harus ada 1 temuan dalam laporan Patrol.");
       return;
     }
 
@@ -312,7 +312,7 @@ export default function BulkPatrolPage() {
         items: items.map((it) => ({
           category: it.category === "CUSTOM" && it.customCategory ? (it.customCategory as any) : it.category,
           locationDetail: it.locationDetail.trim() || "-",
-          description: it.description.trim() || "Hanya Foto Patroli Lapangan",
+          description: it.description.trim() || "Hanya Foto Patrol Lapangan",
           photoFindingUrls: it.photoFindingUrls,
           picId: it.picId || defaultPicId || undefined,
         })),
@@ -326,7 +326,7 @@ export default function BulkPatrolPage() {
           findingsCount: res.findingsCount || items.length,
         });
       } else {
-        setErrorMsg(res.message || "Gagal menyimpan laporan patroli.");
+        setErrorMsg(res.message || "Gagal menyimpan laporan Patrol.");
       }
     } catch (err: any) {
       console.error("Submit bulk error:", err);
@@ -361,7 +361,7 @@ export default function BulkPatrolPage() {
                 )}
               </div>
               <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-1">
-                Input Laporan Patroli Cepat (Bulk)
+                Input Laporan Patrol Cepat (Bulk)
               </h1>
             </div>
           </div>
@@ -388,7 +388,7 @@ export default function BulkPatrolPage() {
           <ClipboardList className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
             <strong className="font-bold">Mode Pengisian Gabungan / Kembali ke Kantor:</strong> Gunakan
-            formulir ini untuk menginput seluruh hasil temuan patroli lapangan sekaligus setelah kembali ke direksi kit.
+            formulir ini untuk menginput seluruh hasil temuan Patrol lapangan sekaligus setelah kembali ke direksi kit.
             Data header dan item temuan otomatis dihubungkan ke dalam satu nomor laporan resmi. Formulir ini dilengkapi{" "}
             <strong>Auto-Save Draft di Browser</strong> sehingga data Anda aman dari kendala jaringan.
           </div>
@@ -412,7 +412,7 @@ export default function BulkPatrolPage() {
               <div className="flex items-center gap-2.5">
                 <FileText className="w-5 h-5 text-violet-400" />
                 <h2 className="font-extrabold text-base tracking-tight">
-                  1. Header Laporan Patroli (Master)
+                  1. Header Laporan Patrol (Master)
                 </h2>
               </div>
               {reportNumberPreview && (
@@ -427,7 +427,7 @@ export default function BulkPatrolPage() {
               {/* Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Proyek Lokasi Patroli <span className="text-red-500">*</span>
+                  Proyek Lokasi Patrol <span className="text-red-500">*</span>
                 </label>
                 <ProjectCombobox
                   projects={projects}
@@ -454,17 +454,17 @@ export default function BulkPatrolPage() {
                 </div>
               </div>
 
-              {/* Tipe Patroli */}
+              {/* Tipe Patrol */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Tipe Patroli / Inspeksi
+                  Tipe Patrol / Inspeksi
                 </label>
                 <select
                   value={inspectionType}
                   onChange={(e) => setInspectionType(e.target.value as InspectionType)}
                   className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 >
-                  <option value="ROUTINE">Patroli Rutin (Harian / Mingguan)</option>
+                  <option value="ROUTINE">Patrol Rutin (Harian / Mingguan)</option>
                   <option value="MIDDLE">Middle Inspection (Progress 50%)</option>
                   <option value="FINAL">Final Inspection (Handover)</option>
                   <option value="JOINT">Patrol Gabungan (Bersama Owner / MK)</option>
@@ -533,7 +533,7 @@ export default function BulkPatrolPage() {
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                 <h2 className="font-black text-lg tracking-tight text-slate-900 dark:text-white">
-                  2. Daftar Temuan Patroli ({items.length} Item)
+                  2. Daftar Temuan Patrol ({items.length} Item)
                 </h2>
               </div>
 
@@ -704,7 +704,7 @@ export default function BulkPatrolPage() {
               </div>
               <div>
                 <span className="block text-xs font-bold text-slate-900 dark:text-white">
-                  Siap Simpan {items.length} Temuan Patroli
+                  Siap Simpan {items.length} Temuan Patrol
                 </span>
                 <span className="block text-[11px] text-slate-500 dark:text-slate-400">
                   Nomor dokumen laporan CMD akan dibuat otomatis berurutan
@@ -751,7 +751,7 @@ export default function BulkPatrolPage() {
 
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                  Laporan Patroli Berhasil Disimpan!
+                  Laporan Patrol Berhasil Disimpan!
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Sebanyak <strong>{successResult.findingsCount} temuan</strong> berhasil dicatat dan

@@ -193,6 +193,7 @@ export async function signInWithNeonAuth(
         password: payload.password,
         callbackURL: `${origin}/login`,
       }),
+      signal: AbortSignal.timeout(3000),
     });
 
     const data = await response.json().catch(() => ({}));

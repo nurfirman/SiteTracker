@@ -48,18 +48,18 @@ export function Header() {
     if (pathname === "/") {
       return {
         title: "Dashboard Utama",
-        subtitle: "Ringkasan Aktivitas & KPI K3/Mutu Proyek Lapangan",
+        subtitle: "Temuan Patrol Safety dan Quality Complinece di Site",
       };
     }
     if (pathname.startsWith("/findings/new")) {
       return {
         title: "Catat Temuan Baru",
-        subtitle: "Perekaman Foto & Lokasi Patroli Lapangan (ISO 45001)",
+        subtitle: "Perekaman Foto & Lokasi Patrol Lapangan (ISO 45001)",
       };
     }
     if (pathname.startsWith("/findings")) {
       return {
-        title: "Daftar Temuan Patroli",
+        title: "Daftar Temuan Patrol",
         subtitle: "Monitoring Status Temuan & Riwayat Kualitas Konstruksi",
       };
     }
@@ -89,7 +89,7 @@ export function Header() {
     }
     return {
       title: "ProjectTracker",
-      subtitle: "Sistem Patroli K3 & Manajemen Mutu Terintegrasi",
+      subtitle: "Sistem Patrol Safety dan Quality",
     };
   };
 
@@ -186,9 +186,8 @@ export function Header() {
 
               <ChevronDown
                 size={14}
-                className={`text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white transition-transform duration-200 hidden sm:block ${
-                  dropdownOpen ? "rotate-180" : ""
-                }`}
+                className={`text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white transition-transform duration-200 hidden sm:block ${dropdownOpen ? "rotate-180" : ""
+                  }`}
               />
             </button>
 

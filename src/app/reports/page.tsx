@@ -242,7 +242,7 @@ export default function ReportsPage() {
   const activePicObj = users.find((u) => u.id === selectedPic);
 
   // 1. Nama Pelapor (User yang membuat laporan / login saat ini)
-  const defaultReporterName = currentUser?.name || "Petugas Patroli";
+  const defaultReporterName = currentUser?.name || "Petugas Patrol";
   const resolvedReporterName = customInspector || defaultReporterName;
   const resolvedInspectorName = resolvedReporterName;
 
@@ -486,7 +486,7 @@ export default function ReportsPage() {
     const projName = activeProjectObj
       ? `${activeProjectObj.name}${activeProjectObj.division ? ` (${activeProjectObj.division})` : ""}`
       : "Seluruh Proyek";
-    setEmailSubject(`[${resolvedReportNumber}] Laporan Patroli K3 & Mutu - ${projName} (${reportDate})`);
+    setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol K3 & Mutu - ${projName} (${reportDate})`);
 
     // Otomatis pre-select PIC, PM, GM sesuai divisi & proyek
     const initialRecipients: string[] = [];
@@ -780,7 +780,7 @@ export default function ReportsPage() {
                     <FileText size={16} /> Modul Generate Laporan & Distribusi
                   </div>
                   <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                    Cetak Form Patroli Lapangan & Pengiriman Email
+                    Cetak Form Patrol Lapangan & Pengiriman Email
                   </h1>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Pilih filter <strong>Proyek</strong> dan <strong>Site Manager</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
@@ -792,17 +792,17 @@ export default function ReportsPage() {
                   <Link
                     href="/findings/bulk"
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-700 hover:bg-violet-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
-                    title="Input seluruh temuan hasil patroli lapangan sekaligus dalam format Master-Detail"
+                    title="Input seluruh temuan hasil Patrol lapangan sekaligus dalam format Master-Detail"
                   >
                     <Layers size={16} />
-                    <span>+ Input Patroli Baru (Bulk)</span>
+                    <span>+ Input Patrol Baru (Bulk)</span>
                   </Link>
 
                   <button
                     type="button"
                     onClick={handleOpenArchiveModal}
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
-                    title="Lihat daftar arsip laporan patroli yang pernah disimpan di database & panggil kembali sewaktu-waktu"
+                    title="Lihat daftar arsip laporan Patrol yang pernah disimpan di database & panggil kembali sewaktu-waktu"
                   >
                     <FolderClock size={16} />
                     <span>Arsip Laporan CMD</span>
@@ -1020,7 +1020,7 @@ export default function ReportsPage() {
                     {periodMode === "PERIODICAL" && (
                       <>
                         <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                          <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Rentang Patroli
+                          <Calendar size={13} className="text-violet-600 dark:text-violet-400" /> Rentang Patrol
                         </label>
                         <div className="flex items-center gap-1.5">
                           <input
@@ -1267,7 +1267,7 @@ export default function ReportsPage() {
                 <div className="mt-4">
                   {loading ? (
                     <div className="py-16 text-center text-slate-500 font-bold">
-                      Memuat data temuan patroli...
+                      Memuat data temuan Patrol...
                     </div>
                   ) : findings.length === 0 ? (
                     <div className="py-12 text-center border-2 border-black font-bold text-slate-500">
@@ -1304,7 +1304,7 @@ export default function ReportsPage() {
                                 {findingPhotos.length === 0 ? (
                                   <div className="w-full bg-slate-100 border border-slate-300 rounded overflow-hidden flex items-center justify-center min-h-[160px] max-h-[220px]">
                                     <div className="text-slate-400 text-xs italic">
-                                      Foto patroli tidak tersedia
+                                      Foto Patrol tidak tersedia
                                     </div>
                                   </div>
                                 ) : findingPhotos.length === 1 ? (
@@ -1349,7 +1349,7 @@ export default function ReportsPage() {
                                     Comment :
                                   </p>
                                   <p className="text-slate-800 print:text-black mt-0.5">
-                                    {item.description || "Hanya Foto Patroli Lapangan"}
+                                    {item.description || "Hanya Foto Patrol Lapangan"}
                                   </p>
                                   <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
                                     <p>
@@ -1477,10 +1477,10 @@ export default function ReportsPage() {
                         Diverifikasi & Divalidasi Sistem Terpusat ProjectTracker
                       </h4>
                       <p className="text-[11px] text-slate-600 print:text-slate-800 leading-snug max-w-md">
-                        Dokumen ini disahkan secara digital tanpa tanda tangan basah fisik. Scan QR code untuk memeriksa keaslian, status perbaikan terkini, dan log audit patroli.
+                        Dokumen ini disahkan secara digital tanpa tanda tangan basah fisik. Scan QR code untuk memeriksa keaslian, status perbaikan terkini, dan log audit Patrol.
                       </p>
                       <p className="text-[10px] font-mono font-bold text-slate-500 print:text-black pt-0.5">
-                        Ref Dokumen: {resolvedReportNumber} • ID Patroli: {selectedProject !== "ALL" ? selectedProject.slice(0, 8) : "GLOBAL"}
+                        Ref Dokumen: {resolvedReportNumber} • ID Patrol: {selectedProject !== "ALL" ? selectedProject.slice(0, 8) : "GLOBAL"}
                       </p>
                     </div>
                   </div>
@@ -1534,7 +1534,7 @@ export default function ReportsPage() {
                         PROJECTTRACKER
                       </h2>
                       <p className="text-xs font-bold text-slate-600 dark:text-slate-400 print:text-slate-700">
-                        LAPORAN HASIL PATROLI LAPANGAN & PENGAWASAN K3 / MUTU
+                        LAPORAN HASIL Patrol LAPANGAN & PENGAWASAN K3 / MUTU
                       </p>
                       <p className="text-[11px] text-slate-500 print:text-slate-600">
                         Standard Operating Procedure: ISO 45001 & ISO 9001
@@ -1686,7 +1686,7 @@ export default function ReportsPage() {
                 {/* Detailed Table */}
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-4">
-                    Daftar Detail Temuan Patroli Lapangan
+                    Daftar Detail Temuan Patrol Lapangan
                   </h3>
 
                   {loading ? (
@@ -1810,7 +1810,7 @@ export default function ReportsPage() {
                     </div>
                     {presentInspectors && (
                       <div>
-                        <span className="text-slate-500 print:text-slate-700">Inspektor Hadir Patroli: </span>
+                        <span className="text-slate-500 print:text-slate-700">Inspektor Hadir Patrol: </span>
                         <span className="font-extrabold text-slate-900 dark:text-white print:text-black">{presentInspectors}</span>
                       </div>
                     )}
@@ -1843,7 +1843,7 @@ export default function ReportsPage() {
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Mail size={20} className="text-violet-600 dark:text-violet-400" />
-                  <span>Kirim Email Laporan Patroli</span>
+                  <span>Kirim Email Laporan Patrol</span>
                 </h3>
                 <p className="text-xs text-slate-500">
                   Distribusi laporan resmi via Microsoft Azure Entra ID / Graph API.
@@ -1921,7 +1921,7 @@ export default function ReportsPage() {
                               </div>
                             </div>
                             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200 shrink-0">
-                              PIC Proyek
+                              SM Proyek
                             </span>
                           </div>
                         );
@@ -1929,7 +1929,7 @@ export default function ReportsPage() {
                     ) : (
                       <div className="p-2.5 rounded-2xl border border-dashed border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-[11px] text-red-600 dark:text-red-400 font-bold flex items-center gap-2">
                         <AlertTriangle size={14} className="shrink-0" />
-                        <span>Belum ada PIC ditugaskan pada proyek ini.</span>
+                        <span>Belum ada SM ditugaskan pada proyek ini.</span>
                       </div>
                     )}
 
@@ -2329,7 +2329,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Modal Arsip & Riwayat Laporan Patroli Lapangan (CMD) */}
+      {/* Modal Arsip & Riwayat Laporan Patrol Lapangan (CMD) */}
       {showArchiveModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 my-6 max-h-[90vh] flex flex-col">
@@ -2338,7 +2338,7 @@ export default function ReportsPage() {
               <div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black text-[11px] rounded-full uppercase mb-1.5">
                   <FolderClock size={13} />
-                  <span>Database Arsip Laporan Patroli CMD</span>
+                  <span>Database Arsip Laporan Patrol CMD</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                   Riwayat Laporan Terbit & Pemanggilan Ulang
@@ -2394,7 +2394,7 @@ export default function ReportsPage() {
                   <FolderOpen size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
                   <h4 className="font-black text-sm text-slate-800 dark:text-slate-200">Belum Ada Laporan Tersimpan</h4>
                   <p className="text-xs text-slate-500 max-w-md mx-auto">
-                    Laporan patroli akan otomatis tersimpan ke database ketika tombol <strong>Kirim Email Laporan</strong> dijalankan atau melalui tombol <strong>Simpan ke DB</strong>.
+                    Laporan Patrol akan otomatis tersimpan ke database ketika tombol <strong>Kirim Email Laporan</strong> dijalankan atau melalui tombol <strong>Simpan ke DB</strong>.
                   </p>
                 </div>
               ) : (

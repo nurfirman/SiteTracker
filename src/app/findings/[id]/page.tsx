@@ -117,7 +117,7 @@ export default function FindingDetailPage() {
 
     const finalCategory = editCategory === "CUSTOM" ? editCustomCategory.trim() : editCategory;
     if (editCategory === "CUSTOM" && !finalCategory) {
-      setEditError("Nama kategori patroli custom wajib diisi.");
+      setEditError("Nama kategori Patrol custom wajib diisi.");
       return;
     }
 
@@ -126,7 +126,7 @@ export default function FindingDetailPage() {
       const res = await updateFinding({
         findingId: finding.id,
         category: finalCategory as any,
-        description: editDescription.trim() || "Hanya Foto Patroli Lapangan",
+        description: editDescription.trim() || "Hanya Foto Patrol Lapangan",
         locationDetail: editLocationDetail.trim() || "-",
         coordinates: editCoordinates,
         photoFindingUrl: editPhotoFindingUrls.length > 0 ? formatPhotoUrls(editPhotoFindingUrls) : finding.photoFindingUrl,
@@ -297,7 +297,7 @@ export default function FindingDetailPage() {
           {/* People Involved */}
           <div className="flex flex-wrap gap-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
             <div className="space-y-0.5">
-              <span className="text-slate-400 block font-semibold">Pelapor Patroli (CMD):</span>
+              <span className="text-slate-400 block font-semibold">Pelapor Patrol (CMD):</span>
               <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 {finding.reporter?.name || "Budi Santoso (CMD)"}
               </span>
@@ -378,11 +378,10 @@ export default function FindingDetailPage() {
                           type="button"
                           key={idx}
                           onClick={() => setActiveFindingPhotoIdx(idx)}
-                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${
-                            idx === activeFindingPhotoIdx
-                              ? "border-red-500 scale-105 shadow-md ring-2 ring-red-400/50"
-                              : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
-                          }`}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${idx === activeFindingPhotoIdx
+                            ? "border-red-500 scale-105 shadow-md ring-2 ring-red-400/50"
+                            : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
+                            }`}
                         >
                           <img
                             src={pUrl}
@@ -436,7 +435,7 @@ export default function FindingDetailPage() {
                           Belum Ada Foto Perbaikan
                         </span>
                         <span className="text-xs text-slate-400">
-                          PIC belum mengunggah bukti hasil perbaikan
+                          SM belum mengunggah bukti hasil perbaikan
                         </span>
                       </div>
                     )}
@@ -450,11 +449,10 @@ export default function FindingDetailPage() {
                           type="button"
                           key={idx}
                           onClick={() => setActiveResolutionPhotoIdx(idx)}
-                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${
-                            idx === activeResolutionPhotoIdx
-                              ? "border-emerald-500 scale-105 shadow-md ring-2 ring-emerald-400/50"
-                              : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
-                          }`}
+                          className={`relative rounded-xl overflow-hidden border-2 aspect-4/3 transition-all ${idx === activeResolutionPhotoIdx
+                            ? "border-emerald-500 scale-105 shadow-md ring-2 ring-emerald-400/50"
+                            : "border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100"
+                            }`}
                         >
                           <img
                             src={pUrl}
@@ -514,11 +512,10 @@ export default function FindingDetailPage() {
                   <button
                     type="button"
                     onClick={() => setHasPhoto(true)}
-                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
-                      hasPhoto
-                        ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
+                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${hasPhoto
+                      ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
                   >
                     <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${hasPhoto ? "border-violet-600 bg-violet-600" : "border-slate-400"}`}>
                       {hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -529,11 +526,10 @@ export default function FindingDetailPage() {
                   <button
                     type="button"
                     onClick={() => setHasPhoto(false)}
-                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${
-                      !hasPhoto
-                        ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
+                    className={`py-2.5 px-3.5 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${!hasPhoto
+                      ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
                   >
                     <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${!hasPhoto ? "border-amber-600 bg-amber-600" : "border-slate-400"}`}>
                       {!hasPhoto && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -695,7 +691,7 @@ export default function FindingDetailPage() {
                   <Pencil size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black">Edit Data Temuan Patroli</h3>
+                  <h3 className="text-lg font-black">Edit Data Temuan Patrol</h3>
                   <p className="text-xs text-slate-300">Kode Temuan: {finding.ticketCode}</p>
                 </div>
               </div>
@@ -814,7 +810,7 @@ export default function FindingDetailPage() {
               <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex justify-between">
                   <span>Deskripsi Temuan Lapangan</span>
-                  <span className="text-[11px] font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patroli Lapangan&quot;)</span>
+                  <span className="text-[11px] font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patrol Lapangan&quot;)</span>
                 </label>
                 <textarea
                   value={editDescription}

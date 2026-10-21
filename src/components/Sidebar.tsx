@@ -58,7 +58,7 @@ export function Sidebar() {
             },
             {
               href: "/landing",
-              label: "Portal Informasi K3",
+              label: "Portal Informasi Safety",
               icon: Sparkles,
             },
           ],
@@ -72,7 +72,7 @@ export function Sidebar() {
     const operationalItems: NavItem[] = [
       {
         href: "/",
-        label: currentUser.role === "PIC" ? "Dashboard Proyek" : "Dashboard Patroli",
+        label: currentUser.role === "PIC" ? "Dashboard Proyek" : "Dashboard Patrol",
         icon: LayoutDashboard,
       },
     ];
@@ -88,7 +88,7 @@ export function Sidebar() {
       });
       operationalItems.push({
         href: "/findings/bulk",
-        label: "Input Patroli Bulk",
+        label: "Input Patrol Bulk",
         icon: Layers,
         badge: "Master-Detail",
       });
@@ -97,7 +97,7 @@ export function Sidebar() {
     // Findings List
     operationalItems.push({
       href: "/findings",
-      label: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Daftar Temuan Proyek" : "Semua Temuan Patroli",
+      label: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Daftar Temuan Proyek" : "Semua Temuan Patrol",
       icon: ClipboardList,
     });
 
@@ -109,8 +109,8 @@ export function Sidebar() {
           (currentUser.role === "PIC" || currentUser.role === "SM")
             ? "Tugas & Respon Site Manager"
             : currentUser.role === "GM"
-            ? "Supervisi Divisi (GM)"
-            : "Validasi Perbaikan (PM)",
+              ? "Supervisi Divisi (GM)"
+              : "Validasi Perbaikan (PM)",
         icon: CheckSquare,
         badge:
           (currentUser.role === "PIC" || currentUser.role === "SM")
@@ -122,7 +122,7 @@ export function Sidebar() {
     }
 
     groups.push({
-      group: "Operasional Patroli",
+      group: "Operasional Patrol",
       items: operationalItems,
     });
 
@@ -178,7 +178,7 @@ export function Sidebar() {
               Project<span className="text-violet-600 dark:text-violet-400">Tracker</span>
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block -mt-0.5">
-              Patroli Lapangan K3 & Mutu
+              Patrol Lapangan K3 & Mutu
             </span>
           </div>
         </Link>
@@ -251,8 +251,8 @@ export function Sidebar() {
                           isActive
                             ? "bg-violet-600 text-white shadow-sm shadow-violet-500/20 font-black"
                             : item.highlight
-                            ? "bg-violet-50 text-violet-900 border border-violet-300 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800/80 dark:hover:bg-violet-900/50"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-950 dark:hover:text-white"
+                              ? "bg-violet-50 text-violet-900 border border-violet-300 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800/80 dark:hover:bg-violet-900/50"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-950 dark:hover:text-white"
                         )}
                       >
                         <div className="flex items-center gap-2.5 truncate">
@@ -263,8 +263,8 @@ export function Sidebar() {
                               isActive
                                 ? "text-white"
                                 : item.highlight
-                                ? "text-violet-600 dark:text-violet-400"
-                                : "text-slate-400 dark:text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400"
+                                  ? "text-violet-600 dark:text-violet-400"
+                                  : "text-slate-400 dark:text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400"
                             )}
                           />
                           <span className="truncate">{item.label}</span>

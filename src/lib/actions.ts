@@ -1,6 +1,6 @@
 "use server";
 
-import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolInput, BulkFindingItemInput } from "../types";
+import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolnput, BulkFindingItemInput } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
 import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate, addBusinessDays, formatPhotoUrls, parsePhotoUrls } from "./utils";
@@ -289,8 +289,15 @@ export async function loginUser(identifier: string, password?: string): Promise<
     let isAuthenticated = false;
     let authErrorMsg = "";
 
-    // 1. Coba verifikasi dengan Neon Auth jika dikonfigurasi
-    if (isNeonAuthConfigured()) {
+    const standardPasswords = ["123", "admin", "123456"];
+    const expectedPassword = targetUser.password || "123";
+
+    if (
+      password === expectedPassword ||
+      standardPasswords.includes(password)
+    ) {
+      isAuthenticated = true;
+    } else if (isNeonAuthConfigured()) {
       try {
         const neonRes = await signInWithNeonAuth({
           email: targetUser.email,
@@ -302,21 +309,7 @@ export async function loginUser(identifier: string, password?: string): Promise<
           authErrorMsg = neonRes.message;
         }
       } catch (err: any) {
-        console.warn("Neon Auth verification encountered an error, falling back:", err);
-      }
-    }
-
-    // 2. Fallback verifikasi lokal/database:
-    // Jika password cocok dengan user.password, atau password default umum ("123", "admin", "123456")
-    if (!isAuthenticated) {
-      const expectedPassword = targetUser.password || "123";
-      if (
-        password === expectedPassword ||
-        password === "123" ||
-        password === "admin" ||
-        password === "123456"
-      ) {
-        isAuthenticated = true;
+        console.warn("Neon Auth verification encountered an error:", err);
       }
     }
 
@@ -1263,7 +1256,7 @@ export async function importProjectsAndPicsFromCsv(
                   });
                 }
               } catch (picErr) {
-                console.warn("PIC assignment for existing project error:", picErr);
+                console.warn("SM assignment for existing project error:", picErr);
               }
             } else {
               // Fallback in-memory
@@ -2210,14 +2203,14 @@ export async function createFinding(payload: {
       ? sanitizeText(payload.locationDetail)
       : "-";
 
-    // Poin 7: Jika Deskripsi kosong, isi dengan "Hanya Foto Patroli Lapangan"
+    // Poin 7: Jika Deskripsi kosong, isi dengan "Hanya Foto Patrol Lapangan"
     const cleanDescription = (payload.description && payload.description.trim().length > 0)
       ? sanitizeText(payload.description)
-      : "Hanya Foto Patroli Lapangan";
+      : "Hanya Foto Patrol Lapangan";
 
     // 2. Validate image payload size and format (Foto tetap wajib)
     if (!payload.photoFindingUrl) {
-      return { success: false, message: "Foto temuan patroli wajib dilampirkan/diambil." };
+      return { success: false, message: "Foto temuan Patrol wajib dilampirkan/diambil." };
     }
     const imgValidation = validateImagePayload(payload.photoFindingUrl);
     if (!imgValidation.isValid) {
@@ -2391,7 +2384,7 @@ export async function updateFinding(payload: {
       : targetFinding.locationDetail;
 
     const cleanDescription = payload.description !== undefined
-      ? (payload.description.trim() ? sanitizeText(payload.description) : "Hanya Foto Patroli Lapangan")
+      ? (payload.description.trim() ? sanitizeText(payload.description) : "Hanya Foto Patrol Lapangan")
       : targetFinding.description;
 
     let inspectionDateObj = targetFinding.inspectionDate
@@ -3120,7 +3113,7 @@ export interface SlaReminderEngineResult {
 }
 
 /**
- * Engine Reminder SLA Patroli (H+7):
+ * Engine Reminder SLA Patrol (H+7):
  * Memeriksa seluruh temuan yang berstatus OPEN lebih dari 7 hari,
  * kemudian mengirimkan email eskalasi otomatis kepada PIC Proyek dan General Manager (GM) divisi (CC PM).
  */
@@ -3275,7 +3268,7 @@ export async function runPatrolSlaReminderEngine(options?: {
         return {
           ticketCode: f.ticketCode,
           category: f.category,
-          description: f.description || "Hanya Foto Patroli Lapangan",
+          description: f.description || "Hanya Foto Patrol Lapangan",
           locationDetail: f.locationDetail || "-",
           daysOpen: days,
           createdAt: typeof f.createdAt === "string" ? f.createdAt : new Date(f.createdAt).toISOString(),
@@ -3582,7 +3575,7 @@ export async function savePatrolReport(payload: SavePatrolReportInput): Promise<
           action: "CREATE_PATROL_REPORT",
           entityType: "PATROL_REPORT",
           entityId: reportNumber,
-          details: `Menyimpan laporan patroli ${reportNumber} untuk proyek ${projectName} (${payload.findingsCount ?? 0} temuan)`,
+          details: `Menyimpan laporan Patrol ${reportNumber} untuk proyek ${projectName} (${payload.findingsCount ?? 0} temuan)`,
         });
 
         return {
@@ -3826,11 +3819,11 @@ export async function updateRolePermissions(
 }
 
 /**
- * Server action untuk input laporan patroli secara bulk / master-detail.
+ * Server action untuk input laporan Patrol secara bulk / master-detail.
  * Menyimpan record master PatrolReport dan banyak record Finding sekaligus dalam satu proses.
  */
 export async function createBulkPatrolFindings(
-  payload: CreateBulkPatrolInput
+  payload: CreateBulkPatrolnput
 ): Promise<{
   success: boolean;
   message?: string;
@@ -3845,16 +3838,16 @@ export async function createBulkPatrolFindings(
     if (!session || session.role === "PIC" || session.role === "PENDING") {
       return {
         success: false,
-        message: "Akses ditolak: PIC dan PENDING tidak diizinkan mencatat temuan patroli.",
+        message: "Akses ditolak: PIC dan PENDING tidak diizinkan mencatat temuan Patrol.",
       };
     }
 
     if (!payload.projectId) {
-      return { success: false, message: "Mohon pilih proyek lokasi patroli." };
+      return { success: false, message: "Mohon pilih proyek lokasi Patrol." };
     }
 
     if (!payload.items || payload.items.length === 0) {
-      return { success: false, message: "Mohon tambahkan minimal 1 item temuan dalam laporan patroli." };
+      return { success: false, message: "Mohon tambahkan minimal 1 item temuan dalam laporan Patrol." };
     }
 
     // Validasi setiap item
@@ -3933,7 +3926,7 @@ export async function createBulkPatrolFindings(
       const item = payload.items[i];
       const nextSeq = await getNextTicketSequence();
       const ticketCode = formatTicketCode(reporterEmpCode, divCode, nextSeq);
-      // SLA 14 hari kerja dihitung dari tanggal laporan / pembuatan (now), bukan dari tanggal inspeksi patroli
+      // SLA 14 hari kerja dihitung dari tanggal laporan / pembuatan (now), bukan dari tanggal inspeksi Patrol
       const dueDate = calculateDueDate(item.category, now);
 
       const cleanLocation =
@@ -3943,7 +3936,7 @@ export async function createBulkPatrolFindings(
       const cleanDesc =
         item.description && item.description.trim().length > 0
           ? sanitizeText(item.description)
-          : "Hanya Foto Patroli Lapangan";
+          : "Hanya Foto Patrol Lapangan";
 
       const formattedPhotoUrl = formatPhotoUrls(item.photoFindingUrls);
       const targetPicId = item.picId || fallbackPicId;
@@ -4051,7 +4044,7 @@ export async function createBulkPatrolFindings(
       action: "CREATE_BULK_PATROL_FINDINGS",
       entityType: "PATROL_REPORT",
       entityId: reportNumber,
-      details: `Input Patroli Bulk: ${createdFindings.length} temuan dicatat untuk laporan ${reportNumber} di proyek ${targetProject?.name || payload.projectId}`,
+      details: `Input Patrol Bulk: ${createdFindings.length} temuan dicatat untuk laporan ${reportNumber} di proyek ${targetProject?.name || payload.projectId}`,
     });
 
     safeRevalidate("/");
@@ -4070,7 +4063,7 @@ export async function createBulkPatrolFindings(
     console.error("Gagal createBulkPatrolFindings:", err);
     return {
       success: false,
-      message: "Gagal menyimpan input patroli bulk: " + (err.message || "Unknown error"),
+      message: "Gagal menyimpan input Patrol bulk: " + (err.message || "Unknown error"),
     };
   }
 }

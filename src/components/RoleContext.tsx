@@ -32,6 +32,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           const found = (uList || []).find((u: User) => u.id === session.userId) || MOCK_USERS.find((u) => u.id === session.userId);
           if (found) {
             setCurrentUser(found);
+            localStorage.setItem("sitetracker_active_user_id", found.id);
             return;
           }
         }
@@ -40,13 +41,6 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           const found = (uList || []).find((u: User) => u.id === savedUserId) || MOCK_USERS.find((u) => u.id === savedUserId);
           if (found) {
             setCurrentUser(found);
-            loginUser(found.id);
-          }
-        } else {
-          // Initialize default session
-          if (uList.length > 0) {
-            setCurrentUser(uList[0]);
-            loginUser(uList[0].id);
           }
         }
       } catch (err) {

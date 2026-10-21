@@ -7,7 +7,7 @@ async function main() {
   });
   console.log("Total users:", users.length);
   const picUsers = users.filter(u => u.role === "PIC");
-  console.log("PIC users:", picUsers.length);
+  console.log("SM users:", picUsers.length);
   picUsers.forEach(p => {
     console.log(`- ${p.name} (${p.email}) -> primary: ${p.projectId}, all: ${JSON.stringify(p.projectIds)}`);
   });

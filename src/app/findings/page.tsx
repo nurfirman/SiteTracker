@@ -83,7 +83,7 @@ export default function AllFindingsPage() {
             <ClipboardList size={14} /> Daftar Arsip Temuan
           </span>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-            Semua Temuan Patroli Lapangan
+            Semua Temuan Patrol Lapangan
           </h1>
           <p className="text-sm text-slate-500">
             Daftar lengkap seluruh temuan K3, Kualitas, 5R, Jadwal, dan Material.
@@ -97,7 +97,7 @@ export default function AllFindingsPage() {
               className="inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] text-sm font-extrabold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800/80 hover:bg-violet-100 dark:hover:bg-violet-900/60 rounded-2xl shadow-xs active:scale-95 transition-all"
             >
               <Layers size={18} />
-              <span>⚡ Input Patroli Bulk</span>
+              <span>⚡ Input Patrol Bulk</span>
             </Link>
             <Link
               href="/findings/new"

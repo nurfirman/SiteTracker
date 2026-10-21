@@ -570,7 +570,7 @@ export default function AdminSettingsPage() {
   // Editable RBAC Handlers (Poin 11 & 16)
   const togglePermission = (role: string, permKey: string) => {
     if (["PIC", "SM"].includes(role) && permKey === "canCreateFinding") {
-      showToast("Role Site Manager secara baku tidak diizinkan membuat temuan patroli.", "error");
+      showToast("Role Site Manager secara baku tidak diizinkan membuat temuan Patrol.", "error");
       return;
     }
     setRolePermissions((prev) => ({
@@ -795,7 +795,7 @@ export default function AdminSettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1: KELOLA PROYEK & PIC */}
+      {/* TAB 1: KELOLA PROYEK & */}
       {activeTab === "projects_pics" && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -804,7 +804,7 @@ export default function AdminSettingsPage() {
                 Master Proyek Konstruksi & Alokasi Site Manager
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Setiap temuan patroli difilter secara ketat berdasarkan Site Manager yang ditugaskan di proyek bersangkutan.
+                Setiap temuan Patrol difilter secara ketat berdasarkan Site Manager yang ditugaskan di proyek bersangkutan.
               </p>
             </div>
 
@@ -1048,7 +1048,7 @@ export default function AdminSettingsPage() {
           <div className="p-4 sm:p-5 bg-gradient-to-r from-violet-900/10 via-indigo-900/10 to-blue-900/10 border border-violet-300 dark:border-violet-800 rounded-3xl text-xs space-y-2">
             <div className="flex items-center gap-2 font-bold text-violet-800 dark:text-violet-300">
               <Info size={16} />
-              <span>Ketentuan Penomoran Laporan Patroli Resmi:</span>
+              <span>Ketentuan Penomoran Laporan Patrol Resmi:</span>
             </div>
             <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-mono">
               <strong>DIV-YY-XXX</strong> &rarr; <span className="text-violet-600 dark:text-violet-400 font-bold">DIV</span>: Kode Divisi (CMD, ME, SQCD, PLAN, JOIN, BM) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">YY</span>: 2 Digit Tahun Tanggal Laporan (e.g. 26) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">XXX</span>: 3 Digit Nomor Urut Tahunan (001, 002, dst, reset setiap pergantian tahun).
@@ -1122,7 +1122,7 @@ export default function AdminSettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                Kategori Temuan Patroli & Toleransi SLA
+                Kategori Temuan Patrol & Toleransi SLA
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Konfigurasi batas waktu tanggap perbaikan (SLA Hours) untuk tiap kategori temuan di lapangan.
@@ -1291,7 +1291,7 @@ export default function AdminSettingsPage() {
                           <td key={role} className="p-4 text-center">
                             <span
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-xl text-[10px] font-black border border-red-200 dark:border-red-900"
-                              title="Role Site Manager dibatasi dan dilarang menerbitkan temuan patroli baru"
+                              title="Role Site Manager dibatasi dan dilarang menerbitkan temuan Patrol baru"
                             >
                               <Lock size={12} /> Dilarang (SM)
                             </span>
@@ -1682,7 +1682,7 @@ export default function AdminSettingsPage() {
       {/* TAB 5: KONFIGURASI SISTEM & DATABASE */}
       {activeTab === "settings" && (
         <div className="space-y-6">
-          {/* Card: Kustomisasi Logo Kop Surat Laporan Patroli (Poin 3) */}
+          {/* Card: Kustomisasi Logo Kop Surat Laporan Patrol (Poin 3) */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="space-y-1">
@@ -1690,10 +1690,10 @@ export default function AdminSettingsPage() {
                   <ImageIcon size={13} /> Kustomisasi Dokumen Laporan (Poin 3)
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                  Logo Resmi Kop Laporan Patroli
+                  Logo Resmi Kop Laporan Patrol
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl">
-                  Logo ini akan disematkan pada kop surat halaman cetak laporan patroli K3 & Kualitas Proyek, ekspor PDF, serta pratinjau laporan web.
+                  Logo ini akan disematkan pada kop surat halaman cetak laporan Patrol K3 & Kualitas Proyek, ekspor PDF, serta pratinjau laporan web.
                 </p>
               </div>
 
@@ -1759,7 +1759,7 @@ export default function AdminSettingsPage() {
               {/* Visual Preview Box */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Pratinjau Kop Surat Laporan Patroli:
+                  Pratinjau Kop Surat Laporan Patrol:
                 </label>
                 <div className="p-4 bg-white dark:bg-slate-950 rounded-2xl border-2 border-slate-200 dark:border-slate-800 shadow-inner flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -1797,7 +1797,7 @@ export default function AdminSettingsPage() {
                   Pembersihan Data Temuan Lapangan
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl">
-                  Fitur untuk menghapus dan me-reset seluruh rekam jejak temuan patroli, dokumentasi foto bukti, dan status penanganan temuan pada semua proyek konstruksi.
+                  Fitur untuk menghapus dan me-reset seluruh rekam jejak temuan Patrol, dokumentasi foto bukti, dan status penanganan temuan pada semua proyek konstruksi.
                 </p>
               </div>
 
@@ -2211,7 +2211,7 @@ export default function AdminSettingsPage() {
                     ))}
                 </select>
                 <p className="text-[11px] text-slate-500">
-                  DH, GM, DM, SC dan Site Manager akan otomatis menerima reminder email jika temuan patroli belum direspon melebihi batas SLA.
+                  DH, GM, DM, SC dan Site Manager akan otomatis menerima reminder email jika temuan Patrol belum direspon melebihi batas SLA.
                 </p>
               </div>
 
@@ -2262,8 +2262,8 @@ export default function AdminSettingsPage() {
                 type="button"
                 onClick={() => setPicModalMode("EXISTING")}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${picModalMode === "EXISTING"
-                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                   }`}
               >
                 <UserCheck size={14} />
@@ -2273,8 +2273,8 @@ export default function AdminSettingsPage() {
                 type="button"
                 onClick={() => setPicModalMode("NEW")}
                 className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${picModalMode === "NEW"
-                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                   }`}
               >
                 <UserPlus size={14} />
@@ -2538,7 +2538,7 @@ export default function AdminSettingsPage() {
                 )}
               </div>
               <p className="text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
-                Seluruh temuan patroli, dokumentasi foto sebelum/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
+                Seluruh temuan Patrol, dokumentasi foto sebelum/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
               </p>
             </div>
 

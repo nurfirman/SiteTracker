@@ -27,7 +27,7 @@ export function Navbar() {
     { href: "/landing", label: "Landing", icon: Sparkles },
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/findings/new", label: "Input Temuan", icon: PlusCircle, highlight: true },
-    { href: "/findings/bulk", label: "Patroli Bulk", icon: Layers },
+    { href: "/findings/bulk", label: "Patrol Bulk", icon: Layers },
     {
       href: "/pic/tasks",
       label: "Tugas Saya",
@@ -55,7 +55,7 @@ export function Navbar() {
                   ProjectTracker
                 </span>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Patroli & Pelacakan Temuan Lapangan
+                  Patrol & Pelacakan Temuan Lapangan
                 </span>
               </div>
             </Link>
@@ -112,8 +112,8 @@ export function Navbar() {
                   item.highlight
                     ? "text-violet-600 dark:text-violet-400 font-extrabold"
                     : isActive
-                    ? "text-slate-900 dark:text-white font-extrabold"
-                    : "text-slate-500 dark:text-slate-400"
+                      ? "text-slate-900 dark:text-white font-extrabold"
+                      : "text-slate-500 dark:text-slate-400"
                 )}
               >
                 <div
@@ -122,8 +122,8 @@ export function Navbar() {
                     item.highlight
                       ? "bg-violet-600 text-white shadow-md shadow-violet-500/25"
                       : isActive
-                      ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
-                      : ""
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+                        : ""
                   )}
                 >
                   <Icon size={20} />
