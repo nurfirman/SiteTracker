@@ -41,7 +41,7 @@ export default function ProjectsPage() {
           <Building2 size={14} /> Manajemen Proyek Konstruksi
         </div>
         <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-          Daftar Proyek & Penanggung Jawab
+          Daftar Proyek & Site Manager
         </h1>
         <p className="text-sm text-slate-500">
           Ringkasan seluruh lokasi proyek aktif beserta tim inspector CMD, Site Manager, dan PM.
@@ -106,7 +106,7 @@ export default function ProjectsPage() {
                   {/* Team Members List */}
                   <div className="space-y-2">
                     <span className="text-xs font-black uppercase text-slate-400 block tracking-wider flex items-center gap-1.5">
-                      <Users size={14} /> Tim Penanggung Jawab Area
+                      <Users size={14} /> Tim Site Manager Area
                     </span>
                     <div className="space-y-1.5">
                       {projectUsers.length === 0 ? (

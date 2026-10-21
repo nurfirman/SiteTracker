@@ -204,7 +204,7 @@ def build_manual_docx():
     add_body_p(doc, "Lakukan tindakan fisik perbaikan di lapangan.", "Langkah 4: ")
     add_body_p(doc, "Klik 'Tindak Lanjut', unggah foto hasil perbaikan (After), dan isi penjelasan tindakan yang telah dikerjakan.", "Langkah 5: ")
     add_body_p(doc, "Klik 'Kirim Penyelesaian'. Tiket otomatis berganti status menjadi RESOLVED (Kuning).", "Langkah 6: ")
-    add_screenshot_box(doc, "docs/screenshots/06_pic_task_list.png", "Daftar Tugas Kerja PIC Lapangan")
+    add_screenshot_box(doc, "docs/screenshots/06_pic_task_list.png", "Daftar Tugas Kerja SM Project")
 
     # SECTION 5
     add_heading_1(doc, "5. Panduan Validasi Perbaikan (Approval / Close Out)")

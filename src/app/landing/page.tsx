@@ -39,7 +39,7 @@ export default function LandingPage() {
 
           {/* Main Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight max-w-5xl mx-auto leading-none">
-            Patrol Lapangan Lebih Cepat. <br />
+            Patrol Site Lebih Cepat. <br />
             <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-indigo-400 bg-clip-text text-transparent">
               Temuan K3 & Cacat Mutu Tuntas.
             </span>
@@ -125,7 +125,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-5">
                 <ShieldCheck size={24} />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Kualitas Pekerjaan</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Safety Pekerjaan</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
                 Cacat plesteran, penyimpangan beton cor, posisi pembesian salah, & ketidaksesuaian spesifikasi teknik.
               </p>
@@ -213,7 +213,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Verifikasi Side-by-Side (PM)</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Project Manager membandingkan foto Sebelum vs Sesudah secara langsung di Modal UI, lalu Approve atau Reject.
+                Project Manager membandingkan Foto Before vs Sesudah secara langsung di Modal UI, lalu Approve atau Reject.
               </p>
               <div className="mt-4 text-xs font-bold text-emerald-400 bg-emerald-950/40 p-3 rounded-xl border border-emerald-900/50">
                 Status Temuan: <span className="underline font-black">CLOSED 🟢</span>
@@ -253,9 +253,9 @@ export default function LandingPage() {
                 <Building2 size={28} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Site Manager / Penanggung Jawab Lapangan</h3>
+                <h3 className="text-lg font-bold text-white">Site Manager / Site Manager Lapangan</h3>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                  Notifikasi jelas tentang lokasi persis dan bahaya yang harus diperbaiki. Langsung unggah foto sesudah perbaikan tanpa debat.
+                  Notifikasi jelas tentang lokasi persis dan bahaya yang harus diperbaiki. Langsung unggah Foto After perbaikan tanpa debat.
                 </p>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-lg font-bold text-white">Project Manager (PM)</h3>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
-                  Hemat waktu inspeksi fisik berulang. Validasi foto Sebelum vs Sesudah secara Side-by-Side dengan 1-klik Approve / Reject.
+                  Hemat waktu inspeksi fisik berulang. Validasi Foto Before vs Sesudah secara Side-by-Side dengan 1-klik Approve / Reject.
                 </p>
               </div>
             </div>

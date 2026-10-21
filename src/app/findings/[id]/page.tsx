@@ -303,7 +303,7 @@ export default function FindingDetailPage() {
               </span>
             </div>
             <div className="space-y-0.5">
-              <span className="text-slate-400 block font-semibold">Site Manager (Penanggung Jawab):</span>
+              <span className="text-slate-400 block font-semibold">Site Manager (Site Manager):</span>
               <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 {finding.pic?.name || "Ahmad Fauzi"}
               </span>
@@ -355,7 +355,7 @@ export default function FindingDetailPage() {
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-3 py-1.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-800 dark:text-red-300 font-extrabold text-xs">
-                    <span>🔴 Foto Sebelum (Temuan Awal CMD)</span>
+                    <span>🔴 Foto Before (Temuan Awal CMD)</span>
                     {findingPhotos.length > 1 && (
                       <span className="text-[10px] font-mono bg-red-200 dark:bg-red-900/80 px-2 py-0.5 rounded-md font-bold">
                         Foto {activeFindingPhotoIdx + 1} dari {findingPhotos.length}
@@ -404,7 +404,7 @@ export default function FindingDetailPage() {
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
-                    <span>🟢 Foto Sesudah (Bukti Perbaikan PIC)</span>
+                    <span>🟢 Foto After (Bukti Perbaikan PIC)</span>
                     {resPhotos.length > 1 && (
                       <span className="text-[10px] font-mono bg-emerald-200 dark:bg-emerald-900/80 px-2 py-0.5 rounded-md font-bold">
                         Foto {activeResolutionPhotoIdx + 1} dari {resPhotos.length}
@@ -483,7 +483,7 @@ export default function FindingDetailPage() {
             ) : (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-slate-600 dark:text-slate-300">
-                  Temuan ini berstatus 🔴 <strong>OPEN</strong>. Penanggung Jawab (Site Manager) dapat mengunggah bukti perbaikan.
+                  Temuan ini berstatus 🔴 <strong>OPEN</strong>. Site Manager (Site Manager) dapat mengunggah bukti perbaikan.
                 </div>
                 <button
                   type="button"
@@ -760,7 +760,7 @@ export default function FindingDetailPage() {
               {availablePics.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Site Manager (Penanggung Jawab)
+                    Site Manager (Site Manager)
                   </label>
                   <select
                     value={editPicId}

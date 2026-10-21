@@ -631,7 +631,7 @@ export default function AdminSettingsPage() {
     {
       key: "canResolveFinding",
       name: "2. Tindak Lanjut & Upload Bukti (/pic/tasks)",
-      description: "Mengunggah foto sesudah perbaikan dan mengisi respon tindakan perbaikan Site Manager.",
+      description: "Mengunggah Foto After perbaikan dan mengisi respon tindakan perbaikan Site Manager.",
     },
     {
       key: "canVerifyFinding",
@@ -2538,7 +2538,7 @@ export default function AdminSettingsPage() {
                 )}
               </div>
               <p className="text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
-                Seluruh temuan Patrol, dokumentasi foto sebelum/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
+                Seluruh temuan Patrol, dokumentasi Foto Before/sesudah, SLA, dan riwayat revisi akan dihapus secara permanen dari database.
               </p>
             </div>
 

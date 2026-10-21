@@ -150,7 +150,7 @@ export default function DashboardPage() {
                 ? "Tampilan antarmuka Anda terisolasi khusus proyek penugasan. Tindak lanjuti temuan yang masih berstatus OPEN dan unggah bukti perbaikan."
                 : currentUser.role === "ADMIN"
                   ? "Kelola master proyek, penugasan Site Manager, setting toleransi SLA kategori, dan konfigurasi wewenang peran sistem."
-                  : "Sistem pemantauan temuan Patrol lapangan real-time untuk memastikan keselamatan K3 (ISO 45001) dan mutu fisik proyek (ISO 9001)."}
+                  : "Sistem pemantauan temuan  real-time untuk memastikan keselamatan K3 (ISO 45001) dan mutu fisik proyek (ISO 9001)."}
           </p>
         </div>
 
@@ -354,7 +354,7 @@ export default function DashboardPage() {
                 </div>
 
                 <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
-                  Bandingkan foto sebelum & sesudah untuk memberikan validasi persetujuan
+                  Bandingkan Foto Before & sesudah untuk memberikan validasi persetujuan
                 </span>
               </div>
 
@@ -511,8 +511,8 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2.5 min-h-[44px] text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   >
                     <option value="ALL">Semua Kategori</option>
-                    <option value="K3_SAFETY">K3 / Keselamatan</option>
-                    <option value="QUALITY">Kualitas Pekerjaan</option>
+                    <option value="K3_SAFETY">Safety / Keselamatan</option>
+                    <option value="QUALITY">Quality Pekerjaan</option>
                     <option value="KEBERSIHAN_5R">Kebersihan 5R</option>
                     <option value="SCHEDULE">Jadwal & Progres</option>
                     <option value="MATERIAL">Material & Logistik</option>

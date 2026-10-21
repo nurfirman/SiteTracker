@@ -54,7 +54,7 @@ export function Header() {
     if (pathname.startsWith("/findings/new")) {
       return {
         title: "Catat Temuan Baru",
-        subtitle: "Perekaman Foto & Lokasi Patrol Lapangan (ISO 45001)",
+        subtitle: "Perekaman Foto & Lokasi Patrol Site (ISO 45001)",
       };
     }
     if (pathname.startsWith("/findings")) {
@@ -78,7 +78,7 @@ export function Header() {
     if (pathname.startsWith("/projects")) {
       return {
         title: "Master Proyek & Tim",
-        subtitle: "Daftar Proyek Konstruksi & Personil Site Manager Penanggung Jawab",
+        subtitle: "Daftar Proyek Konstruksi & Personil Site Manager Site Manager",
       };
     }
     if (pathname.startsWith("/admin")) {

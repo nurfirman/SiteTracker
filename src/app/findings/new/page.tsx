@@ -83,7 +83,7 @@ export default function NewFindingPage() {
       return;
     }
     if (!selectedPicId) {
-      setErrorMsg("Mohon pilih Site Manager (Penanggung Jawab temuan).");
+      setErrorMsg("Mohon pilih Site Manager (Site Manager temuan).");
       return;
     }
     if (category === "CUSTOM" && !customCategory.trim()) {
@@ -159,7 +159,7 @@ export default function NewFindingPage() {
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
             {["PIC", "SM"].includes(currentUser.role)
-              ? "Role Site Manager bertindak sebagai pihak penanggung jawab perbaikan dan tidak memiliki hak akses menerbitkan temuan Patrol baru."
+              ? "Role Site Manager bertindak sebagai pihak Site Manager perbaikan dan tidak memiliki hak akses menerbitkan temuan Patrol baru."
               : "Akun Anda baru mendaftar dan belum memiliki wewenang untuk menerbitkan temuan Patrol baru. Silakan hubungi Administrator Proyek untuk mengonfigurasi role Anda."}
           </p>
           <div className="pt-3 flex justify-center gap-3">
@@ -256,7 +256,7 @@ export default function NewFindingPage() {
 
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                    3. Site Manager (Penanggung Jawab) <span className="text-red-500">*</span>
+                    3. Site Manager (Site Manager) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select

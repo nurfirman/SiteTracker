@@ -399,8 +399,8 @@ export default function PicTasksPage() {
                     type="button"
                     onClick={() => setHasPhoto(true)}
                     className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${hasPhoto
-                        ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      ? "border-violet-600 bg-violet-50 text-violet-900 dark:bg-violet-950/60 dark:text-violet-200 dark:border-violet-500 shadow-xs"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                       }`}
                   >
                     <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${hasPhoto ? "border-violet-600 bg-violet-600" : "border-slate-400"}`}>
@@ -413,8 +413,8 @@ export default function PicTasksPage() {
                     type="button"
                     onClick={() => setHasPhoto(false)}
                     className={`py-3 px-4 rounded-xl border-2 font-bold text-xs flex items-center justify-center gap-2 transition-all ${!hasPhoto
-                        ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      ? "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-500 shadow-xs"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                       }`}
                   >
                     <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${!hasPhoto ? "border-amber-600 bg-amber-600" : "border-slate-400"}`}>
@@ -429,7 +429,7 @@ export default function PicTasksPage() {
               {hasPhoto ? (
                 <div className="pt-1">
                   <MultiPhotoUploader
-                    label="Foto Bukti Perbaikan (Foto Sesudah) *"
+                    label="Foto Bukti Perbaikan (Foto After) *"
                     description="Ambil foto atau unggah gambar bukti perbaikan yang selesai dikerjakan (1 s.d. 4 foto)."
                     values={photoResolutionUrls}
                     onChange={(urls) => setPhotoResolutionUrls(urls)}

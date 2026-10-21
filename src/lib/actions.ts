@@ -3317,7 +3317,7 @@ export async function runPatrolSlaReminderEngine(options?: {
               daysOpen: t.daysOpen,
             })),
             status: "SENT",
-            message: `Email reminder SLA berhasil dikirim ke ${recipientEmails.length} penerima via Azure Graph API.`,
+            message: `Email reminder  berhasil dikirim ke ${recipientEmails.length} penerima via Azure Graph API.`,
           });
         } else {
           // Simulasi
@@ -3843,7 +3843,7 @@ export async function createBulkPatrolFindings(
     }
 
     if (!payload.projectId) {
-      return { success: false, message: "Mohon pilih proyek lokasi Patrol." };
+      return { success: false, message: "Mohon pilih Nama Project." };
     }
 
     if (!payload.items || payload.items.length === 0) {

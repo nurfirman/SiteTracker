@@ -178,7 +178,7 @@ export function Sidebar() {
               Project<span className="text-violet-600 dark:text-violet-400">Tracker</span>
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block -mt-0.5">
-              Patrol Lapangan K3 & Mutu
+              Patrol Site K3 & Mutu
             </span>
           </div>
         </Link>

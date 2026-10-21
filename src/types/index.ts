@@ -118,7 +118,7 @@ export const CATEGORY_LABELS: Record<string, { label: string; icon: string; desc
     description: "Isu keselamatan kerja, APD, barikade, kelistrikan, & bahaya kerja.",
   },
   QUALITY: {
-    label: "Kualitas Pekerjaan",
+    label: "Safety Pekerjaan",
     icon: "BadgeCheck",
     description: "Cacat fisik, penyimpangan gambar teknis, retak, coring, pemasangan.",
   },
@@ -146,7 +146,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
     description: "Akses Semua Kasus: Patrol lapangan, catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
-    label: "Site Manager (SM) / Penanggung Jawab",
+    label: "Site Manager (SM) / Site Manager",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
     description: "Akses Site Manager Lapangan: Memantau & merespon tindak lanjut temuan proyek.",
   },

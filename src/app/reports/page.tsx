@@ -716,7 +716,7 @@ export default function ReportsPage() {
         showEmailToast(res.message, "error");
       }
     } catch (err: any) {
-      showEmailToast(err.message || "Gagal memicu engine reminder SLA", "error");
+      showEmailToast(err.message || "Gagal memicu engine reminder ", "error");
     } finally {
       setRunningCron(false);
     }
@@ -780,7 +780,7 @@ export default function ReportsPage() {
                     <FileText size={16} /> Modul Generate Laporan & Distribusi
                   </div>
                   <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                    Cetak Form Patrol Lapangan & Pengiriman Email
+                    Cetak Form Patrol Site & Pengiriman Email
                   </h1>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Pilih filter <strong>Proyek</strong> dan <strong>Site Manager</strong> untuk generate lembar resmi <strong>INTERNAL PATROL</strong> atau kirim langsung ke personil via email.
@@ -792,7 +792,7 @@ export default function ReportsPage() {
                   <Link
                     href="/findings/bulk"
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-700 hover:bg-violet-600 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all min-h-[44px]"
-                    title="Input seluruh temuan hasil Patrol lapangan sekaligus dalam format Master-Detail"
+                    title="Input seluruh temuan hasil Patrol Site sekaligus dalam format Master-Detail"
                   >
                     <Layers size={16} />
                     <span>+ Input Patrol Baru (Bulk)</span>
@@ -1534,7 +1534,7 @@ export default function ReportsPage() {
                         PROJECTTRACKER
                       </h2>
                       <p className="text-xs font-bold text-slate-600 dark:text-slate-400 print:text-slate-700">
-                        LAPORAN HASIL Patrol LAPANGAN & PENGAWASAN K3 / MUTU
+                        LAPORAN HASIL Patrol Site & PENGAWASAN K3 / MUTU
                       </p>
                       <p className="text-[11px] text-slate-500 print:text-slate-600">
                         Standard Operating Procedure: ISO 45001 & ISO 9001
@@ -2231,7 +2231,7 @@ export default function ReportsPage() {
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-extrabold text-[11px] rounded-full uppercase mb-2">
-                  <BellRing size={13} /> Hasil Eksekusi Engine Reminder SLA H+7
+                  <BellRing size={13} /> Hasil Eksekusi Engine Reminder  H+7
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">
                   Pemeriksaan Eskalasi Temuan Terlambat (&gt; 7 Hari)
@@ -2329,7 +2329,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Modal Arsip & Riwayat Laporan Patrol Lapangan (CMD) */}
+      {/* Modal Arsip & Riwayat Laporan Patrol Site (CMD) */}
       {showArchiveModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 my-6 max-h-[90vh] flex flex-col">

@@ -278,7 +278,7 @@ export default function BulkPatrolPage() {
     setErrorMsg(null);
 
     if (!selectedProjectId) {
-      setErrorMsg("Mohon pilih proyek lokasi Patrol.");
+      setErrorMsg("Mohon pilih Nama Project.");
       return;
     }
 
@@ -388,7 +388,7 @@ export default function BulkPatrolPage() {
           <ClipboardList className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
             <strong className="font-bold">Mode Pengisian Gabungan / Kembali ke Kantor:</strong> Gunakan
-            formulir ini untuk menginput seluruh hasil temuan Patrol lapangan sekaligus setelah kembali ke direksi kit.
+            formulir ini untuk menginput seluruh hasil temuan Patrol Site sekaligus setelah kembali ke direksi kit.
             Data header dan item temuan otomatis dihubungkan ke dalam satu nomor laporan resmi. Formulir ini dilengkapi{" "}
             <strong>Auto-Save Draft di Browser</strong> sehingga data Anda aman dari kendala jaringan.
           </div>
@@ -427,7 +427,7 @@ export default function BulkPatrolPage() {
               {/* Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Proyek Lokasi Patrol <span className="text-red-500">*</span>
+                  Nama Project <span className="text-red-500">*</span>
                 </label>
                 <ProjectCombobox
                   projects={projects}
@@ -502,7 +502,7 @@ export default function BulkPatrolPage() {
               {/* Default Site Manager Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Site Manager (Penanggung Jawab Default)
+                  Site Manager (Site Manager Default)
                 </label>
                 <select
                   value={defaultPicId}
@@ -615,7 +615,7 @@ export default function BulkPatrolPage() {
                         {/* Action By Spesifik */}
                         <div className="sm:col-span-2">
                           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            Action By (Penanggung Jawab)
+                            Action By (Site Manager)
                           </label>
                           <select
                             value={item.picId || defaultPicId}

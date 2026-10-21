@@ -100,7 +100,7 @@ async function getAzureOAuthToken(): Promise<string> {
 function generateReportEmailHtml(options: SendAzureMailOptions): string {
   const reportTitle =
     options.reportType === "INTERNAL_PATROL"
-      ? "Form Lembar Hasil Patrol Lapangan (Internal Patrol)"
+      ? "Form Lembar Hasil Patrol Site (Internal Patrol)"
       : "Laporan Rekapitulasi Eksekutif & Statistik Temuan";
 
   const inspectionDateFormatted = options.reportDate
@@ -526,7 +526,7 @@ export function generateEscalationReminderEmailHtml(
               <!-- Warning Callout Box -->
               <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
-                  <strong>Pemberitahuan kepada Site Manager Proyek & General Manager (GM):</strong><br>
+                  <strong>Pemberitahuan kepada Site Manager Proyek & Section Manager (GM):</strong><br>
                   Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan Patrol</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di lapangan.
                 </p>
               </div>
