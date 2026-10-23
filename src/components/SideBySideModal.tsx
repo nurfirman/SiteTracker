@@ -207,7 +207,7 @@ export function SideBySideModal({
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 p-4 text-center">
                       <AlertCircle className="w-10 h-10 mb-2 opacity-50 text-amber-500" />
                       <span className="text-sm font-semibold">Belum Ada Foto Perbaikan</span>
-                      <span className="text-xs text-slate-400">PIC belum mengunggah bukti</span>
+                      <span className="text-xs text-slate-400">Site Manajer belum mengunggah bukti</span>
                     </div>
                   )}
                 </div>

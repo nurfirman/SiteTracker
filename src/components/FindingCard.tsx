@@ -5,23 +5,31 @@ import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 import { formatDate, getSlaStatus } from "../lib/utils";
-import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 interface FindingCardProps {
   finding: Finding;
   onOpenSideBySide?: (finding: Finding) => void;
   onQuickResolve?: (finding: Finding) => void;
+  onDelete?: (finding: Finding) => void;
   currentUserRole?: string;
+  currentUserId?: string;
 }
 
 export function FindingCard({
   finding,
   onOpenSideBySide,
   onQuickResolve,
+  onDelete,
   currentUserRole,
+  currentUserId,
 }: FindingCardProps) {
   const sla = getSlaStatus(finding.dueDate, finding.status, finding.reportNumber);
+  const canDelete = Boolean(
+    onDelete &&
+    (currentUserId === finding.reporterId || currentUserRole === "ADMIN")
+  );
 
   return (
     <div className="group relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col justify-between">
@@ -117,6 +125,17 @@ export function FindingCard({
           <span>Buka Detail Temuan</span>
           <ArrowRight size={15} />
         </Link>
+
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete?.(finding)}
+            title="Hapus Temuan Ini"
+            className="inline-flex items-center justify-center p-2.5 min-h-[44px] min-w-[44px] text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-900/60 rounded-xl transition-all active:scale-95"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
 
         {(currentUserRole === "PIC" || currentUserRole === "SM") && finding.status === "OPEN" && onQuickResolve && (
           <button

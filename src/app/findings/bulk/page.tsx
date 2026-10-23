@@ -312,7 +312,7 @@ export default function BulkPatrolPage() {
         items: items.map((it) => ({
           category: it.category === "CUSTOM" && it.customCategory ? (it.customCategory as any) : it.category,
           locationDetail: it.locationDetail.trim() || "-",
-          description: it.description.trim() || "Hanya Foto Patrol Lapangan",
+          description: it.description.trim() || "Hanya Foto Patrol Site ",
           photoFindingUrls: it.photoFindingUrls,
           picId: it.picId || defaultPicId || undefined,
         })),
@@ -440,7 +440,7 @@ export default function BulkPatrolPage() {
               {/* Tanggal Inspeksi */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Tanggal Inspeksi Lapangan <span className="text-red-500">*</span>
+                  Tanggal Inspeksi Site  <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -674,7 +674,7 @@ export default function BulkPatrolPage() {
                           rows={3}
                           value={item.description}
                           onChange={(e) => updateItem(index, { description: e.target.value })}
-                          placeholder="Jelaskan kondisi ketidaksesuaian di lapangan dan arahan perbaikan untuk Site Manager..."
+                          placeholder="Jelaskan kondisi ketidaksesuaian di Site  dan arahan perbaikan untuk Site Manager..."
                           className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-violet-500 leading-relaxed"
                         />
                       </div>

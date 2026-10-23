@@ -17,6 +17,9 @@ import {
   unassignUserFromProject,
   getCategorySettings,
   updateCategorySla,
+  updateCategory,
+  createCategory,
+  deleteCategory,
   updateUserRoleAndProject,
   importProjectsAndPicsFromCsv,
   ImportProjectPicReport,
@@ -57,6 +60,9 @@ import {
   Layers,
   Tag,
   Trash2,
+  Edit3,
+  Plus,
+  X,
   AlertOctagon,
   Info,
   FileSpreadsheet,
@@ -76,7 +82,8 @@ interface CategoryConfig {
   label: string;
   description: string;
   slaHours: number;
-  color: string;
+  color?: string;
+  isCustom?: boolean;
 }
 
 export default function AdminSettingsPage() {
@@ -175,6 +182,16 @@ export default function AdminSettingsPage() {
 
   // Toast message
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  // Category Add / Edit Modal States
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState<"ADD" | "EDIT">("ADD");
+  const [catFormKey, setCatFormKey] = useState("");
+  const [catFormLabel, setCatFormLabel] = useState("");
+  const [catFormDesc, setCatFormDesc] = useState("");
+  const [catFormSla, setCatFormSla] = useState<number>(48);
+  const [catFormColor, setCatFormColor] = useState("violet");
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
 
   // Settings mock state
   const [waNotificationEnabled, setWaNotificationEnabled] = useState(true);
@@ -442,6 +459,91 @@ export default function AdminSettingsPage() {
       }
     } catch (err: any) {
       showToast("Gagal mengubah SLA", "error");
+    }
+  };
+
+  const openAddCategoryModal = () => {
+    setCategoryModalMode("ADD");
+    setCatFormKey("");
+    setCatFormLabel("");
+    setCatFormDesc("");
+    setCatFormSla(48);
+    setCatFormColor("violet");
+    setShowCategoryModal(true);
+  };
+
+  const openEditCategoryModal = (cat: CategoryConfig) => {
+    setCategoryModalMode("EDIT");
+    setCatFormKey(cat.key);
+    setCatFormLabel(cat.label);
+    setCatFormDesc(cat.description);
+    setCatFormSla(cat.slaHours);
+    setCatFormColor(cat.color || "violet");
+    setShowCategoryModal(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catFormLabel.trim()) {
+      showToast("Nama / redaksi kategori wajib diisi.", "error");
+      return;
+    }
+    if (catFormSla <= 0) {
+      showToast("Toleransi SLA harus lebih dari 0 jam.", "error");
+      return;
+    }
+
+    setCategorySubmitting(true);
+    try {
+      if (categoryModalMode === "ADD") {
+        const res = await createCategory({
+          key: catFormKey.trim() || undefined,
+          label: catFormLabel.trim(),
+          description: catFormDesc.trim(),
+          slaHours: Number(catFormSla),
+          color: catFormColor,
+        });
+        if (res.success) {
+          showToast(res.message);
+          setShowCategoryModal(false);
+          loadAdminData();
+        } else {
+          showToast(res.message, "error");
+        }
+      } else {
+        const res = await updateCategory(catFormKey, {
+          label: catFormLabel.trim(),
+          description: catFormDesc.trim(),
+          slaHours: Number(catFormSla),
+          color: catFormColor,
+        });
+        if (res.success) {
+          showToast(res.message);
+          setShowCategoryModal(false);
+          loadAdminData();
+        } else {
+          showToast(res.message, "error");
+        }
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal menyimpan kategori", "error");
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleDeleteCategory = async (key: string, label: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus kategori "${label}"?`)) return;
+    try {
+      const res = await deleteCategory(key);
+      if (res.success) {
+        showToast(res.message);
+        loadAdminData();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal menghapus kategori.", "error");
     }
   };
 
@@ -1125,9 +1227,17 @@ export default function AdminSettingsPage() {
                 Kategori Temuan Patrol & Toleransi SLA
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Konfigurasi batas waktu tanggap perbaikan (SLA Hours) untuk tiap kategori temuan di lapangan.
+                Konfigurasi batas waktu tanggap perbaikan (SLA Hours) dan redaksi keterangan untuk tiap kategori temuan di Site .
               </p>
             </div>
+            <button
+              type="button"
+              onClick={openAddCategoryModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-violet-500/20 transition-all self-start sm:self-auto"
+            >
+              <Plus size={16} />
+              <span>Tambah Kategori Baru</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1149,55 +1259,106 @@ export default function AdminSettingsPage() {
                 }
               };
 
+              const isSystemDefault = ["K3_SAFETY", "QUALITY", "KEBERSIHAN_5R", "SCHEDULE", "MATERIAL"].includes(cat.key);
+
               return (
                 <div
                   key={cat.key}
-                  className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between space-y-4"
+                  className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between space-y-4 hover:border-violet-300 dark:hover:border-violet-700/60 transition-all group"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                        <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl group-hover:scale-105 transition-transform">
                           {getCatIcon()}
                         </div>
                         <div>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md">
-                            {cat.key}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md">
+                              {cat.key}
+                            </span>
+                            {cat.isCustom && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300 rounded">
+                                Kustom
+                              </span>
+                            )}
+                          </div>
                           <h3 className="font-black text-base text-slate-900 dark:text-white mt-0.5">
                             {cat.label}
                           </h3>
                         </div>
                       </div>
+
+                      {/* Action buttons: Edit & Hapus */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditCategoryModal(cat)}
+                          title="Edit Redaksi & SLA"
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        {!isSystemDefault && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(cat.key, cat.label)}
+                            title="Hapus Kategori"
+                            className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      {cat.description}
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed min-h-[36px]">
+                      {cat.description || <span className="italic text-slate-400">Tidak ada deskripsi.</span>}
                     </p>
 
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                      <label className="block text-[11px] font-black uppercase text-slate-400">
-                        Batas Toleransi SLA:
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-black uppercase text-slate-400">
+                          Batas Toleransi SLA:
+                        </label>
+                        <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                          {Math.round((cat.slaHours || 24) / 24)} Hari Kerja
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
                           defaultValue={cat.slaHours}
-                          onBlur={(e) => handleUpdateCategorySla(cat.key, Number(e.target.value))}
+                          key={`${cat.key}-${cat.slaHours}`}
+                          onBlur={(e) => {
+                            const val = Number(e.target.value);
+                            if (val > 0 && val !== cat.slaHours) {
+                              handleUpdateCategorySla(cat.key, val);
+                            }
+                          }}
                           min={1}
-                          max={240}
+                          max={720}
                           className="w-24 px-3 py-2 text-sm font-black rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                         />
                         <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                          Jam ({Math.round(cat.slaHours / 24)} Hari Kerja)
+                          Jam
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => openEditCategoryModal(cat)}
+                          className="ml-auto text-[11px] font-bold text-violet-600 hover:underline dark:text-violet-400"
+                        >
+                          Ubah Redaksi
+                        </button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-2 text-[10px] text-slate-400 flex items-center gap-1">
-                    <Clock size={12} className="text-violet-600 dark:text-violet-400" />
-                    <span>Auto-calculated saat temuan diterbitkan</span>
+                  <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-50 dark:border-slate-800/60">
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} className="text-violet-600 dark:text-violet-400" />
+                      <span>Auto-calculated saat temuan diterbitkan</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -1693,7 +1854,7 @@ export default function AdminSettingsPage() {
                   Logo Resmi Kop Laporan Patrol
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl">
-                  Logo ini akan disematkan pada kop surat halaman cetak laporan Patrol K3 & Kualitas Proyek, ekspor PDF, serta pratinjau laporan web.
+                  Logo ini akan disematkan pada kop surat halaman cetak laporan Patrol Safety & Quality Proyek, ekspor PDF, serta pratinjau laporan web.
                 </p>
               </div>
 
@@ -1794,7 +1955,7 @@ export default function AdminSettingsPage() {
                   <Trash2 size={13} /> Zona Pembersihan Data (Data Purge)
                 </div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                  Pembersihan Data Temuan Lapangan
+                  Pembersihan Data Temuan Site
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl">
                   Fitur untuk menghapus dan me-reset seluruh rekam jejak temuan Patrol, dokumentasi foto bukti, dan status penanganan temuan pada semua proyek konstruksi.
@@ -2661,7 +2822,7 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="PIC">Site Manager (SM) / Penanggung Jawab Perbaikan</option>
-                  <option value="CMD">CMD (Inspector Lapangan / Patrol ISO)</option>
+                  <option value="CMD">CMD (Inspector Site  / Patrol ISO)</option>
                   <option value="SM">SM (Site Manager)</option>
                   <option value="DH">DH (Div Head / Kepala Divisi)</option>
                   <option value="DM">DM (Department Manager)</option>
@@ -2686,7 +2847,7 @@ export default function AdminSettingsPage() {
               {/* Pilihan Proyek Penugasan */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Proyek Penugasan Lapangan:
+                  Proyek Penugasan Site :
                 </label>
                 <select
                   value={assignProjectId}
@@ -3027,6 +3188,124 @@ export default function AdminSettingsPage() {
                   className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
                 >
                   Tambahkan ke Matriks
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TAMBAH / EDIT KATEGORI TEMUAN & SLA */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Tag size={20} className="text-violet-600" />
+                <span>
+                  {categoryModalMode === "ADD" ? "Tambah Kategori Temuan Baru" : "Edit Kategori & Toleransi SLA"}
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-4">
+              {/* Kode Kategori (Key) */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Kode Unik Kategori (Key):
+                </label>
+                <input
+                  type="text"
+                  value={catFormKey}
+                  onChange={(e) => setCatFormKey(e.target.value.toUpperCase().replace(/\s+/g, "_"))}
+                  placeholder="Contoh: K3_SAFETY, ARSITEKTUR, MEP"
+                  disabled={categoryModalMode === "EDIT"}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+                {categoryModalMode === "ADD" && (
+                  <p className="text-[11px] text-slate-400">
+                    Gunakan huruf kapital dan garis bawah (misal: ENVIRONMENT, DOKUMEN_TEKNIS).
+                  </p>
+                )}
+              </div>
+
+              {/* Redaksi Nama / Judul Kategori */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Redaksi Nama Kategori / Label: <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={catFormLabel}
+                  onChange={(e) => setCatFormLabel(e.target.value)}
+                  placeholder="Contoh: K3 / Keselamatan Kerja"
+                  required
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              {/* Redaksi Deskripsi Kategori */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Redaksi Deskripsi & Cakupan Temuan:
+                </label>
+                <textarea
+                  value={catFormDesc}
+                  onChange={(e) => setCatFormDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Tuliskan penjelasan detail cakupan temuan kategori ini..."
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 resize-none"
+                />
+              </div>
+
+              {/* Toleransi SLA */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Toleransi SLA (Jam): <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={catFormSla}
+                    onChange={(e) => setCatFormSla(Number(e.target.value))}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Estimasi Hari Kerja:
+                  </label>
+                  <div className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-violet-600 dark:text-violet-400 flex items-center">
+                    ~ {Math.round(catFormSla / 24)} Hari Kerja
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={categorySubmitting || !catFormLabel.trim()}
+                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {categorySubmitting && <RefreshCw size={14} className="animate-spin" />}
+                  <span>{categoryModalMode === "ADD" ? "Simpan Kategori Baru" : "Simpan Perubahan"}</span>
                 </button>
               </div>
             </form>

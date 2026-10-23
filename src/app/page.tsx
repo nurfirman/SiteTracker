@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Finding, Project, Category, FindingStatus } from "@/types";
-import { getFindings, getProjects, validateFinding } from "@/lib/actions";
+import { Finding, Project, Category, FindingStatus, CategorySettingItem } from "@/types";
+import { getFindings, getProjects, validateFinding, getCategorySettings, deleteFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { FindingCard } from "@/components/FindingCard";
@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const { currentUser } = useRole();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<CategorySettingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -47,7 +48,7 @@ export default function DashboardPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedFindings, fetchedProjects] = await Promise.all([
+      const [fetchedFindings, fetchedProjects, fetchedCategories] = await Promise.all([
         getFindings({
           projectId: selectedProject,
           category: selectedCategory as Category,
@@ -55,9 +56,13 @@ export default function DashboardPage() {
           search: searchQuery,
         }),
         getProjects(),
+        getCategorySettings(),
       ]);
       setFindings(fetchedFindings);
       setProjects(fetchedProjects);
+      if (fetchedCategories && fetchedCategories.length > 0) {
+        setAvailableCategories(fetchedCategories);
+      }
     } catch (err) {
       console.error("Gagal memuat data dashboard:", err);
     } finally {
@@ -114,6 +119,19 @@ export default function DashboardPage() {
     loadData();
   };
 
+  const handleDeleteFinding = async (finding: Finding) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus temuan ${finding.ticketCode} (${finding.description || "Tanpa deskripsi"})? Tindakan ini permanen.`)) {
+      return;
+    }
+    const res = await deleteFinding(finding.id);
+    if (res.success) {
+      showToast(res.message);
+      loadData();
+    } else {
+      showToast(res.message);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Toast Feedback Notification */}
@@ -150,7 +168,7 @@ export default function DashboardPage() {
                 ? "Tampilan antarmuka Anda terisolasi khusus proyek penugasan. Tindak lanjuti temuan yang masih berstatus OPEN dan unggah bukti perbaikan."
                 : currentUser.role === "ADMIN"
                   ? "Kelola master proyek, penugasan Site Manager, setting toleransi SLA kategori, dan konfigurasi wewenang peran sistem."
-                  : "Sistem pemantauan temuan  real-time untuk memastikan keselamatan K3 (ISO 45001) dan mutu fisik proyek (ISO 9001)."}
+                  : "Sistem monitoring dan folowup temuan  real-time untuk memastikan keselamatan Safety (ISO 45001) dan Quality proyek (ISO 9001)."}
           </p>
         </div>
 
@@ -251,7 +269,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Temuan Open</span>
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-                Memerlukan perbaikan segera oleh Site Manager.
+                Perlu perbaikan segera oleh Site Manager.
               </p>
             </div>
 
@@ -272,7 +290,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Temuan Resolved</span>
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-                PIC/SM sudah kirim perbaikan. Siap divalidasi Inspector/Pelapor.
+                SM sudah kirim perbaikan. Siap divalidasi Inspector/Pelapor.
               </p>
             </div>
 
@@ -293,7 +311,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Perlu Revisi</span>
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-400 font-medium">
-                Perbaikan ditolak Inspector/PM. Perlu perbaikan ulang oleh SM.
+                Perbaikan ditolak Inspector. Perlu perbaikan ulang oleh SM.
               </p>
             </div>
 
@@ -511,11 +529,21 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2.5 min-h-[44px] text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   >
                     <option value="ALL">Semua Kategori</option>
-                    <option value="K3_SAFETY">Safety / Keselamatan</option>
-                    <option value="QUALITY">Quality Pekerjaan</option>
-                    <option value="KEBERSIHAN_5R">Kebersihan 5R</option>
-                    <option value="SCHEDULE">Jadwal & Progres</option>
-                    <option value="MATERIAL">Material & Logistik</option>
+                    {availableCategories.length > 0 ? (
+                      availableCategories.map((c) => (
+                        <option key={c.key} value={c.key}>
+                          {c.label}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="K3_SAFETY">Safety / Keselamatan</option>
+                        <option value="QUALITY">Quality Pekerjaan</option>
+                        <option value="KEBERSIHAN_5R">Kebersihan 5R</option>
+                        <option value="SCHEDULE">Jadwal & Progres</option>
+                        <option value="MATERIAL">Material & Logistik</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -558,7 +586,9 @@ export default function DashboardPage() {
                     key={finding.id}
                     finding={finding}
                     onOpenSideBySide={(f) => setSelectedModalFinding(f)}
+                    onDelete={handleDeleteFinding}
                     currentUserRole={currentUser.role}
+                    currentUserId={currentUser.id}
                   />
                 ))}
               </div>

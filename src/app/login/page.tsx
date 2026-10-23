@@ -286,7 +286,7 @@ export default function LoginPage() {
           ProjectTracker
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
-          Sistem Pengawasan Keselamatan K3 (ISO 45001) & Pelacakan Temuan Kualitas Mutu Fisik Konstruksi
+          Sistem Pengawasan Keselamatan Safety (ISO 45001) & Pelacakan Temuan Kualitas Quality Fisik Konstruksi
         </p>
       </div>
 

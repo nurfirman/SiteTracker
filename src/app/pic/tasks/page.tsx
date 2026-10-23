@@ -148,7 +148,7 @@ export default function PicTasksPage() {
       <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 p-6 sm:p-8 rounded-3xl text-white shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-500/30 border border-purple-400/40 text-purple-300 text-xs font-extrabold rounded-full backdrop-blur-md">
-            <CheckSquare size={16} /> Portal Tugas & Respon Lapangan
+            <CheckSquare size={16} /> Portal Tugas & Respon Site
           </div>
           <h1 className="text-2xl sm:text-3xl font-black">
             Tugas Saya (Tindak Lanjut Temuan)
@@ -206,7 +206,7 @@ export default function PicTasksPage() {
             Belum Ada Tugas Ditugaskan
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Akun Anda masih berstatus <strong>PENDING</strong>. Daftar tugas temuan lapangan akan otomatis muncul di sini setelah Administrator menetapkan Anda sebagai Site Manager proyek tertentu.
+            Akun Anda masih berstatus <strong>PENDING</strong>. Daftar tugas temuan Site  akan otomatis muncul di sini setelah Administrator menetapkan Anda sebagai Site Manager proyek tertentu.
           </p>
           <div className="pt-2">
             <Link
@@ -392,7 +392,7 @@ export default function PicTasksPage() {
               {/* Pilihan: Ada Foto / Tidak Ada Foto (Poin 8: Default Ada Foto) */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Bukti Foto Perbaikan Lapangan <span className="text-red-500">*</span>
+                  Bukti Foto Perbaikan Site  <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -454,10 +454,10 @@ export default function PicTasksPage() {
                 </div>
               )}
 
-              {/* 2. DESKRIPSI / RINCIAN PERBAIKAN LAPANGAN */}
+              {/* 2. DESKRIPSI / RINCIAN PERBAIKAN Site  */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Deskripsi & Tindakan Perbaikan Lapangan <span className="text-red-500">*</span>
+                  Deskripsi & Tindakan Perbaikan Site  <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={picResponse}

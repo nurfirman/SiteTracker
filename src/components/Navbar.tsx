@@ -55,7 +55,7 @@ export function Navbar() {
                   ProjectTracker
                 </span>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  Patrol & Pelacakan Temuan Lapangan
+                  Patrol & Pelacakan Temuan Site
                 </span>
               </div>
             </Link>
@@ -96,7 +96,7 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation Bar (Ramah Layar HP Lapangan) */}
+      {/* Mobile Bottom Navigation Bar (Ramah Layar HP Site ) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 md:hidden px-2 py-1 shadow-2xl">
         <div className="flex items-center justify-around">
           {navItems.map((item) => {

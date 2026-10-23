@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Finding, Project, Category, FindingStatus } from "@/types";
-import { getFindings, getProjects, validateFinding } from "@/lib/actions";
+import { getFindings, getProjects, validateFinding, deleteFinding } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { FindingCard } from "@/components/FindingCard";
 import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
@@ -74,6 +74,19 @@ export default function AllFindingsPage() {
     loadData();
   };
 
+  const handleDeleteFinding = async (finding: Finding) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus temuan ${finding.ticketCode} (${finding.description || "Tanpa deskripsi"})? Data yang dihapus tidak dapat dipulihkan.`)) {
+      return;
+    }
+    const res = await deleteFinding(finding.id);
+    if (res.success) {
+      alert(res.message);
+      loadData();
+    } else {
+      alert(res.message);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12">
       {/* Header */}
@@ -83,7 +96,7 @@ export default function AllFindingsPage() {
             <ClipboardList size={14} /> Daftar Arsip Temuan
           </span>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-            Semua Temuan Patrol Lapangan
+            Semua Temuan Patrol Site
           </h1>
           <p className="text-sm text-slate-500">
             Daftar lengkap seluruh temuan K3, Kualitas, 5R, Jadwal, dan Material.
@@ -119,7 +132,7 @@ export default function AllFindingsPage() {
             Data Temuan Dikosongkan
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Akun Anda masih berstatus <strong>PENDING</strong>. Akses terhadap arsip temuan lapangan akan otomatis aktif setelah Administrator mengonfigurasi role dan proyek penugasan Anda.
+            Akun Anda masih berstatus <strong>PENDING</strong>. Akses terhadap arsip temuan Site  akan otomatis aktif setelah Administrator mengonfigurasi role dan proyek penugasan Anda.
           </p>
           <div className="pt-2">
             <Link
@@ -157,7 +170,7 @@ export default function AllFindingsPage() {
               {/* Filter Proyek */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  Proyek Lapangan
+                  Proyek Site
                 </label>
                 <ProjectCombobox
                   projects={projects}
@@ -227,7 +240,9 @@ export default function AllFindingsPage() {
                   key={f.id}
                   finding={f}
                   onOpenSideBySide={(modalFinding) => setSelectedModalFinding(modalFinding)}
+                  onDelete={handleDeleteFinding}
                   currentUserRole={currentUser.role}
+                  currentUserId={currentUser.id}
                 />
               ))}
             </div>

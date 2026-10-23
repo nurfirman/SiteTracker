@@ -285,19 +285,19 @@ export function ImageAnnotatorModal({
       setCurrentShape((prev) =>
         prev
           ? {
-              ...prev,
-              points: [...(prev.points || []), coords],
-            }
+            ...prev,
+            points: [...(prev.points || []), coords],
+          }
           : null
       );
     } else {
       setCurrentShape((prev) =>
         prev
           ? {
-              ...prev,
-              endX: coords.x,
-              endY: coords.y,
-            }
+            ...prev,
+            endX: coords.x,
+            endY: coords.y,
+          }
           : null
       );
     }
@@ -378,7 +378,7 @@ export function ImageAnnotatorModal({
               <PenTool size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-black tracking-wide">Editor & Anotasi Foto Lapangan</h3>
+              <h3 className="text-sm font-black tracking-wide">Editor & Anotasi Foto Site </h3>
               <p className="text-[11px] text-slate-400">
                 Beri tanda lingkaran, panah penunjuk, atau teks keterangan temuan
               </p>
@@ -493,11 +493,10 @@ export function ImageAnnotatorModal({
               <button
                 type="button"
                 onClick={() => setActiveTool("CIRCLE")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTool === "CIRCLE"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTool === "CIRCLE"
                     ? "bg-violet-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Lingkaran / Oval"
               >
                 <Circle size={15} />
@@ -507,11 +506,10 @@ export function ImageAnnotatorModal({
               <button
                 type="button"
                 onClick={() => setActiveTool("ARROW")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTool === "ARROW"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTool === "ARROW"
                     ? "bg-violet-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Panah Penunjuk"
               >
                 <ArrowUpRight size={16} />
@@ -521,11 +519,10 @@ export function ImageAnnotatorModal({
               <button
                 type="button"
                 onClick={() => setActiveTool("TEXT")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTool === "TEXT"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTool === "TEXT"
                     ? "bg-violet-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Ketik Teks (Klik pada gambar)"
               >
                 <Type size={16} />
@@ -535,11 +532,10 @@ export function ImageAnnotatorModal({
               <button
                 type="button"
                 onClick={() => setActiveTool("RECT")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTool === "RECT"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTool === "RECT"
                     ? "bg-violet-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Kotak / Box"
               >
                 <Square size={15} />
@@ -549,11 +545,10 @@ export function ImageAnnotatorModal({
               <button
                 type="button"
                 onClick={() => setActiveTool("PEN")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTool === "PEN"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTool === "PEN"
                     ? "bg-violet-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Coretan Bebas"
               >
                 <PenTool size={15} />
@@ -570,11 +565,10 @@ export function ImageAnnotatorModal({
                     type="button"
                     onClick={() => setActiveColor(c.value)}
                     style={{ backgroundColor: c.value }}
-                    className={`w-6 h-6 rounded-full transition-transform active:scale-90 border-2 ${
-                      activeColor === c.value
+                    className={`w-6 h-6 rounded-full transition-transform active:scale-90 border-2 ${activeColor === c.value
                         ? "scale-110 border-white shadow-lg shadow-white/30"
                         : "border-transparent opacity-80 hover:opacity-100"
-                    }`}
+                      }`}
                     title={c.name}
                   />
                 ))}

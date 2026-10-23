@@ -143,17 +143,17 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   CMD: {
     label: "Tim CMD / Patrol Inspector",
     badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800",
-    description: "Akses Semua Kasus: Patrol lapangan, catat temuan baru, dan audit kepatuhan.",
+    description: "Akses Semua Kasus: Patrol Site , catat temuan baru, dan audit kepatuhan.",
   },
   PIC: {
     label: "Site Manager (SM) / Site Manager",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
-    description: "Akses Site Manager Lapangan: Memantau & merespon tindak lanjut temuan proyek.",
+    description: "Akses Site Manager Site : Memantau & merespon tindak lanjut temuan proyek.",
   },
   SM: {
     label: "Site Manager (SM)",
     badgeClass: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800",
-    description: "Akses Site Manager Lapangan: Memantau & merespon tindak lanjut temuan proyek.",
+    description: "Akses Site Manager Site : Memantau & merespon tindak lanjut temuan proyek.",
   },
   PM: {
     label: "PM (Project Manager)",
@@ -173,7 +173,7 @@ export const ROLE_LABELS: Record<Role, { label: string; badgeClass: string; desc
   SC: {
     label: "SC (Section Manager)",
     badgeClass: "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800",
-    description: "Akses Pengawasan Seksi: Supervisi lapangan, pemantauan eskalasi dan kepatuhan Patrol per seksi.",
+    description: "Akses Pengawasan Seksi: Supervisi Site , pemantauan eskalasi dan kepatuhan Patrol per seksi.",
   },
   GM: {
     label: "GM (General Manager)",
@@ -215,11 +215,21 @@ export interface AuditLogEntry {
   createdAt: string | Date;
 }
 
+export interface CategorySettingItem {
+  key: string;
+  label: string;
+  description: string;
+  slaHours: number;
+  color?: string;
+  isCustom?: boolean;
+}
+
 export interface SystemSettingData {
   reportLogoUrl?: string;
   companyName?: string;
   rbacPermissions?: Record<string, Record<string, boolean>>;
   customRoles?: string[];
+  categories?: CategorySettingItem[];
 }
 
 

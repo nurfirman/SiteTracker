@@ -13,7 +13,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "ProjectTracker - Sistem Patrol & Pelacakan Temuan Konstruksi",
   description:
-    "Aplikasi manajemen Patrol konstruksi, pelacakan temuan K3 & Kualitas, serta validasi perbaikan Side-by-Side.",
+    "Aplikasi manajemen Patrol konstruksi, pelacakan temuan Safety & Quality, serta validasi perbaikan Side-by-Side.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

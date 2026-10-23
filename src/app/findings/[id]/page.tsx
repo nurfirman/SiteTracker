@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Finding } from "@/types";
-import { getFindingById, validateFinding, resolveFinding, updateFinding, getUsers } from "@/lib/actions";
+import { getFindingById, validateFinding, resolveFinding, updateFinding, deleteFinding, getUsers } from "@/lib/actions";
 import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CategoryBadge } from "@/components/CategoryBadge";
@@ -24,6 +24,7 @@ import {
   Sparkles,
   Send,
   Pencil,
+  Trash2,
   X,
   Save,
 } from "lucide-react";
@@ -126,7 +127,7 @@ export default function FindingDetailPage() {
       const res = await updateFinding({
         findingId: finding.id,
         category: finalCategory as any,
-        description: editDescription.trim() || "Hanya Foto Patrol Lapangan",
+        description: editDescription.trim() || "Hanya Foto Patrol Site ",
         locationDetail: editLocationDetail.trim() || "-",
         coordinates: editCoordinates,
         photoFindingUrl: editPhotoFindingUrls.length > 0 ? formatPhotoUrls(editPhotoFindingUrls) : finding.photoFindingUrl,
@@ -212,9 +213,32 @@ export default function FindingDetailPage() {
 
   const canEdit = !["PIC", "SM", "PENDING"].includes(currentUser.role);
   const isInspector = !["PIC", "SM", "PENDING"].includes(currentUser.role);
+  const canDelete = currentUser.id === finding.reporterId || currentUser.role === "ADMIN";
   const canVerify = finding.status === "RESOLVED" && (
     currentUser.id === finding.reporterId || isInspector
   );
+
+  const [deleting, setDeleting] = useState(false);
+  const handleDelete = async () => {
+    if (!finding) return;
+    const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus temuan "${finding.ticketCode}"? Tindakan ini tidak dapat dibatalkan.`);
+    if (!confirmDelete) return;
+
+    setDeleting(true);
+    try {
+      const res = await deleteFinding(finding.id);
+      if (res.success) {
+        alert("Temuan berhasil dihapus.");
+        router.push("/findings");
+      } else {
+        alert(res.message || "Gagal menghapus temuan.");
+        setDeleting(false);
+      }
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan saat menghapus temuan.");
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-300 pb-12">
@@ -236,6 +260,17 @@ export default function FindingDetailPage() {
             >
               <Pencil size={13} />
               <span>Edit Temuan</span>
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors shadow-xs disabled:opacity-50"
+              title="Hapus Temuan Ini"
+            >
+              <Trash2 size={13} />
+              <span>{deleting ? "Menghapus..." : "Hapus"}</span>
             </button>
           )}
           <span className="font-mono text-xs font-black px-3 py-1 bg-slate-900 text-white rounded-lg">
@@ -343,7 +378,7 @@ export default function FindingDetailPage() {
         {/* SIDE BY SIDE PHOTO DISPLAY */}
         <div className="p-6 sm:p-8 space-y-4">
           <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wider">
-            Dokumentasi Foto Lapangan (Sebelum vs Sesudah)
+            Dokumentasi Foto Site  (Sebelum vs Sesudah)
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -500,13 +535,13 @@ export default function FindingDetailPage() {
           {showPicForm && (
             <form onSubmit={handlePicSubmit} className="space-y-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border-2 border-violet-300 dark:border-violet-800 shadow-sm">
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                Form Tindak Lanjut Perbaikan Lapangan
+                Form Tindak Lanjut Perbaikan Site
               </h3>
 
               {/* Pilihan: Ada Foto / Tidak Ada Foto (Poin 8: Default Ada Foto) */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Bukti Foto Perbaikan Lapangan <span className="text-red-500">*</span>
+                  Bukti Foto Perbaikan Site  <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -716,7 +751,7 @@ export default function FindingDetailPage() {
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <Calendar size={14} className="text-violet-600" />
-                  Tanggal Inspeksi Lapangan *
+                  Tanggal Inspeksi Site  *
                 </label>
                 <input
                   type="date"
@@ -809,8 +844,8 @@ export default function FindingDetailPage() {
               {/* Deskripsi Temuan */}
               <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex justify-between">
-                  <span>Deskripsi Temuan Lapangan</span>
-                  <span className="text-[11px] font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patrol Lapangan&quot;)</span>
+                  <span>Deskripsi Temuan Site </span>
+                  <span className="text-[11px] font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patrol Site &quot;)</span>
                 </label>
                 <textarea
                   value={editDescription}

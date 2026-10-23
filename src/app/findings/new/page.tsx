@@ -95,12 +95,12 @@ export default function NewFindingPage() {
       setErrorMsg("Mohon lampirkan/ambil foto temuan Patrol (minimal 1 foto).");
       return;
     }
-    // Description is optional, defaults to "Hanya Foto Patrol Lapangan" if empty
+    // Description is optional, defaults to "Hanya Foto Patrol Site " if empty
 
     setSubmitting(true);
 
     const finalCategory = category === "CUSTOM" ? customCategory.trim() : category;
-    const finalDescription = description.trim() || "Hanya Foto Patrol Lapangan";
+    const finalDescription = description.trim() || "Hanya Foto Patrol Site ";
 
     try {
       const res = await createFinding({
@@ -191,7 +191,7 @@ export default function NewFindingPage() {
               <HardHat size={16} /> Formulir Input Temuan Patrol CMD
             </div>
             <h1 className="text-2xl sm:text-3xl font-black">
-              Catat Temuan Baru Lapangan
+              Catat Temuan Baru Site
             </h1>
             <p className="text-sm text-slate-300">
               Isi formulir temuan. Temuan berstatus 🔴 OPEN akan otomatis diteruskan ke Site Manager terkait.
@@ -220,12 +220,12 @@ export default function NewFindingPage() {
                 </div>
               )}
 
-              {/* 1. TANGGAL INSPEKSI LAPANGAN */}
+              {/* 1. TANGGAL INSPEKSI Site  */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Calendar size={16} className="text-violet-600 dark:text-violet-400" />
-                    1. Tanggal Inspeksi Lapangan <span className="text-red-500">*</span>
+                    1. Tanggal Inspeksi Site  <span className="text-red-500">*</span>
                   </span>
                   <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
                     (Default hari ini / bisa diubah jika susulan)
@@ -302,7 +302,7 @@ export default function NewFindingPage() {
               {/* 5. UPLOAD FOTO TEMUAN (1 s.d. 4 FOTO) */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <MultiPhotoUploader
-                  label="5. Foto Temuan Lapangan (Foto Awal)"
+                  label="5. Foto Temuan Site  (Foto Awal)"
                   description="Lampirkan 1 sampai 4 foto (tampak luas & tampak detail cacat). Anda bisa mengedit dan menandai foto dengan panah, lingkaran, dan teks."
                   values={photoFindingUrls}
                   onChange={(urls) => setPhotoFindingUrls(urls)}
@@ -315,13 +315,13 @@ export default function NewFindingPage() {
               {/* 6. DESKRIPSI TEMUAN (SETELAH FOTO) */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                  <span>6. Deskripsi Temuan Lapangan</span>
-                  <span className="text-xs font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patrol Lapangan&quot;)</span>
+                  <span>6. Deskripsi Temuan Site </span>
+                  <span className="text-xs font-normal text-slate-500">(Opsional - default: &quot;Hanya Foto Patrol Site &quot;)</span>
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Tuliskan temuan secara jelas dan objektif (jika dikosongkan, otomatis tersimpan 'Hanya Foto Patrol Lapangan')."
+                  placeholder="Tuliskan temuan secara jelas dan objektif (jika dikosongkan, otomatis tersimpan 'Hanya Foto Patrol Site ')."
                   rows={3}
                   className="w-full px-4 py-3.5 text-base rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none"
                 />

@@ -180,7 +180,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 Yth. Bapak/Ibu Tim Proyek & Manajemen,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Berikut terlampir rangkuman resmi laporan hasil Patrol pengawasan lapangan untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
+                Berikut terlampir rangkuman resmi laporan hasil Patrol pengawasan Site  untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
               </p>
 
               <!-- Optional Note -->
@@ -263,7 +263,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                 </tr>` : ""}
                 <tr>
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Petugas Patrol CMD:</td>
-                  <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Lapangan"}</td>
+                  <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Site "}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">SM / PM (Site/Project Manager):</td>
@@ -526,8 +526,8 @@ export function generateEscalationReminderEmailHtml(
               <!-- Warning Callout Box -->
               <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
-                  <strong>Pemberitahuan kepada Site Manager Proyek & Section Manager (GM):</strong><br>
-                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan Patrol</strong> yang telah melewati batas waktu SLA (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di lapangan.
+                  <strong>Reminder : Kepada Site Manager Proyek <strong>${options.picName}</strong>  & Section Manager <strong>${options.gmName}</strong> :</strong><br>
+                  Sistem monitoring mendeteksi terdapat <strong>${options.overdueFindings.length} temuan Patrol</strong> yang telah melewati batas waktu  (&gt; 7 hari) tanpa adanya respon atau tindakan perbaikan dari Site Manager di Site .
                 </p>
               </div>
 

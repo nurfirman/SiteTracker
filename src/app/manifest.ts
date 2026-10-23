@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ProjectTracker - Patrol & Pelacakan Temuan Konstruksi",
     short_name: "ProjectTracker",
-    description: "Aplikasi manajemen Patrol Site Taiyo Sinar, pelacakan temuan K3 & Kualitas, serta verifikasi perbaikan konstruksi.",
+    description: "Aplikasi manajemen Patrol Site Taiyo Sinar, pelacakan temuan Safety & Quality, serta verifikasi perbaikan konstruksi.",
     start_url: "/",
     display: "standalone",
     background_color: "#020617",

@@ -157,7 +157,7 @@ def build_manual_docx():
     
     # SECTION 1
     add_heading_1(doc, "1. Pengenalan Aplikasi ProjectTracker CMD")
-    add_body_p(doc, "SiteTracker CMD adalah sistem manajemen digital terintegrasi untuk pengawasan kepatuhan K3 (ISO 45001) dan pelacakan temuan mutu fisik konstruksi (ISO 9001). Aplikasi ini menghubungkan pihak Pemeriksa Lapangan (CMD/Safety), Pelaksana Lapangan (PIC Subkon), dan Manajemen Proyek (Site Manager / Project Manager) dalam satu alur kerja real-time.")
+    add_body_p(doc, "SiteTracker CMD adalah sistem manajemen digital terintegrasi untuk pengawasan kepatuhan Safety dan pelacakan temuan mutu fisik konstruksi . Aplikasi ini menghubungkan pihak Pemeriksa Lapangan (CMD/Safety), Pelaksana Lapangan (PIC Subkon), dan Manajemen Proyek (Site Manager / Project Manager) dalam satu alur kerja real-time.")
     
     add_body_p(doc, "Tersedia pembagian hak akses (Role-Based Access) yang jelas:")
     add_body_p(doc, "Melakukan inspeksi patrol, mencatat tiket temuan, memverifikasi perbaikan, dan menerbitkan laporan resmi berkala.", "• CMD (Central Management / Safety Inspector): ")

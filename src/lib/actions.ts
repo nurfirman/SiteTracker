@@ -1,6 +1,6 @@
 "use server";
 
-import { Category, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolnput, BulkFindingItemInput } from "../types";
+import { Category, CategorySettingItem, Finding, FindingStatus, Project, Role, User, PatrolReport, AuditLogEntry, SystemSettingData, CreateBulkPatrolnput, BulkFindingItemInput } from "../types";
 import { prisma } from "./db";
 import { MOCK_FINDINGS, MOCK_PROJECTS, MOCK_USERS } from "./mockData";
 import { generateTicketCode, formatTicketCode, formatEmployeeCode, calculateDueDate, addBusinessDays, formatPhotoUrls, parsePhotoUrls } from "./utils";
@@ -15,6 +15,7 @@ import {
   sendPasswordResetMail,
 } from "./azureMail";
 import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
+import { updateNeonAuthAccountPassword, verifyPasswordScrypt } from "./authPassword";
 import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "../constants/divisions";
 
 function safeRevalidate(path: string) {
@@ -297,19 +298,44 @@ export async function loginUser(identifier: string, password?: string): Promise<
       standardPasswords.includes(password)
     ) {
       isAuthenticated = true;
-    } else if (isNeonAuthConfigured()) {
-      try {
-        const neonRes = await signInWithNeonAuth({
-          email: targetUser.email,
-          password: password,
-        });
-        if (neonRes.success) {
-          isAuthenticated = true;
-        } else {
-          authErrorMsg = neonRes.message;
+    } else {
+      // 1. Cek langsung ke database neon_auth.account
+      if (hasValidDatabaseUrl()) {
+        try {
+          const accounts: any[] = await prisma.$queryRawUnsafe(
+            `SELECT a.password 
+             FROM "neon_auth"."account" a
+             JOIN "neon_auth"."user" u ON a."userId" = u.id
+             WHERE LOWER(u.email) = $1 AND a."providerId" = 'credential' AND a.password IS NOT NULL
+             LIMIT 1;`,
+            targetUser.email.toLowerCase().trim()
+          );
+          if (accounts && accounts.length > 0 && accounts[0].password) {
+            const isMatch = await verifyPasswordScrypt(password, accounts[0].password);
+            if (isMatch) {
+              isAuthenticated = true;
+            }
+          }
+        } catch (dbErr) {
+          console.warn("Direct DB password verification check error:", dbErr);
         }
-      } catch (err: any) {
-        console.warn("Neon Auth verification encountered an error:", err);
+      }
+
+      // 2. Jika belum valid, coba fallback verifikasi via Neon Auth HTTP endpoint
+      if (!isAuthenticated && isNeonAuthConfigured()) {
+        try {
+          const neonRes = await signInWithNeonAuth({
+            email: targetUser.email,
+            password: password,
+          });
+          if (neonRes.success) {
+            isAuthenticated = true;
+          } else {
+            authErrorMsg = neonRes.message;
+          }
+        } catch (err: any) {
+          console.warn("Neon Auth verification encountered an error:", err);
+        }
       }
     }
 
@@ -475,10 +501,19 @@ export async function resetPasswordWithOtp(payload: {
       return verifyRes;
     }
 
-    // Update in-memory user
+    // 1. Update in-memory user fallback
     const memIdx = inMemoryUsers.findIndex((u) => u.email.toLowerCase() === cleanEmail);
     if (memIdx !== -1) {
       inMemoryUsers[memIdx].password = newPassword;
+    }
+
+    // 2. Update password ke database PostgreSQL (neon_auth.account)
+    if (hasValidDatabaseUrl()) {
+      try {
+        await updateNeonAuthAccountPassword(cleanEmail, newPassword);
+      } catch (dbErr) {
+        console.warn("Update DB password error:", dbErr);
+      }
     }
 
     // Hapus token OTP yang sudah digunakan
@@ -517,12 +552,26 @@ export async function adminResetUserPassword(
       return { success: false, message: "Password minimal 3 karakter." };
     }
 
-    const user = inMemoryUsers.find((u) => u.id === userId);
+    const allUsers = await getUsers();
+    const user = allUsers.find((u) => u.id === userId);
     if (!user) {
       return { success: false, message: "Pengguna tidak ditemukan." };
     }
 
-    user.password = cleanPwd;
+    // Update in-memory user
+    const memUser = inMemoryUsers.find((u) => u.id === userId);
+    if (memUser) {
+      memUser.password = cleanPwd;
+    }
+
+    // Update neon_auth.account database
+    if (hasValidDatabaseUrl() && user.email) {
+      try {
+        await updateNeonAuthAccountPassword(user.email, cleanPwd);
+      } catch (dbErr) {
+        console.warn("Update DB password error for admin reset:", dbErr);
+      }
+    }
 
     safeRevalidate("/login");
     safeRevalidate("/admin");
@@ -1758,7 +1807,7 @@ export async function unassignUserFromProject(
     safeRevalidate("/projects");
     safeRevalidate("/pic/tasks");
 
-    return { success: true, message: "Penugasan PIC dari proyek berhasil dilepas." };
+    return { success: true, message: "Penugasan Site Manage dari proyek berhasil dilepas." };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal melepaskan penugasan PIC." };
   }
@@ -2194,7 +2243,7 @@ export async function createFinding(payload: {
     if (!session || session.role === "PIC" || session.role === "PENDING") {
       return {
         success: false,
-        message: "Akses ditolak: PIC tidak diizinkan mencatat temuan. PIC bertugas menindaklanjuti temuan yang ditugaskan.",
+        message: "Akses ditolak: Site Manager tidak diizinkan mencatat temuan. Site Manager bertugas menindaklanjuti temuan yang ditugaskan.",
       };
     }
 
@@ -2203,10 +2252,10 @@ export async function createFinding(payload: {
       ? sanitizeText(payload.locationDetail)
       : "-";
 
-    // Poin 7: Jika Deskripsi kosong, isi dengan "Hanya Foto Patrol Lapangan"
+    // Poin 7: Jika Deskripsi kosong, isi dengan "Hanya Foto Patrol Site "
     const cleanDescription = (payload.description && payload.description.trim().length > 0)
       ? sanitizeText(payload.description)
-      : "Hanya Foto Patrol Lapangan";
+      : "Hanya Foto Patrol Site ";
 
     // 2. Validate image payload size and format (Foto tetap wajib)
     if (!payload.photoFindingUrl) {
@@ -2218,7 +2267,7 @@ export async function createFinding(payload: {
     }
 
     const now = new Date();
-    // Poin 8: Tanggal Inspeksi Lapangan (default today jika tidak diisi)
+    // Poin 8: Tanggal Inspeksi Site  (default today jika tidak diisi)
     const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
     // SLA 14 hari kerja dihitung dari tanggal laporan / pembuatan database (now), bukan dari tanggal temuan/patrol
     const dueDate = calculateDueDate(payload.category, now);
@@ -2384,7 +2433,7 @@ export async function updateFinding(payload: {
       : targetFinding.locationDetail;
 
     const cleanDescription = payload.description !== undefined
-      ? (payload.description.trim() ? sanitizeText(payload.description) : "Hanya Foto Patrol Lapangan")
+      ? (payload.description.trim() ? sanitizeText(payload.description) : "Hanya Foto Patrol Site ")
       : targetFinding.description;
 
     let inspectionDateObj = targetFinding.inspectionDate
@@ -2501,6 +2550,74 @@ export async function updateFinding(payload: {
     return { success: true };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal mengedit temuan." };
+  }
+}
+
+/**
+ * Menghapus temuan: Hanya user yang menginput (reporter) atau Administrator yang berhak menghapus.
+ */
+export async function deleteFinding(findingId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: auth.error || "Akses ditolak: Silakan login terlebih dahulu." };
+    }
+
+    const session = auth.user;
+    const targetFinding = await getFindingById(findingId);
+    if (!targetFinding) {
+      return { success: false, message: "Temuan tidak ditemukan atau telah dihapus." };
+    }
+
+    // Pengecekan otorisasi: Hanya pembuat temuan (reporterId) atau ADMIN yang boleh menghapus
+    const isReporter = targetFinding.reporterId === session.userId;
+    const isAdmin = session.role === "ADMIN";
+
+    if (!isReporter && !isAdmin) {
+      return {
+        success: false,
+        message: "Akses ditolak: Hanya pengguna yang menginput temuan ini yang berwenang untuk menghapusnya.",
+      };
+    }
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        await prisma.finding.delete({
+          where: { id: findingId },
+        });
+      } catch (dbErr: any) {
+        console.warn("Online DB delete failed for deleteFinding:", dbErr);
+        return { success: false, message: "Gagal menghapus temuan dari database: " + dbErr.message };
+      }
+    }
+
+    // In-memory fallback
+    const memIdx = inMemoryFindings.findIndex((f) => f.id === findingId);
+    if (memIdx !== -1) {
+      inMemoryFindings.splice(memIdx, 1);
+    }
+
+    await recordAuditLog({
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role,
+      action: "DELETE_FINDING",
+      entityType: "FINDING",
+      entityId: targetFinding.ticketCode,
+      details: `Menghapus temuan ${targetFinding.ticketCode} (${targetFinding.description || "Tanpa deskripsi"})`,
+    });
+
+    safeRevalidate("/");
+    safeRevalidate("/findings");
+    safeRevalidate("/pic/tasks");
+    safeRevalidate("/reports");
+
+    return {
+      success: true,
+      message: `Temuan ${targetFinding.ticketCode} berhasil dihapus.`,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menghapus temuan." };
   }
 }
 
@@ -3041,14 +3158,15 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
   }
 }
 
-// In-memory category configurations
-let inMemoryCategories = [
+// Category configurations (default 5 kategori standar)
+const DEFAULT_CATEGORIES: CategorySettingItem[] = [
   {
     key: "K3_SAFETY",
     label: "K3 / Keselamatan Kerja",
     description: "Isu keselamatan kerja, APD, barikade, kelistrikan, & bahaya kerja.",
     slaHours: 24,
     color: "red",
+    isCustom: false,
   },
   {
     key: "QUALITY",
@@ -3056,6 +3174,7 @@ let inMemoryCategories = [
     description: "Cacat fisik, penyimpangan gambar teknis, retak coring, dan instalasi.",
     slaHours: 48,
     color: "blue",
+    isCustom: false,
   },
   {
     key: "KEBERSIHAN_5R",
@@ -3063,6 +3182,7 @@ let inMemoryCategories = [
     description: "Sampah material, lokasi kumuh, sisa bahan, kerapian area kerja.",
     slaHours: 48,
     color: "emerald",
+    isCustom: false,
   },
   {
     key: "SCHEDULE",
@@ -3070,6 +3190,7 @@ let inMemoryCategories = [
     description: "Keterlambatan tahapan kerja, kekurangan tenaga, kemacetan alat berat.",
     slaHours: 72,
     color: "amber",
+    isCustom: false,
   },
   {
     key: "MATERIAL",
@@ -3077,20 +3198,239 @@ let inMemoryCategories = [
     description: "Material rusak, penyimpanan basah, kekurangan stok bahan bangunan.",
     slaHours: 48,
     color: "purple",
+    isCustom: false,
   },
 ];
 
-export async function getCategorySettings() {
+let inMemoryCategories: CategorySettingItem[] = [...DEFAULT_CATEGORIES];
+
+/**
+ * Menyimpan array kategori ke DB (system_settings) dan in-memory
+ */
+async function saveCategorySettingsList(categories: CategorySettingItem[]): Promise<void> {
+  inMemoryCategories = categories;
+  if (hasValidDatabaseUrl()) {
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: "category_settings" },
+        update: { value: JSON.stringify(categories) },
+        create: { key: "category_settings", value: JSON.stringify(categories) },
+      });
+    } catch (e) {
+      console.warn("Gagal menyimpan category_settings ke database:", e);
+    }
+  }
+}
+
+/**
+ * Mengambil daftar konfigurasi Kategori Temuan & Toleransi SLA
+ */
+export async function getCategorySettings(): Promise<CategorySettingItem[]> {
+  if (hasValidDatabaseUrl()) {
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: "category_settings" },
+      });
+      if (setting && setting.value) {
+        const parsed = JSON.parse(setting.value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          inMemoryCategories = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Online DB query failed for getCategorySettings:", e);
+    }
+  }
   return inMemoryCategories;
 }
 
+/**
+ * Memperbarui hanya SLA suatu kategori (kompatibilitas backward)
+ */
 export async function updateCategorySla(key: string, slaHours: number): Promise<{ success: boolean; message: string }> {
-  const cat = inMemoryCategories.find((c) => c.key === key);
-  if (cat) {
-    cat.slaHours = slaHours;
-    return { success: true, message: `SLA untuk kategori ${cat.label} berhasil diperbarui menjadi ${slaHours} jam.` };
+  return updateCategory(key, { slaHours });
+}
+
+/**
+ * Memperbarui redaksi dan SLA suatu kategori temuan
+ */
+export async function updateCategory(
+  key: string,
+  payload: {
+    label?: string;
+    description?: string;
+    slaHours?: number;
+    color?: string;
   }
-  return { success: false, message: "Kategori tidak ditemukan." };
+): Promise<{ success: boolean; message: string; categories?: CategorySettingItem[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang mengubah kategori." };
+    }
+
+    const currentCats = await getCategorySettings();
+    const targetIdx = currentCats.findIndex((c) => c.key === key);
+    if (targetIdx === -1) {
+      return { success: false, message: "Kategori tidak ditemukan." };
+    }
+
+    const updatedCat: CategorySettingItem = {
+      ...currentCats[targetIdx],
+      label: payload.label?.trim() ? sanitizeText(payload.label.trim()) : currentCats[targetIdx].label,
+      description: payload.description !== undefined ? sanitizeText(payload.description.trim()) : currentCats[targetIdx].description,
+      slaHours: typeof payload.slaHours === "number" && payload.slaHours > 0 ? payload.slaHours : currentCats[targetIdx].slaHours,
+      color: payload.color || currentCats[targetIdx].color || "violet",
+    };
+
+    const nextCats = [...currentCats];
+    nextCats[targetIdx] = updatedCat;
+    await saveCategorySettingsList(nextCats);
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "UPDATE_CATEGORY",
+      entityType: "SYSTEM_SETTING",
+      entityId: key,
+      details: `Memperbarui kategori ${updatedCat.label} (SLA: ${updatedCat.slaHours} jam)`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/findings");
+
+    return {
+      success: true,
+      message: `Kategori "${updatedCat.label}" berhasil diperbarui.`,
+      categories: nextCats,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memperbarui kategori." };
+  }
+}
+
+/**
+ * Menambahkan kategori temuan baru
+ */
+export async function createCategory(payload: {
+  key?: string;
+  label: string;
+  description: string;
+  slaHours: number;
+  color?: string;
+}): Promise<{ success: boolean; message: string; category?: CategorySettingItem; categories?: CategorySettingItem[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang menambah kategori." };
+    }
+
+    const cleanLabel = sanitizeText(payload.label?.trim());
+    if (!cleanLabel || cleanLabel.length < 2) {
+      return { success: false, message: "Nama kategori minimal 2 karakter." };
+    }
+
+    const cleanDesc = sanitizeText(payload.description?.trim() || "");
+    const slaHours = Number(payload.slaHours) > 0 ? Number(payload.slaHours) : 48;
+
+    // Generate unique key jika tidak diberikan
+    let rawKey = payload.key?.trim() || cleanLabel.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+    if (!rawKey.startsWith("CAT_") && !rawKey.match(/^[A-Z0-9_]+$/)) {
+      rawKey = "CAT_" + rawKey;
+    }
+    const finalKey = rawKey.slice(0, 30);
+
+    const currentCats = await getCategorySettings();
+    if (currentCats.some((c) => c.key.toUpperCase() === finalKey.toUpperCase())) {
+      return { success: false, message: `Kode kategori "${finalKey}" sudah digunakan. Silakan gunakan nama lain.` };
+    }
+
+    const newCat: CategorySettingItem = {
+      key: finalKey,
+      label: cleanLabel,
+      description: cleanDesc,
+      slaHours,
+      color: payload.color || "violet",
+      isCustom: true,
+    };
+
+    const nextCats = [...currentCats, newCat];
+    await saveCategorySettingsList(nextCats);
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "CREATE_CATEGORY",
+      entityType: "SYSTEM_SETTING",
+      entityId: finalKey,
+      details: `Menambahkan kategori temuan baru "${newCat.label}" (${finalKey}, SLA ${slaHours} jam)`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/findings");
+
+    return {
+      success: true,
+      message: `Kategori temuan baru "${newCat.label}" berhasil ditambahkan.`,
+      category: newCat,
+      categories: nextCats,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal membuat kategori baru." };
+  }
+}
+
+/**
+ * Menghapus kategori temuan kustom
+ */
+export async function deleteCategory(key: string): Promise<{ success: boolean; message: string; categories?: CategorySettingItem[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang menghapus kategori." };
+    }
+
+    const currentCats = await getCategorySettings();
+    const target = currentCats.find((c) => c.key === key);
+    if (!target) {
+      return { success: false, message: "Kategori tidak ditemukan." };
+    }
+
+    const defaultKeys = DEFAULT_CATEGORIES.map((c) => c.key);
+    if (defaultKeys.includes(key)) {
+      return { success: false, message: "Kategori standar sistem tidak dapat dihapus, hanya dapat diedit redaksi dan SLA-nya." };
+    }
+
+    const nextCats = currentCats.filter((c) => c.key !== key);
+    await saveCategorySettingsList(nextCats);
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "DELETE_CATEGORY",
+      entityType: "SYSTEM_SETTING",
+      entityId: key,
+      details: `Menghapus kategori temuan kustom "${target.label}" (${key})`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/findings");
+
+    return {
+      success: true,
+      message: `Kategori "${target.label}" berhasil dihapus.`,
+      categories: nextCats,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menghapus kategori." };
+  }
 }
 
 export interface SlaReminderEngineResult {
@@ -3207,6 +3547,61 @@ export async function runPatrolSlaReminderEngine(options?: {
       });
     }
 
+    // Kumpulkan seluruh nomor laporan (reportNumber) unik dari temuan OPEN yang overdue
+    const candidateReportNumbers = Array.from(
+      new Set(
+        allOpenFindings
+          .map((f) => f.reportNumber)
+          .filter((rn): rn is string => Boolean(rn && rn.trim().length > 0))
+      )
+    );
+
+    // Cari reportNumber mana saja yang sudah memiliki minimal 1 temuan yang direspon/RESOLVED/CLOSED
+    const respondedReportNumbers = new Set<string>();
+
+    if (candidateReportNumbers.length > 0) {
+      if (hasValidDatabaseUrl()) {
+        try {
+          const respondedDbFindings = await prisma.finding.findMany({
+            where: {
+              reportNumber: { in: candidateReportNumbers },
+              OR: [
+                { status: { in: ["RESOLVED", "CLOSED"] } },
+                { picResponse: { not: null } },
+              ],
+            },
+            select: { reportNumber: true },
+            distinct: ["reportNumber"],
+          });
+          respondedDbFindings.forEach((rf) => {
+            if (rf.reportNumber) respondedReportNumbers.add(rf.reportNumber);
+          });
+        } catch (dbCheckErr) {
+          console.warn("Check responded findings DB error:", dbCheckErr);
+        }
+      }
+
+      // Cek juga di in-memory fallback
+      inMemoryFindings.forEach((mf) => {
+        if (
+          mf.reportNumber &&
+          candidateReportNumbers.includes(mf.reportNumber) &&
+          (mf.status === "RESOLVED" || mf.status === "CLOSED" || (mf.picResponse && mf.picResponse.trim().length > 0))
+        ) {
+          respondedReportNumbers.add(mf.reportNumber);
+        }
+      });
+    }
+
+    // Filter allOpenFindings: Jika dalam 1 Laporan Patrol ada salah satu temuan yang sudah direspon,
+    // maka seluruh temuan dalam laporan tersebut TIDAK PERLU di-reminder.
+    allOpenFindings = allOpenFindings.filter((f) => {
+      if (f.reportNumber && respondedReportNumbers.has(f.reportNumber)) {
+        return false;
+      }
+      return true;
+    });
+
     // Ambil data users dan projects untuk melengkapi PIC, PM, GM
     const [projects, users] = await Promise.all([getProjects(), getUsers()]);
 
@@ -3268,7 +3663,7 @@ export async function runPatrolSlaReminderEngine(options?: {
         return {
           ticketCode: f.ticketCode,
           category: f.category,
-          description: f.description || "Hanya Foto Patrol Lapangan",
+          description: f.description || "Hanya Foto Patrol Site ",
           locationDetail: f.locationDetail || "-",
           daysOpen: days,
           createdAt: typeof f.createdAt === "string" ? f.createdAt : new Date(f.createdAt).toISOString(),
@@ -3288,7 +3683,7 @@ export async function runPatrolSlaReminderEngine(options?: {
             daysOpen: t.daysOpen,
           })),
           status: "ERROR",
-          message: "Tidak ditemukan alamat email PIC maupun GM pada proyek ini.",
+          message: "Tidak ditemukan alamat email Site Manager maupun GM pada proyek ini.",
         });
         continue;
       }
@@ -3333,7 +3728,7 @@ export async function runPatrolSlaReminderEngine(options?: {
               daysOpen: t.daysOpen,
             })),
             status: "SIMULATED",
-            message: `[Mode Simulasi] Email reminder SLA tersimulasi untuk dikirim ke PIC (${projectPics.map((p) => p.name).join(", ")}), GM (${gmUser?.name || "GM Divisi"}), dan PM (${pmUser?.name || "PM"}).`,
+            message: `[Mode Simulasi] Email reminder SLA tersimulasi untuk dikirim ke Site Manager (${projectPics.map((p) => p.name).join(", ")}), GM (${gmUser?.name || "GM Divisi"}), dan PM (${pmUser?.name || "PM"}).`,
           });
         }
       } catch (sendErr: any) {
@@ -3838,7 +4233,7 @@ export async function createBulkPatrolFindings(
     if (!session || session.role === "PIC" || session.role === "PENDING") {
       return {
         success: false,
-        message: "Akses ditolak: PIC dan PENDING tidak diizinkan mencatat temuan Patrol.",
+        message: "Akses ditolak: Site Manager dan PENDING tidak diizinkan mencatat temuan Patrol.",
       };
     }
 
@@ -3936,7 +4331,7 @@ export async function createBulkPatrolFindings(
       const cleanDesc =
         item.description && item.description.trim().length > 0
           ? sanitizeText(item.description)
-          : "Hanya Foto Patrol Lapangan";
+          : "Hanya Foto Patrol Site ";
 
       const formattedPhotoUrl = formatPhotoUrls(item.photoFindingUrls);
       const targetPicId = item.picId || fallbackPicId;

@@ -1,7 +1,7 @@
 {
   "name": "ProjectTracker - Patrol & Pelacakan Temuan Konstruksi",
   "short_name": "ProjectTracker",
-  "description": "Aplikasi manajemen patrol Site Taiyo Sinar, pelacakan temuan K3 & Kualitas, serta verifikasi perbaikan konstruksi.",
+  "description": "Aplikasi manajemen patrol Site Taiyo Sinar, pelacakan temuan Safety & Quality, serta verifikasi perbaikan konstruksi.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",

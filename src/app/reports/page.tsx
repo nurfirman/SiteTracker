@@ -1349,7 +1349,7 @@ export default function ReportsPage() {
                                     Comment :
                                   </p>
                                   <p className="text-slate-800 print:text-black mt-0.5">
-                                    {item.description || "Hanya Foto Patrol Lapangan"}
+                                    {item.description || "Hanya Foto Patrol Site "}
                                   </p>
                                   <div className="mt-1.5 pt-1 border-t border-slate-200 print:border-slate-300 flex flex-col gap-0.5 text-[10px] text-slate-600 print:text-slate-800">
                                     <p>
@@ -1414,7 +1414,7 @@ export default function ReportsPage() {
                                       item.picResponse
                                     ) : (
                                       <span className="italic text-slate-400">
-                                        (Menunggu tindakan perbaikan dari PIC di lapangan)
+                                        (Menunggu tindakan perbaikan dari PIC di Site )
                                       </span>
                                     )}
                                   </p>
@@ -1686,7 +1686,7 @@ export default function ReportsPage() {
                 {/* Detailed Table */}
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white print:text-black uppercase tracking-wider mb-4">
-                    Daftar Detail Temuan Patrol Lapangan
+                    Daftar Detail Temuan Patrol Site
                   </h3>
 
                   {loading ? (

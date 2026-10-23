@@ -65,7 +65,7 @@ export function Header() {
     }
     if (pathname.startsWith("/pic/tasks")) {
       return {
-        title: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Tugas Saya (Site Manager)" : "Tugas Lapangan & Monitoring",
+        title: (currentUser.role === "PIC" || currentUser.role === "SM") ? "Tugas Saya (Site Manager)" : "Tugas Site  & Monitoring",
         subtitle: "Daftar Tindak Lanjut & Pengunggahan Bukti Perbaikan",
       };
     }

@@ -34,7 +34,7 @@ export default function LandingPage() {
           {/* Tagline Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-400 text-xs font-bold mb-8 backdrop-blur-md">
             <HardHat size={16} className="text-violet-400" />
-            <span>Eliminasi Hazard K3 & Cacat Pekerjaan Lapangan 5x Lebih Cepat</span>
+            <span>Eliminasi Hazard K3 & Cacat Pekerjaan Site  5x Lebih Cepat</span>
           </div>
 
           {/* Main Headline */}
@@ -95,7 +95,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-xs font-extrabold text-violet-400 tracking-widest uppercase">
-              Kategori Temuan Lapangan
+              Kategori Temuan Site
             </h2>
             <p className="mt-2 text-3xl font-black text-white sm:text-4xl">
               4 Pillar Utama Pengawasan Proyek Fisik
@@ -183,7 +183,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 rounded-full bg-violet-600 text-white font-black text-lg flex items-center justify-center mb-6">
                 1
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Pencatatan Lapangan (CMD)</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Pencatatan Site  (CMD)</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
                 Inspector CMD melakukan Patrol, mengambil foto bukti temuan, koordinat GPS, dan menugaskan Site Manager area.
               </p>
@@ -253,7 +253,7 @@ export default function LandingPage() {
                 <Building2 size={28} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Site Manager / Site Manager Lapangan</h3>
+                <h3 className="text-lg font-bold text-white">Site Manager / Site Manager Site </h3>
                 <p className="mt-2 text-sm text-slate-400 leading-relaxed">
                   Notifikasi jelas tentang lokasi persis dan bahaya yang harus diperbaiki. Langsung unggah Foto After perbaikan tanpa debat.
                 </p>

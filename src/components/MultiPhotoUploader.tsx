@@ -331,7 +331,7 @@ export function MultiPhotoUploader({
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border border-dashed border-violet-400 bg-violet-50/60 text-violet-800 dark:text-violet-200">
               <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
-              <span className="text-xs font-bold">Mengompresi Foto Lapangan...</span>
+              <span className="text-xs font-bold">Mengompresi Foto Site ...</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">

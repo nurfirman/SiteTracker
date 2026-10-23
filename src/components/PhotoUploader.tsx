@@ -238,7 +238,7 @@ export function PhotoUploader({
         <div className="flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50/60 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 min-h-[160px]">
           <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
           <div className="text-center">
-            <span className="block text-sm font-extrabold">Mengompresi Foto Lapangan...</span>
+            <span className="block text-sm font-extrabold">Mengompresi Foto Site ...</span>
             <span className="block text-xs text-violet-700 dark:text-violet-300 font-medium">
               Mengoptimalkan ukuran gambar agar unggahan instan & hemat kuota
             </span>
