@@ -172,13 +172,13 @@ export function getSlaStatus(
     };
   } else if (diffHours <= 24) {
     return {
-      label: `SLA ${formatSlaDuration(diffHours)} lagi`,
+      label: `To ${formatSlaDuration(diffHours)} lagi`,
       isOverdue: false,
       badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300",
     };
   } else {
     return {
-      label: `SLA ${formatSlaDuration(diffHours)} lagi`,
+      label: `To ${formatSlaDuration(diffHours)} lagi`,
       isOverdue: false,
       badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300",
     };

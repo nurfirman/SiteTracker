@@ -5,7 +5,7 @@ import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 import { formatDate, getSlaStatus } from "../lib/utils";
-import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle, Trash2, FileText } from "lucide-react";
 import Link from "next/link";
 
 interface FindingCardProps {
@@ -36,9 +36,20 @@ export function FindingCard({
       {/* Header Card */}
       <div className="p-5 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-bold rounded-lg tracking-wider">
-            {finding.ticketCode}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-bold rounded-lg tracking-wider">
+              {finding.ticketCode}
+            </span>
+            {finding.reportNumber && (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 rounded-lg font-mono text-[11px] font-bold"
+                title={`Nomor Dokumen Laporan: ${finding.reportNumber}`}
+              >
+                <FileText size={11} className="shrink-0" />
+                <span className="truncate max-w-[130px]">{finding.reportNumber}</span>
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 ${sla.badgeClass}`}>
               <Clock size={11} /> {sla.label}

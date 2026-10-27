@@ -15,7 +15,9 @@ import {
   SlaReminderEngineResult,
   getNextReportDocNumber,
   getSystemSettings,
+  saveEmailDivisionTemplate,
 } from "@/lib/actions";
+import { EmailDivisionTemplateConfig } from "@/types";
 import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
 import { formatDate, getSlaStatus, exportFindingsToCsv, parsePhotoUrls, addBusinessDays } from "@/lib/utils";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
@@ -55,6 +57,8 @@ import {
   Trash2,
   RotateCcw,
   FolderOpen,
+  Eye,
+  Save,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useRole } from "@/components/RoleContext";
@@ -112,13 +116,21 @@ export default function ReportsPage() {
   const [archiveSearch, setArchiveSearch] = useState("");
   const [savingReport, setSavingReport] = useState(false);
 
-  // Email Modal State
+  // Delete & Recall Confirmation Modal State
+  const [deletingReportTarget, setDeletingReportTarget] = useState<PatrolReport | null>(null);
+  const [deletingProcessing, setDeletingProcessing] = useState(false);
+
+  // Email Modal State (TO, CC, BCC & Template Divisi)
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailRecipients, setEmailRecipients] = useState<string[]>([]);
-  const [includeBod, setIncludeBod] = useState(false);
-  const [includeAdvisor, setIncludeAdvisor] = useState(false);
-  const [showOtherRecipients, setShowOtherRecipients] = useState(false);
+  const [emailToRecipients, setEmailToRecipients] = useState<string[]>([]);
+  const [emailCcRecipients, setEmailCcRecipients] = useState<string[]>([]);
+  const [emailBccRecipients, setEmailBccRecipients] = useState<string[]>([]);
   const [customEmailInput, setCustomEmailInput] = useState("");
+  const [customEmailTarget, setCustomEmailTarget] = useState<"TO" | "CC" | "BCC">("TO");
+  const [selectedDivisionTemplate, setSelectedDivisionTemplate] = useState<string>("ME");
+  const [savedDivisionTemplates, setSavedDivisionTemplates] = useState<Record<string, EmailDivisionTemplateConfig>>({});
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [emailModalTab, setEmailModalTab] = useState<"CONFIG" | "PREVIEW">("CONFIG");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailNote, setEmailNote] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -136,16 +148,20 @@ export default function ReportsPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [pList, uList, mStatus, repList] = await Promise.all([
+        const [pList, uList, mStatus, repList, sysSettings] = await Promise.all([
           getProjects(),
           getUsers(),
           getMailServiceStatus(),
           getPatrolReports({ limit: 100 }),
+          getSystemSettings(),
         ]);
         setProjects(pList);
         setUsers(uList);
         setMailStatus(mStatus);
         setSavedReports(repList);
+        if (sysSettings?.emailDivisionTemplates) {
+          setSavedDivisionTemplates(sysSettings.emailDivisionTemplates);
+        }
         if (pList.length > 0 && selectedProject === "ALL") {
           setSelectedProject(pList[0].id);
         }
@@ -281,8 +297,9 @@ export default function ReportsPage() {
   // Poin 14: PIC (Action By) dan SiteManager otomatis disamakan
   const resolvedSiteManagerName = customSiteManager || resolvedPicName;
 
-  // Penomoran Dokumen Laporan Resmi berdasarkan Divisi: DIV-YY-XXX (e.g. CMD-26-001)
-  const activeDivCode = getDivisionCode(activeProjectObj?.division);
+  // Penomoran Dokumen Laporan Resmi berdasarkan Divisi User (jika ada) atau Divisi Proyek: DIV-YY-XXX (e.g. ME-26-001)
+  const userDiv = currentUser?.division;
+  const activeDivCode = getDivisionCode(userDiv || activeProjectObj?.division);
   const defaultReportNumber = formatReportDocNumber(activeDivCode, reportDate || new Date(), 1);
   const resolvedReportNumber = customReportNumber.trim() ? customReportNumber.trim() : defaultReportNumber;
 
@@ -482,54 +499,125 @@ export default function ReportsPage() {
       !activeProjectPics.some((pic) => pic.id === u.id)
   );
 
+  // Helper untuk menerapkan Template Distribusi Divisi (TO, CC, BCC)
+  const applyDivisionTemplate = (targetDivCode: string) => {
+    setSelectedDivisionTemplate(targetDivCode);
+    const cleanDiv = targetDivCode.toUpperCase();
+
+    // 1. Cek apakah ada Template Tersimpan di Database untuk Divisi Ini
+    const savedCustom = savedDivisionTemplates[cleanDiv];
+    if (savedCustom && (savedCustom.toRecipients?.length > 0 || savedCustom.ccRecipients?.length > 0 || savedCustom.bccRecipients?.length > 0)) {
+      setEmailToRecipients(savedCustom.toRecipients || []);
+      setEmailCcRecipients(savedCustom.ccRecipients || []);
+      setEmailBccRecipients(savedCustom.bccRecipients || []);
+      showEmailToast(`Template divisi ${cleanDiv} (Tersimpan) diterapkan! (TO: ${savedCustom.toRecipients?.length || 0}, CC: ${savedCustom.ccRecipients?.length || 0}, BCC: ${savedCustom.bccRecipients?.length || 0})`);
+      return;
+    }
+
+    // 2. Fallback: Hitung otomatis berdasarkan role & divisi user
+    // Filter user sesuai divisi (baik di profil user.division maupun assignment)
+    const divUsers = users.filter((u) => {
+      const uDiv = getDivisionCode(u.division);
+      return uDiv === cleanDiv;
+    });
+
+    const toList: string[] = [];
+    const ccList: string[] = [];
+    const bccList: string[] = [];
+
+    // 1. TO: PIC, SM, atau Pelapor dari divisi ini (atau activePic jika cocok)
+    const toCandidates = divUsers.filter((u) => ["PIC", "SM", "CMD"].includes(u.role));
+    if (toCandidates.length > 0) {
+      toCandidates.forEach((u) => {
+        if (u.email && !toList.includes(u.email)) toList.push(u.email);
+      });
+    } else {
+      // Fallback: sertakan active PIC / SM proyek
+      if (activePicObj?.email) toList.push(activePicObj.email);
+      else if (activeProjectPics.length > 0) {
+        activeProjectPics.forEach((p) => {
+          if (p.email && !toList.includes(p.email)) toList.push(p.email);
+        });
+      }
+    }
+
+    // 2. CC: PM, GM, DivHead, DepMan, SecMan divisi ini + BOD
+    const ccCandidates = divUsers.filter((u) => ["PM", "GM"].includes(u.role));
+    ccCandidates.forEach((u) => {
+      if (u.email && !ccList.includes(u.email) && !toList.includes(u.email)) ccList.push(u.email);
+    });
+    if (activePmUser?.email && !ccList.includes(activePmUser.email) && !toList.includes(activePmUser.email)) {
+      ccList.push(activePmUser.email);
+    }
+    if (activeGmUser?.email && !ccList.includes(activeGmUser.email) && !toList.includes(activeGmUser.email)) {
+      ccList.push(activeGmUser.email);
+    }
+    // Sertakan BOD di CC secara otomatis pada template
+    bodUsers.forEach((b) => {
+      if (b.email && !ccList.includes(b.email) && !toList.includes(b.email)) ccList.push(b.email);
+    });
+
+    // 3. BCC: Advisor atau auditor monitoring khusus
+    advisorUsers.forEach((a) => {
+      if (a.email && !bccList.includes(a.email) && !ccList.includes(a.email) && !toList.includes(a.email)) {
+        bccList.push(a.email);
+      }
+    });
+
+    setEmailToRecipients(toList);
+    setEmailCcRecipients(ccList);
+    setEmailBccRecipients(bccList);
+    showEmailToast(`Template divisi ${cleanDiv} (Default Otomatis) diterapkan! (TO: ${toList.length}, CC: ${ccList.length}, BCC: ${bccList.length})`);
+  };
+
+  // Simpan Template Divisi Saat Ini ke Database
+  const handleSaveCurrentTemplate = async () => {
+    if (emailToRecipients.length === 0 && emailCcRecipients.length === 0 && emailBccRecipients.length === 0) {
+      showEmailToast("Daftar penerima kosong. Tambahkan minimal 1 penerima sebelum menyimpan template.", "error");
+      return;
+    }
+
+    setSavingTemplate(true);
+    try {
+      const res = await saveEmailDivisionTemplate({
+        divisionCode: selectedDivisionTemplate,
+        toRecipients: emailToRecipients,
+        ccRecipients: emailCcRecipients,
+        bccRecipients: emailBccRecipients,
+      });
+
+      if (res.success && res.templates) {
+        setSavedDivisionTemplates(res.templates);
+        showEmailToast(`Template penerima divisi ${selectedDivisionTemplate} berhasil disimpan ke Database!`);
+      } else {
+        showEmailToast("Gagal menyimpan template divisi.", "error");
+      }
+    } catch (err: any) {
+      console.error("Gagal simpan template divisi:", err);
+      showEmailToast("Terjadi kesalahan saat menyimpan template.", "error");
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const handleOpenEmailModal = () => {
     const projName = activeProjectObj
       ? `${activeProjectObj.name}${activeProjectObj.division ? ` (${activeProjectObj.division})` : ""}`
       : "Seluruh Proyek";
     setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol K3 & Mutu - ${projName} (${reportDate})`);
 
-    // Otomatis pre-select PIC, PM, GM sesuai divisi & proyek
-    const initialRecipients: string[] = [];
+    // Tentukan divisi aktif dari proyek atau user yang sedang login
+    const targetDiv = getDivisionCode(activeProjectObj?.division || currentUser?.division || "ME");
+    applyDivisionTemplate(targetDiv);
 
-    // 1. PIC Proyek Terpilih atau seluruh PIC di proyek ini
-    if (activePicObj?.email) {
-      initialRecipients.push(activePicObj.email);
-    } else if (activeProjectPics.length > 0) {
-      activeProjectPics.forEach((pic) => {
-        if (!initialRecipients.includes(pic.email)) initialRecipients.push(pic.email);
-      });
-    }
-
-    // 2. Project Manager (PM) Divisi
-    if (activePmUser?.email && !initialRecipients.includes(activePmUser.email)) {
-      initialRecipients.push(activePmUser.email);
-    }
-
-    // 3. General Manager (GM) Divisi
-    if (activeGmUser?.email && !initialRecipients.includes(activeGmUser.email)) {
-      initialRecipients.push(activeGmUser.email);
-    }
-
-    // Default: Dewan Direksi (BOD) & Advisor Opsional (tidak di-checklist otomatis)
-    setIncludeBod(false);
-    setIncludeAdvisor(false);
-    setShowOtherRecipients(false);
-    setEmailRecipients(initialRecipients);
+    setEmailModalTab("CONFIG");
     setShowEmailModal(true);
-  };
-
-  const handleToggleIncludeBod = (checked: boolean) => {
-    setIncludeBod(checked);
-  };
-
-  const handleToggleIncludeAdvisor = (checked: boolean) => {
-    setIncludeAdvisor(checked);
   };
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailRecipients.length === 0) {
-      showEmailToast("Pilih minimal satu penerima email.", "error");
+    if (emailToRecipients.length === 0) {
+      showEmailToast("Pilih minimal satu penerima utama (TO).", "error");
       return;
     }
 
@@ -539,25 +627,14 @@ export default function ReportsPage() {
         activePicObj?.name ||
         (activeProjectPics.length > 0 ? activeProjectPics.map((p) => p.name).join(", ") : undefined);
 
-      const ccRecipientsList: string[] = [];
-      if (includeBod) {
-        bodUsers.forEach((b) => {
-          if (b.email && !ccRecipientsList.includes(b.email)) ccRecipientsList.push(b.email);
-        });
-      }
-      if (includeAdvisor) {
-        advisorUsers.forEach((a) => {
-          if (a.email && !ccRecipientsList.includes(a.email)) ccRecipientsList.push(a.email);
-        });
-      }
-
       const res = await sendReportEmail({
         projectId: selectedProject,
         projectName: activeProjectObj ? activeProjectObj.name : "Seluruh Proyek",
-        division: activeProjectObj?.division || undefined,
+        division: activeProjectObj?.division || selectedDivisionTemplate,
         reportNumber: resolvedReportNumber,
-        recipients: emailRecipients,
-        ccRecipients: ccRecipientsList.length > 0 ? ccRecipientsList : undefined,
+        recipients: emailToRecipients,
+        ccRecipients: emailCcRecipients.length > 0 ? emailCcRecipients : undefined,
+        bccRecipients: emailBccRecipients.length > 0 ? emailBccRecipients : undefined,
         subject: emailSubject,
         reportType: reportType,
         messageNote: emailNote,
@@ -591,6 +668,8 @@ export default function ReportsPage() {
       setSendingEmail(false);
     }
   };
+
+
 
   const loadArchiveReports = async () => {
     setLoadingArchive(true);
@@ -673,33 +752,126 @@ export default function ReportsPage() {
     showEmailToast(`Laporan [${rep.reportNumber}] berhasil dipanggil ke form aktif!`);
   };
 
-  const handleDeleteReport = async (id: string, docNum: string) => {
-    if (!window.confirm(`Yakin ingin menghapus arsip laporan ${docNum}?`)) return;
+  const handleArchiveSendEmail = (rep: PatrolReport) => {
+    // Panggil laporan terlebih dahulu ke state aktif
+    if (rep.projectId) setSelectedProject(rep.projectId);
+    if (rep.picId) setSelectedPic(rep.picId);
+    else setSelectedPic("ALL");
+
+    if (rep.inspectionType) setInspectionType(rep.inspectionType as InspectionType);
+    if (rep.reportDate) {
+      setPeriodMode("DAILY");
+      setReportDate(rep.reportDate);
+    }
+    if (rep.inspectorName) setCustomInspector(rep.inspectorName);
+    if (rep.siteManagerName) setCustomSiteManager(rep.siteManagerName);
+    if (rep.picName) setCustomPicName(rep.picName);
+    if (rep.reportNumber) {
+      setCustomReportNumber(rep.reportNumber);
+      setRecalledReportNumber(rep.reportNumber);
+    }
+    if (rep.createdAt) {
+      setRecalledReportCreatedAt(typeof rep.createdAt === "string" ? rep.createdAt : rep.createdAt.toISOString());
+    } else {
+      setRecalledReportCreatedAt(null);
+    }
+    if (rep.presentInspectors) setPresentInspectors(rep.presentInspectors);
+    else setPresentInspectors("");
+
+    // Tutup modal arsip dan langsung buka modal kirim email laporan
+    setShowArchiveModal(false);
+    handleOpenEmailModal();
+  };
+
+  const initiateDeleteReport = (rep: PatrolReport) => {
+    // Cek apakah laporan ini sudah pernah didistribusikan via email (recipients terisi)
+    const hasEmailed = Boolean(rep.recipients && rep.recipients.trim().length > 0);
+    if (hasEmailed) {
+      // Buka modal peringatan khusus recall email
+      setDeletingReportTarget(rep);
+    } else {
+      // Laporan hanya tersimpan di DB (Draft/belum dikirim email), hapus langsung tanpa modal recall email
+      const confirmDelete = window.confirm(
+        `Laporan [${rep.reportNumber}] ini HANYA tersimpan di database dan BELUM pernah dikirim via email.\n\nApakah Anda yakin ingin menghapus laporan ini? Seluruh temuan terkait (${rep.findingsCount || 0} temuan) akan dikembalikan ke status 'Belum Dilaporkan' tanpa mengirim email pembatalan.`
+      );
+      if (!confirmDelete) return;
+      executeDeleteReport(rep.id, rep.reportNumber, false);
+    }
+  };
+
+  const executeDeleteReport = async (id: string, docNum: string, sendRecall: boolean) => {
+    setDeletingProcessing(true);
     try {
-      const res = await deletePatrolReport(id);
+      const res = await deletePatrolReport(id, { sendRecallEmail: sendRecall });
       if (res.success) {
-        showEmailToast(`Arsip ${docNum} berhasil dihapus.`);
+        showEmailToast(res.message);
         setSavedReports((prev) => prev.filter((r) => r.id !== id));
+        setDeletingReportTarget(null);
+        // Refresh findings on page
+        const [freshFindings, repList] = await Promise.all([
+          getFindings({ limit: 100 }),
+          getPatrolReports({ limit: 50 }),
+        ]);
+        setFindings(freshFindings);
+        setSavedReports(repList);
       } else {
         showEmailToast(res.message, "error");
       }
     } catch (e: any) {
       showEmailToast(e.message || "Gagal menghapus arsip", "error");
+    } finally {
+      setDeletingProcessing(false);
     }
   };
 
-  const toggleRecipient = (email: string) => {
-    if (emailRecipients.includes(email)) {
-      setEmailRecipients(emailRecipients.filter((e) => e !== email));
+  const toggleToRecipient = (email: string) => {
+    if (emailToRecipients.includes(email)) {
+      setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
     } else {
-      setEmailRecipients([...emailRecipients, email]);
+      setEmailToRecipients([...emailToRecipients, email]);
+      // Pastikan email tidak ganda di CC/BCC
+      setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
+      setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
     }
+  };
+
+  const toggleCcRecipient = (email: string) => {
+    if (emailCcRecipients.includes(email)) {
+      setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
+    } else {
+      setEmailCcRecipients([...emailCcRecipients, email]);
+      // Pastikan email tidak ganda di TO/BCC
+      setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+      setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
+    }
+  };
+
+  const toggleBccRecipient = (email: string) => {
+    if (emailBccRecipients.includes(email)) {
+      setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
+    } else {
+      setEmailBccRecipients([...emailBccRecipients, email]);
+      // Pastikan email tidak ganda di TO/CC
+      setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+      setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
+    }
+  };
+
+  const removeRecipient = (type: "TO" | "CC" | "BCC", email: string) => {
+    if (type === "TO") setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+    else if (type === "CC") setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
+    else if (type === "BCC") setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
   };
 
   const handleAddCustomEmail = () => {
-    if (customEmailInput.trim() && customEmailInput.includes("@")) {
-      if (!emailRecipients.includes(customEmailInput.trim())) {
-        setEmailRecipients([...emailRecipients, customEmailInput.trim()]);
+    const cleanEmail = customEmailInput.trim().toLowerCase();
+    if (cleanEmail && cleanEmail.includes("@")) {
+      if (customEmailTarget === "TO") {
+        if (!emailToRecipients.includes(cleanEmail)) setEmailToRecipients([...emailToRecipients, cleanEmail]);
+      } else if (customEmailTarget === "CC") {
+        if (!emailCcRecipients.includes(cleanEmail)) setEmailCcRecipients([...emailCcRecipients, cleanEmail]);
+      } else if (customEmailTarget === "BCC") {
+        if (!emailBccRecipients.includes(cleanEmail)) setEmailBccRecipients([...emailBccRecipients, cleanEmail]);
       }
       setCustomEmailInput("");
     }
@@ -888,6 +1060,53 @@ export default function ReportsPage() {
                   <span>Rekapitulasi Tabel & Statistik Temuan</span>
                 </button>
               </div>
+
+              {/* Banner Indikator Laporan yang Sedang Aktif / Dipanggil */}
+              {recalledReportNumber && (
+                <div className="bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/40 dark:to-indigo-950/40 border border-violet-200 dark:border-violet-800/60 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-violet-600 text-white rounded-xl shadow-xs shrink-0">
+                      <FolderClock size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-extrabold text-violet-900 dark:text-violet-200">
+                          Memuat Laporan: <strong className="font-mono text-sm underline">{recalledReportNumber}</strong>
+                        </span>
+                        {(() => {
+                          const activeRep = savedReports.find((r) => r.reportNumber === recalledReportNumber);
+                          const isSent = Boolean(activeRep?.recipients && activeRep.recipients.trim().length > 0);
+                          return isSent ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Mail size={11} /> Step 2: Sudah Terkirim Email
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                              <BookmarkCheck size={11} /> Step 1: Tersimpan di DB (Belum Kirim Email)
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Menampilkan temuan yang terhubung dengan laporan ini. Anda dapat mencetak ulang atau melanjutkan ke <strong>Kirim Email Laporan</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecalledReportNumber(null);
+                      setRecalledReportCreatedAt(null);
+                      setCustomReportNumber("");
+                      showEmailToast("Keluar dari tampilan laporan terpanggil. Menampilkan seluruh temuan sesuai filter.");
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 transition-all shrink-0"
+                  >
+                    <X size={13} />
+                    <span>Reset / Keluar</span>
+                  </button>
+                </div>
+              )}
 
               {/* Filter Form Controls */}
               <div className="space-y-4 pt-1">
@@ -1835,331 +2054,461 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {/* EMAIL REPORT MODAL */}
+      {/* EMAIL REPORT MODAL WITH DIVISION TEMPLATES, TO/CC/BCC EDITOR & PREVIEW */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 max-w-2xl w-full shadow-2xl space-y-4 my-6 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Mail size={20} className="text-violet-600 dark:text-violet-400" />
                   <span>Kirim Email Laporan Patrol</span>
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Distribusi laporan resmi via Microsoft Azure Entra ID / Graph API.
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Distribusi laporan resmi via Microsoft Azure Entra ID / Microsoft Graph API.
                 </p>
               </div>
               <button
                 onClick={() => setShowEmailModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
 
-            {/* Status Provider Koneksi Azure */}
+            {/* Provider Status */}
             <div
-              className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-2 ${mailStatus?.isConfigured
+              className={`p-2.5 rounded-2xl border text-xs flex items-center justify-between gap-2 shrink-0 ${mailStatus?.isConfigured
                 ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
                 : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
                 }`}
             >
               <div className="flex items-center gap-2 truncate">
-                <Sparkles size={16} className={mailStatus?.isConfigured ? "text-emerald-600" : "text-amber-600"} />
-                <span className="font-bold truncate">
+                <Sparkles size={15} className={mailStatus?.isConfigured ? "text-emerald-600" : "text-amber-600"} />
+                <span className="font-bold truncate text-[11px]">
                   {mailStatus?.isConfigured
                     ? `Azure OAuth Aktif: Pengirim ${mailStatus.senderEmail}`
                     : "Koneksi Azure OAuth belum diisi di .env (Berjalan dalam Mode Simulasi)"}
                 </span>
               </div>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900 shrink-0">
+              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900 shrink-0">
                 {mailStatus?.isConfigured ? "Live Graph API" : "Simulasi"}
               </span>
             </div>
 
-            <form onSubmit={handleSendEmail} className="space-y-4">
-              {/* Recipient Selector: Tiered Hierarchy & Optional BOD */}
-              <div className="space-y-3">
-                {/* 1. PENERIMA UTAMA: PIC, PM, GM */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Users size={14} className="text-violet-600 dark:text-violet-400" />
-                      <span>Distribusi Proyek & Divisi (Otomatis)</span>
-                    </label>
-                    <span className="text-[11px] text-violet-600 dark:text-violet-400 font-extrabold">
-                      {emailRecipients.length + (includeBod ? bodUsers.length : 0) + (includeAdvisor ? advisorUsers.length : 0)} Penerima Terpilih
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {/* PIC Proyek */}
-                    {activeProjectPics.length > 0 ? (
-                      activeProjectPics.map((pic) => {
-                        const isChecked = emailRecipients.includes(pic.email);
-                        return (
-                          <div
-                            key={pic.id}
-                            onClick={() => toggleRecipient(pic.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                              ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-400/80 text-amber-950 dark:text-amber-200 font-semibold"
-                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                              }`}
-                          >
-                            <div className="flex items-center gap-2.5 truncate min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                  ? "bg-amber-600 border-amber-600 text-white"
-                                  : "border-slate-300 dark:border-slate-600"
-                                  }`}
-                              >
-                                {isChecked && <Check size={12} strokeWidth={3} />}
-                              </div>
-                              <div className="truncate min-w-0">
-                                <p className="font-extrabold text-xs truncate">{pic.name}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{pic.email}</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200 shrink-0">
-                              SM Proyek
-                            </span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="p-2.5 rounded-2xl border border-dashed border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-[11px] text-red-600 dark:text-red-400 font-bold flex items-center gap-2">
-                        <AlertTriangle size={14} className="shrink-0" />
-                        <span>Belum ada SM ditugaskan pada proyek ini.</span>
-                      </div>
-                    )}
-
-                    {/* Project Manager (PM) */}
-                    {activePmUser ? (
-                      (() => {
-                        const isChecked = emailRecipients.includes(activePmUser.email);
-                        return (
-                          <div
-                            onClick={() => toggleRecipient(activePmUser.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                              ? "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-400/80 text-emerald-950 dark:text-emerald-200 font-semibold"
-                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                              }`}
-                          >
-                            <div className="flex items-center gap-2.5 truncate min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                  ? "bg-emerald-600 border-emerald-600 text-white"
-                                  : "border-slate-300 dark:border-slate-600"
-                                  }`}
-                              >
-                                {isChecked && <Check size={12} strokeWidth={3} />}
-                              </div>
-                              <div className="truncate min-w-0">
-                                <p className="font-extrabold text-xs truncate">{activePmUser.name}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{activePmUser.email}</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200 shrink-0">
-                              GM / DivHead / DepMan {activeProjectObj?.division ? `(${activeProjectObj.division.split("(")[0].trim()})` : ""}
-                            </span>
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <div className="p-2.5 rounded-2xl border border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 text-[11px] text-amber-700 dark:text-amber-400 font-bold flex items-center justify-between">
-                        <span>GM / DivHead / DepMan belum ditentukan di proyek ini.</span>
-                        <Link href="/admin" target="_blank" className="text-violet-600 dark:text-violet-400 underline text-[10px]">
-                          Set di Admin &rarr;
-                        </Link>
-                      </div>
-                    )}
-
-                    {/* Section Manager (SecMan - previously GM) */}
-                    {activeGmUser ? (
-                      (() => {
-                        const isChecked = emailRecipients.includes(activeGmUser.email);
-                        return (
-                          <div
-                            onClick={() => toggleRecipient(activeGmUser.email)}
-                            className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${isChecked
-                              ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-400/80 text-blue-950 dark:text-blue-200 font-semibold"
-                              : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60"
-                              }`}
-                          >
-                            <div className="flex items-center gap-2.5 truncate min-w-0">
-                              <div
-                                className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${isChecked
-                                  ? "bg-blue-600 border-blue-600 text-white"
-                                  : "border-slate-300 dark:border-slate-600"
-                                  }`}
-                              >
-                                {isChecked && <Check size={12} strokeWidth={3} />}
-                              </div>
-                              <div className="truncate min-w-0">
-                                <p className="font-extrabold text-xs truncate">{activeGmUser.name}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{activeGmUser.email}</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-blue-200 dark:bg-blue-900/80 text-blue-900 dark:text-blue-200 shrink-0">
-                              SecMan (Section Manager)
-                            </span>
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <div className="p-2.5 rounded-2xl border border-dashed border-blue-300 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/30 text-[11px] text-blue-700 dark:text-blue-400 font-bold flex items-center justify-between">
-                        <span>SecMan belum ditentukan di proyek ini.</span>
-                        <Link href="/admin" target="_blank" className="text-violet-600 dark:text-violet-400 underline text-[10px]">
-                          Set di Admin &rarr;
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. DISTRIBUSI DEWAN DIREKSI (BOD) - OPSIONAL (CC) */}
-                <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800/60 space-y-2">
-                  <div
-                    className="flex items-center justify-between cursor-pointer"
-                    onClick={() => handleToggleIncludeBod(!includeBod)}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeBod
-                          ? "bg-purple-600 border-purple-600 text-white"
-                          : "border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900"
+            {/* Template Divisi Selector & Navigation Tabs */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 shrink-0">
+              {/* Template Divisi Quick Selector */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Template Divisi:
+                </span>
+                <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  {MASTER_DIVISIONS.map((d) => {
+                    const isCustomSaved = Boolean(savedDivisionTemplates[d.code]);
+                    return (
+                      <button
+                        key={d.code}
+                        type="button"
+                        onClick={() => applyDivisionTemplate(d.code)}
+                        className={`relative px-2.5 py-1 rounded-lg text-xs font-black transition-all ${selectedDivisionTemplate === d.code
+                          ? "bg-violet-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                           }`}
+                        title={`${d.name}${isCustomSaved ? " (Tersimpan Kustom)" : ""}`}
                       >
-                        {includeBod && <Check size={12} strokeWidth={3} />}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-slate-900 dark:text-white">
-                            Tembusan ke Dewan Direksi (BOD)
-                          </span>
-                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 uppercase">
-                            Opsional • CC
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                          {bodUsers.length > 0
-                            ? bodUsers.map((b) => `${b.name} (${b.email})`).join(", ")
-                            : "Akun role BOD eksekutif"}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-extrabold text-purple-700 dark:text-purple-300 shrink-0">
-                      {includeBod ? "Disertakan (CC)" : "Lewati"}
-                    </span>
-                  </div>
+                        {d.code}
+                        {isCustomSaved && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* 3. DISTRIBUSI ADVISOR (CC) - OPSIONAL */}
-                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 space-y-2">
-                  <div
-                    className="flex items-center justify-between cursor-pointer"
-                    onClick={() => handleToggleIncludeAdvisor(!includeAdvisor)}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${includeAdvisor
-                          ? "bg-indigo-600 border-indigo-600 text-white"
-                          : "border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900"
-                          }`}
-                      >
-                        {includeAdvisor && <Check size={12} strokeWidth={3} />}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-slate-900 dark:text-white">
-                            Tembusan ke Advisor (CC)
-                          </span>
-                          <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 uppercase">
-                            Opsional • CC
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                          {advisorUsers.length > 0
-                            ? advisorUsers.map((a) => `${a.name} (${a.email})`).join(", ")
-                            : "Akun dengan role Advisor (belum ada yang terdaftar)"}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-extrabold text-indigo-700 dark:text-indigo-300 shrink-0">
-                      {includeAdvisor ? "Disertakan (CC)" : "Lewati"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 3. PENERIMA TAMBAHAN / MANUAL */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowOtherRecipients(!showOtherRecipients)}
-                    className="text-[11px] font-extrabold text-slate-600 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 flex items-center gap-1 transition-colors"
-                  >
-                    {showOtherRecipients ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    <span>{showOtherRecipients ? "Tutup Penerima Tambahan" : "+ Tambah Penerima Lain / Email Kustom"}</span>
-                  </button>
-
-                  {showOtherRecipients && (
-                    <div className="mt-2 space-y-2 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in duration-200">
-                      {otherUsers.length > 0 && (
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                            Pilih Dari Personil Lain:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-28 overflow-y-auto pr-1">
-                            {otherUsers.map((u) => {
-                              const isChecked = emailRecipients.includes(u.email);
-                              return (
-                                <button
-                                  type="button"
-                                  key={u.id}
-                                  onClick={() => toggleRecipient(u.email)}
-                                  className={`text-left p-2 rounded-xl text-xs border transition-all flex items-center justify-between gap-1.5 ${isChecked
-                                    ? "bg-violet-50 dark:bg-violet-950/60 border-violet-500/80 text-violet-700 dark:text-violet-300 font-bold"
-                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
-                                    }`}
-                                >
-                                  <div className="truncate">
-                                    <p className="truncate font-semibold text-[11px]">{u.name}</p>
-                                    <p className="text-[10px] text-slate-400 truncate">{u.email}</p>
-                                  </div>
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 shrink-0">
-                                    {u.role}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Custom Email Input */}
-                      <div className="flex gap-2 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
-                        <input
-                          type="email"
-                          value={customEmailInput}
-                          onChange={(e) => setCustomEmailInput(e.target.value)}
-                          placeholder="Email eksternal (e.g. konsultan@mk.co.id)"
-                          className="flex-1 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddCustomEmail}
-                          className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl"
-                        >
-                          + Tambah
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* Tombol Simpan Template Divisi Terpilih */}
+                <button
+                  type="button"
+                  onClick={handleSaveCurrentTemplate}
+                  disabled={savingTemplate}
+                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+                  title={`Simpan konfigurasi TO, CC, BCC saat ini sebagai template permanen untuk divisi ${selectedDivisionTemplate}`}
+                >
+                  <Save size={13} className={savingTemplate ? "animate-spin" : ""} />
+                  <span>{savingTemplate ? "Menyimpan..." : `Simpan Template ${selectedDivisionTemplate}`}</span>
+                </button>
               </div>
 
+              {/* Tabs: Form Editor vs Preview Penerima */}
+              <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalTab("CONFIG")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "CONFIG"
+                    ? "bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-400 shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400"
+                    }`}
+                >
+                  <Users size={13} />
+                  <span>Editor TO/CC/BCC</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailModalTab("PREVIEW")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "PREVIEW"
+                    ? "bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-400 shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400"
+                    }`}
+                >
+                  <Eye size={13} />
+                  <span>Preview ({emailToRecipients.length + emailCcRecipients.length + emailBccRecipients.length})</span>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSendEmail} className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {emailModalTab === "CONFIG" ? (
+                <>
+                  {/* SECTION 1: PENERIMA UTAMA (TO) */}
+                  <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-mono font-black text-[10px]">
+                          TO
+                        </span>
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                          Penerima Utama (Action By / SM / PIC Lapangan)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                        {emailToRecipients.length} Orang
+                      </span>
+                    </div>
+
+                    {/* Chips TO Terpilih */}
+                    {emailToRecipients.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {emailToRecipients.map((em) => {
+                          const matchedUser = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
+                            >
+                              <span className="truncate max-w-[200px]">
+                                {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeRecipient("TO", em)}
+                                className="text-slate-400 hover:text-red-600 font-bold ml-0.5"
+                                title="Hapus dari TO"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-red-500 font-semibold italic">
+                        Wajib memilih minimal 1 penerima utama (TO).
+                      </p>
+                    )}
+                  </div>
+
+                  {/* SECTION 2: TEMBUSAN (CC) */}
+                  <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white font-mono font-black text-[10px]">
+                          CC
+                        </span>
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                          Tembusan (PM, GM, SecMan & Dewan Direksi / BOD)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                        {emailCcRecipients.length} Orang
+                      </span>
+                    </div>
+
+                    {/* Chips CC Terpilih */}
+                    {emailCcRecipients.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {emailCcRecipients.map((em) => {
+                          const matchedUser = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
+                            >
+                              <span className="truncate max-w-[200px]">
+                                {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeRecipient("CC", em)}
+                                className="text-slate-400 hover:text-red-600 font-bold ml-0.5"
+                                title="Hapus dari CC"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Belum ada tembusan CC yang dipilih.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* SECTION 3: BLIND CARBON COPY (BCC) */}
+                  <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white font-mono font-black text-[10px]">
+                          BCC
+                        </span>
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                          Blind Carbon Copy (Advisor & Monitoring Internal)
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400">
+                        {emailBccRecipients.length} Orang
+                      </span>
+                    </div>
+
+                    {/* Chips BCC Terpilih */}
+                    {emailBccRecipients.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {emailBccRecipients.map((em) => {
+                          const matchedUser = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
+                            >
+                              <span className="truncate max-w-[200px]">
+                                {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeRecipient("BCC", em)}
+                                className="text-slate-400 hover:text-red-600 font-bold ml-0.5"
+                                title="Hapus dari BCC"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Belum ada penerima rahasia (BCC).
+                      </p>
+                    )}
+                  </div>
+
+                  {/* QUICK PICKER DARI DAFTAR USER SISTEM */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      + Tambah Personil Terdaftar ke (TO, CC, atau BCC):
+                    </span>
+                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-slate-700/50">
+                      {users
+                        .filter((u) => u.email && u.role !== "PENDING")
+                        .map((u) => {
+                          const inTo = emailToRecipients.includes(u.email);
+                          const inCc = emailCcRecipients.includes(u.email);
+                          const inBcc = emailBccRecipients.includes(u.email);
+                          const uDiv = u.division ? getDivisionCode(u.division) : null;
+
+                          return (
+                            <div key={u.id} className="pt-1.5 flex items-center justify-between gap-2 text-xs">
+                              <div className="truncate min-w-0">
+                                <span className="font-extrabold text-slate-900 dark:text-white mr-1.5 truncate">
+                                  {u.name}
+                                </span>
+                                {uDiv && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mr-1.5">
+                                    {uDiv}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {u.email}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleToRecipient(u.email)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inTo
+                                    ? "bg-amber-500 text-white shadow-xs font-black"
+                                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-100"
+                                    }`}
+                                >
+                                  {inTo ? "✓ TO" : "+ TO"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCcRecipient(u.email)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inCc
+                                    ? "bg-blue-600 text-white shadow-xs font-black"
+                                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-blue-100"
+                                    }`}
+                                >
+                                  {inCc ? "✓ CC" : "+ CC"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleBccRecipient(u.email)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inBcc
+                                    ? "bg-purple-600 text-white shadow-xs font-black"
+                                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-purple-100"
+                                    }`}
+                                >
+                                  {inBcc ? "✓ BCC" : "+ BCC"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    {/* Input Email Eksternal Manual */}
+                    <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <select
+                        value={customEmailTarget}
+                        onChange={(e) => setCustomEmailTarget(e.target.value as any)}
+                        className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-200 shrink-0"
+                      >
+                        <option value="TO">Ke TO</option>
+                        <option value="CC">Ke CC</option>
+                        <option value="BCC">Ke BCC</option>
+                      </select>
+                      <input
+                        type="email"
+                        value={customEmailInput}
+                        onChange={(e) => setCustomEmailInput(e.target.value)}
+                        placeholder="Ketik email luar (e.g. konsultan@mk.co.id)..."
+                        className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomEmail}
+                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl"
+                      >
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* PREVIEW DAFTAR PENERIMA SECARA UTUH */
+                <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <span className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Eye size={14} className="text-violet-600 dark:text-violet-400" />
+                      <span>Preview Distribusi Penerima Email</span>
+                    </span>
+                    <span className="text-xs font-extrabold text-violet-600 dark:text-violet-400">
+                      Total: {emailToRecipients.length + emailCcRecipients.length + emailBccRecipients.length} Alamat
+                    </span>
+                  </div>
+
+                  {/* Preview TO */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-amber-500 text-white font-mono font-black text-[10px]">
+                        TO ({emailToRecipients.length})
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Penerima Langsung:
+                      </span>
+                    </div>
+                    {emailToRecipients.length === 0 ? (
+                      <p className="text-xs text-red-500 font-semibold italic pl-6">- Belum ada penerima TO</p>
+                    ) : (
+                      <ul className="pl-6 space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc">
+                        {emailToRecipients.map((em) => {
+                          const u = users.find((usr) => usr.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <li key={em}>
+                              <strong className="text-slate-900 dark:text-white">{u?.name || em}</strong>{" "}
+                              <span className="text-slate-400 font-mono text-[11px]">({em})</span>
+                              {u?.role && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-bold">[{u.role}]</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Preview CC */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono font-black text-[10px]">
+                        CC ({emailCcRecipients.length})
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Tembusan Manajemen:
+                      </span>
+                    </div>
+                    {emailCcRecipients.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic pl-6">- Tidak ada tembusan CC</p>
+                    ) : (
+                      <ul className="pl-6 space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc">
+                        {emailCcRecipients.map((em) => {
+                          const u = users.find((usr) => usr.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <li key={em}>
+                              <strong className="text-slate-900 dark:text-white">{u?.name || em}</strong>{" "}
+                              <span className="text-slate-400 font-mono text-[11px]">({em})</span>
+                              {u?.role && <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold">[{u.role}]</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Preview BCC */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-mono font-black text-[10px]">
+                        BCC ({emailBccRecipients.length})
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Penerima Monitoring (BCC):
+                      </span>
+                    </div>
+                    {emailBccRecipients.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic pl-6">- Tidak ada penerima BCC</p>
+                    ) : (
+                      <ul className="pl-6 space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc">
+                        {emailBccRecipients.map((em) => {
+                          const u = users.find((usr) => usr.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <li key={em}>
+                              <strong className="text-slate-900 dark:text-white">{u?.name || em}</strong>{" "}
+                              <span className="text-slate-400 font-mono text-[11px]">({em})</span>
+                              {u?.role && <span className="ml-1 text-[10px] text-purple-600 dark:text-purple-400 font-bold">[{u.role}]</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Subject */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-1">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Subjek Email <span className="text-violet-600 dark:text-violet-400">*</span>
                 </label>
@@ -2182,7 +2531,7 @@ export default function ReportsPage() {
                   onChange={(e) => setEmailNote(e.target.value)}
                   rows={2}
                   placeholder="Mohon segera ditindaklanjuti untuk temuan berkategori K3 dalam 24 jam."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 />
               </div>
 
@@ -2194,7 +2543,7 @@ export default function ReportsPage() {
                     {resolvedReportNumber}
                   </span>
                 </div>
-                <p>Divisi: <strong>{activeDivCode} ({MASTER_DIVISIONS.find(d => d.code === activeDivCode)?.name || activeDivCode})</strong></p>
+                <p>Template Divisi: <strong>{selectedDivisionTemplate} ({MASTER_DIVISIONS.find(d => d.code === selectedDivisionTemplate)?.name || selectedDivisionTemplate})</strong></p>
                 <p>Format: <strong>{reportType === "INTERNAL_PATROL" ? "Form Standar Internal Patrol" : "Rekapitulasi Eksekutif"}</strong></p>
                 <p>Total Temuan Terlampir: <strong>{totalFindings} Temuan</strong> (Open: {totalOpen}, Resolved: {totalResolved}, Closed: {totalClosed})</p>
                 <p>Tgl Report: <strong>{new Date(recalledReportCreatedAt || new Date()).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</strong></p>
@@ -2202,7 +2551,7 @@ export default function ReportsPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowEmailModal(false)}
@@ -2212,7 +2561,7 @@ export default function ReportsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={sendingEmail}
+                  disabled={sendingEmail || emailToRecipients.length === 0}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
                 >
                   <Send size={14} />
@@ -2402,6 +2751,7 @@ export default function ReportsPage() {
                   <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700 z-10">
                     <tr>
                       <th className="p-3">No. Dokumen</th>
+                      <th className="p-3">Status Distribusi</th>
                       <th className="p-3">Tanggal</th>
                       <th className="p-3">Proyek & Divisi</th>
                       <th className="p-3">Jenis Inspeksi</th>
@@ -2426,80 +2776,121 @@ export default function ReportsPage() {
                           r.inspectionType?.toLowerCase().includes(q)
                         );
                       })
-                      .map((rep) => (
-                        <tr
-                          key={rep.id}
-                          className="hover:bg-violet-50/40 dark:hover:bg-violet-950/20 transition-colors"
-                        >
-                          <td className="p-3 font-mono font-black text-violet-700 dark:text-violet-400 whitespace-nowrap">
-                            {rep.reportNumber}
-                          </td>
-                          <td className="p-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
-                            {rep.reportDate}
-                          </td>
-                          <td className="p-3 max-w-xs font-bold text-slate-900 dark:text-white">
-                            <p className="truncate">{rep.projectName}</p>
-                          </td>
-                          <td className="p-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${rep.inspectionType === "FINAL"
-                                ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
-                                : rep.inspectionType === "MIDDLE"
-                                  ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
-                                  : rep.inspectionType === "JOINT"
-                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
-                                    : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
-                                }`}
-                            >
-                              {rep.inspectionType === "JOINT"
-                                ? "Patrol Gabungan"
-                                : rep.inspectionType === "FINAL"
-                                  ? "Final Inspection"
+                      .map((rep) => {
+                        const hasEmailed = Boolean(rep.recipients && rep.recipients.trim().length > 0);
+                        return (
+                          <tr
+                            key={rep.id}
+                            className="hover:bg-violet-50/40 dark:hover:bg-violet-950/20 transition-colors"
+                          >
+                            <td className="p-3 font-mono font-black text-violet-700 dark:text-violet-400 whitespace-nowrap">
+                              {rep.reportNumber}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              {hasEmailed ? (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                  title={`Terkirim ke: ${rep.recipients}`}
+                                >
+                                  <Mail size={12} />
+                                  <span>Terkirim Email</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                  title="Tersimpan di database lokal/cloud, belum didistribusikan ke email PIC / SM / Direksi"
+                                >
+                                  <BookmarkCheck size={12} />
+                                  <span>Simpan di DB (Belum Kirim)</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
+                              {rep.reportDate}
+                            </td>
+                            <td className="p-3 max-w-xs font-bold text-slate-900 dark:text-white">
+                              <p className="truncate">{rep.projectName}</p>
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${rep.inspectionType === "FINAL"
+                                  ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
                                   : rep.inspectionType === "MIDDLE"
-                                    ? "Middle Inspection"
-                                    : "Routine Inspection"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-slate-700 dark:text-slate-300">
-                            <p className="font-bold text-slate-900 dark:text-white">{rep.inspectorName}</p>
-                            {rep.presentInspectors && (
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                                <span className="font-semibold text-violet-600 dark:text-violet-400">Hadir:</span> {rep.presentInspectors}
-                              </p>
-                            )}
-                          </td>
-                          <td className="p-3 text-slate-700 dark:text-slate-300">
-                            <p className="font-semibold text-[11px]">SM: {rep.siteManagerName}</p>
-                            <p className="text-[10px] text-slate-500">PIC: {rep.picName}</p>
-                          </td>
-                          <td className="p-3 text-center whitespace-nowrap font-black">
-                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300">
-                              {rep.findingsCount || 0}
-                            </span>
-                          </td>
-                          <td className="p-3 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleRecallReport(rep)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95"
-                                title="Panggil seluruh konfigurasi & temuan laporan ini ke layar kerja"
+                                    ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800"
+                                    : rep.inspectionType === "JOINT"
+                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                      : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                  }`}
                               >
-                                <RotateCcw size={12} />
-                                <span>Panggil Laporan</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteReport(rep.id, rep.reportNumber)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-all"
-                                title="Hapus arsip laporan ini"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                {rep.inspectionType === "JOINT"
+                                  ? "Patrol Gabungan"
+                                  : rep.inspectionType === "FINAL"
+                                    ? "Final Inspection"
+                                    : rep.inspectionType === "MIDDLE"
+                                      ? "Middle Inspection"
+                                      : "Routine Inspection"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-700 dark:text-slate-300">
+                              <p className="font-bold text-slate-900 dark:text-white">{rep.inspectorName}</p>
+                              {rep.presentInspectors && (
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                                  <span className="font-semibold text-violet-600 dark:text-violet-400">Hadir:</span> {rep.presentInspectors}
+                                </p>
+                              )}
+                            </td>
+                            <td className="p-3 text-slate-700 dark:text-slate-300">
+                              <p className="font-semibold text-[11px]">SM: {rep.siteManagerName}</p>
+                              <p className="text-[10px] text-slate-500">PIC: {rep.picName}</p>
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap font-black">
+                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-700 dark:text-slate-300">
+                                {rep.findingsCount || 0}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecallReport(rep)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95"
+                                  title="Panggil seluruh konfigurasi & temuan laporan ini ke layar kerja"
+                                >
+                                  <RotateCcw size={12} />
+                                  <span>Panggil Laporan</span>
+                                </button>
+                                {!hasEmailed && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleArchiveSendEmail(rep)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-xs transition-all active:scale-95"
+                                    title="Laporan ini baru tersimpan di DB. Klik untuk langsung mendistribusikan via Email ke PIC / SM / Direksi"
+                                  >
+                                    <Mail size={12} />
+                                    <span>Kirim Email</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => initiateDeleteReport(rep)}
+                                  className={`p-1.5 rounded-lg transition-all ${
+                                    hasEmailed
+                                      ? "text-amber-500 hover:text-red-600 hover:bg-amber-50 dark:hover:bg-red-950/50"
+                                      : "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                  }`}
+                                  title={
+                                    hasEmailed
+                                      ? "Hapus arsip laporan ini (Terkirim via Email - Opsi Recall tersedia)"
+                                      : "Hapus draft laporan ini (Belum kirim email - Langsung hapus & lepas temuan)"
+                                  }
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               )}
@@ -2516,6 +2907,89 @@ export default function ReportsPage() {
                 className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all"
               >
                 Tutup Arsip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS & RECALL EMAIL */}
+      {deletingReportTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-red-200 dark:border-red-900/60 space-y-6 animate-in zoom-in-95 duration-150">
+            {/* Header Alert */}
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-100 dark:bg-red-950/80 text-red-600 rounded-2xl shrink-0">
+                <AlertTriangle size={30} strokeWidth={2.2} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                  Peringatan: Laporan Sudah Pernah Dikirim via Email!
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Laporan dengan No. Dokumen <span className="font-mono font-bold text-violet-700 dark:text-violet-400">{deletingReportTarget.reportNumber}</span> untuk proyek <span className="font-bold text-slate-800 dark:text-slate-200">{deletingReportTarget.projectName}</span> telah tercatat didistribusikan ke alamat email.
+                </p>
+              </div>
+            </div>
+
+            {/* Recipients Info Box */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 text-xs space-y-2">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-bold">
+                <Mail size={14} />
+                <span>Penerima Email Sebelumnya:</span>
+              </div>
+              <p className="font-mono text-[11px] text-amber-900 dark:text-amber-300 break-all leading-relaxed bg-white/70 dark:bg-slate-900/70 p-2.5 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
+                {deletingReportTarget.recipients}
+              </p>
+            </div>
+
+            {/* Dampak Status Temuan */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-4 text-xs space-y-2">
+              <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <RotateCcw size={14} className="text-violet-600" />
+                <span>Dampak Penghapusan ke Item Temuan:</span>
+              </p>
+              <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                Seluruh item temuan ({deletingReportTarget.findingsCount || 0} temuan) di dalam laporan ini akan <strong className="text-slate-900 dark:text-white">dilepas kaitannya</strong> dan status pelaporannya dikembalikan menjadi <strong className="text-amber-600 dark:text-amber-400">"Belum Dilaporkan"</strong>.
+              </p>
+            </div>
+
+            {/* Opsi Aksi */}
+            <div className="space-y-2.5 pt-2">
+              {/* Opsi 1: Hapus & Kirim Email Recall (Recommended) */}
+              <button
+                type="button"
+                disabled={deletingProcessing}
+                onClick={() => executeDeleteReport(deletingReportTarget.id, deletingReportTarget.reportNumber, true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-98 disabled:opacity-50"
+              >
+                <Mail size={15} />
+                <span>
+                  {deletingProcessing
+                    ? "Sedang Memproses..."
+                    : "Hapus & Kirim Email Pembatalan (Recall)"}
+                </span>
+              </button>
+
+              {/* Opsi 2: Hapus Saja Tanpa Email Recall */}
+              <button
+                type="button"
+                disabled={deletingProcessing}
+                onClick={() => executeDeleteReport(deletingReportTarget.id, deletingReportTarget.reportNumber, false)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-all disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+                <span>Hapus Saja (Tanpa Email Recall)</span>
+              </button>
+
+              {/* Batal */}
+              <button
+                type="button"
+                disabled={deletingProcessing}
+                onClick={() => setDeletingReportTarget(null)}
+                className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+              >
+                Batal
               </button>
             </div>
           </div>

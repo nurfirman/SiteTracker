@@ -32,6 +32,7 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  division?: string | null;
   phoneNumber: string;
   employeeCode?: string | null;
   password?: string;
@@ -224,12 +225,19 @@ export interface CategorySettingItem {
   isCustom?: boolean;
 }
 
+export interface EmailDivisionTemplateConfig {
+  toRecipients: string[];
+  ccRecipients: string[];
+  bccRecipients: string[];
+}
+
 export interface SystemSettingData {
   reportLogoUrl?: string;
   companyName?: string;
   rbacPermissions?: Record<string, Record<string, boolean>>;
   customRoles?: string[];
   categories?: CategorySettingItem[];
+  emailDivisionTemplates?: Record<string, EmailDivisionTemplateConfig>;
 }
 
 

@@ -8,6 +8,7 @@ import { getAppBaseUrl, addBusinessDays } from "./utils";
 export interface SendAzureMailOptions {
   recipients: string[];
   ccRecipients?: string[];
+  bccRecipients?: string[];
   subject: string;
   projectName: string;
   division?: string;
@@ -23,6 +24,7 @@ export interface SendAzureMailOptions {
   picName?: string;
   pmName?: string;
   gmName?: string;
+  isRecall?: boolean;
   reportDate?: string;
   reportCreatedAt?: string | Date;
   responseDueDate?: string | Date;
@@ -98,8 +100,10 @@ async function getAzureOAuthToken(): Promise<string> {
  * Generate Template Email HTML Resmi Berstandar Profesional
  */
 function generateReportEmailHtml(options: SendAzureMailOptions): string {
-  const reportTitle =
-    options.reportType === "INTERNAL_PATROL"
+  const isRecall = Boolean(options.isRecall);
+  const reportTitle = isRecall
+    ? "PEMBERITAHUAN PEMBATALAN / RECALL LAPORAN PATROL"
+    : options.reportType === "INTERNAL_PATROL"
       ? "Form Lembar Hasil Patrol Site (Internal Patrol)"
       : "Laporan Rekapitulasi Eksekutif & Statistik Temuan";
 
@@ -135,6 +139,10 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
     year: "numeric",
   });
 
+  const bannerBg = isRecall
+    ? "linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%)"
+    : "linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%)";
+
   return `
 <!DOCTYPE html>
 <html lang="id">
@@ -152,12 +160,12 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
           
           <!-- Header Banner -->
           <tr>
-            <td style="background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #7c3aed 100%); padding: 32px 30px; text-align: left;">
+            <td style="background: ${bannerBg}; padding: 32px 30px; text-align: left;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td>
                     <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">
-                      PROJECT TRACKER REPORT
+                      ${isRecall ? "LAPORAN DIBATALKAN / RECALL" : "PROJECT TRACKER REPORT"}
                     </div>
                     <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; line-height: 1.3;">
                       ${options.projectName}
@@ -174,18 +182,33 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
           <!-- Content Body -->
           <tr>
             <td style="padding: 30px;">
-              
+              ${
+                isRecall
+                  ? `
+              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; padding: 14px 16px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 800; text-transform: uppercase; color: #991b1b; letter-spacing: 0.5px;">
+                  Pemberitahuan Resmi Penarikan Laporan (Recall):
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #7f1d1d; line-height: 1.5;">
+                  Dengan ini kami memberitahukan bahwa arsip laporan dengan No. Dokumen <strong>${options.reportNumber || "-"}</strong> telah <strong>DIBATALKAN / DIHAPUS</strong> dari sistem. Seluruh item temuan terkait dikembalikan ke status antrean pemantauan (Belum Dilaporkan).
+                </p>
+              </div>
+              `
+                  : ""
+              }
               <!-- Greeting & Context -->
               <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Yth. Bapak/Ibu Tim Proyek & Manajemen,
+                Yth. Bapak/Ibu, "${options.picName}"
               </p>
               <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Berikut terlampir rangkuman resmi laporan hasil Patrol pengawasan Site  untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>.
+                Reminder : Kepada Site Manager ${options.picName} dan Section Manager ${options.pmName} <br/>
+                System Monitoring Project Tracer untuk proyek <strong>${options.projectName}</strong> pada tanggal <strong>${inspectionDateFormatted}</strong>. 
+                <br> Terlampir bersama email ini adalah dokumen rekapitulasi temuan dan statistik project tracer.
+
               </p>
 
               <!-- Optional Note -->
-              ${options.messageNote
-      ? `
+              ${options.messageNote ? `
               <div style="background-color: #faf5ff; border-left: 4px solid #7c3aed; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px;">
                 <p style="margin: 0 0 4px 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #6b21a8; letter-spacing: 0.5px;">
                   Catatan Tambahan Pengirim:
@@ -197,7 +220,6 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
               `
       : ""
     }
-
               <!-- Stats KPI Grid -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
                 <tr>
@@ -246,21 +268,21 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Divisi / Wilayah:</td>
                   <td style="padding: 6px 10px; color: #0284c7; font-weight: 800;">${options.division}</td>
                 </tr>` : ""}
-                ${options.picName ? `
-                <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Site Manager:</td>
-                  <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.picName}</td>
-                </tr>` : ""}
-                ${options.pmName ? `
-                <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">GM / DivHead / DepMan:</td>
-                  <td style="padding: 6px 10px; color: #059669; font-weight: 800;">${options.pmName}</td>
-                </tr>` : ""}
+                // ${options.picName ? `
+                // <tr>
+                //   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Site Manager:</td>
+                //   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.picName}</td>
+                // </tr>` : ""}
+                // ${options.pmName ? `
+                // <tr>
+                //   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">GM / DivHead / DepMan:</td>
+                //   <td style="padding: 6px 10px; color: #059669; font-weight: 800;">${options.pmName}</td>
+                // </tr>` : ""}
                 ${options.gmName ? `
-                <tr>
-                  <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">SecMan (Section Manager):</td>
-                  <td style="padding: 6px 10px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
-                </tr>` : ""}
+                // <tr>
+                //   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">SecMan (Section Manager):</td>
+                //   <td style="padding: 6px 10px; color: #2563eb; font-weight: 800;">${options.gmName}</td>
+                // </tr>` : ""}
                 <tr>
                   <td style="padding: 6px 10px; color: #64748b; font-weight: 600;">Petugas Patrol CMD:</td>
                   <td style="padding: 6px 10px; color: #0f172a; font-weight: 800;">${options.inspectorName || "Inspector CMD Site "}</td>
@@ -289,7 +311,7 @@ function generateReportEmailHtml(options: SendAzureMailOptions): string {
               <!-- Action Callout -->
               <div style="text-align: center; margin: 30px 0 10px 0;">
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                  Detail bukti foto temuan dan tindak lanjut perbaikan dapat diakses langsung oleh Site Manager pada portal web:
+                  Detail bukti foto temuan dan tindak lanjut perbaikan dapat diakses langsung (klik kemudian login) oleh Site Manager pada portal web:
                 </p>
                 <a href="${getAppBaseUrl()}/pic/tasks" target="_blank" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);">
                   Buka Portal Site Manager & Tindak Lanjuti Temuan &rarr;
@@ -364,6 +386,16 @@ export async function sendEmailViaAzureGraph(
       }))
     : [];
 
+  const bccRecipients = options.bccRecipients && options.bccRecipients.length > 0
+    ? options.bccRecipients
+      .filter((email) => email && email.trim().length > 0)
+      .map((email) => ({
+        emailAddress: {
+          address: email.trim(),
+        },
+      }))
+    : [];
+
   const messagePayload: any = {
     subject: options.subject,
     body: {
@@ -375,6 +407,9 @@ export async function sendEmailViaAzureGraph(
 
   if (ccRecipients.length > 0) {
     messagePayload.ccRecipients = ccRecipients;
+  }
+  if (bccRecipients.length > 0) {
+    messagePayload.bccRecipients = bccRecipients;
   }
 
   const graphPayload = {

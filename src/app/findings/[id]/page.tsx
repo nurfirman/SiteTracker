@@ -27,6 +27,7 @@ import {
   Trash2,
   X,
   Save,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -276,6 +277,15 @@ export default function FindingDetailPage() {
           <span className="font-mono text-xs font-black px-3 py-1 bg-slate-900 text-white rounded-lg">
             {finding.ticketCode}
           </span>
+          {finding.reportNumber && (
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 border border-violet-300 dark:border-violet-800 rounded-lg font-mono text-xs font-bold"
+              title="Nomor Dokumen Laporan Resmi"
+            >
+              <FileText size={13} className="text-violet-600 dark:text-violet-400" />
+              <span>{finding.reportNumber}</span>
+            </span>
+          )}
           <StatusBadge status={finding.status} size="md" />
         </div>
       </div>

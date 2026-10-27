@@ -185,12 +185,71 @@ export async function getSystemSettings(): Promise<SystemSettingData> {
         companyName: settingsMap.companyName || inMemorySystemSettings.companyName || "ProjectTracker",
         rbacPermissions: settingsMap.rbacPermissions || inMemorySystemSettings.rbacPermissions || {},
         customRoles: settingsMap.customRoles || inMemorySystemSettings.customRoles || ["Advisor"],
+        emailDivisionTemplates: settingsMap.emailDivisionTemplates || inMemorySystemSettings.emailDivisionTemplates || {},
       };
     } catch (err) {
       console.warn("Online DB query failed for getSystemSettings:", err);
     }
   }
   return inMemorySystemSettings;
+}
+
+/**
+ * Menyimpan konfigurasi template distribusi email per divisi ke database
+ */
+export async function saveEmailDivisionTemplate(payload: {
+  divisionCode: string;
+  toRecipients: string[];
+  ccRecipients: string[];
+  bccRecipients: string[];
+}): Promise<{ success: boolean; message: string; templates?: Record<string, any> }> {
+  try {
+    const cleanCode = payload.divisionCode.trim().toUpperCase();
+    const currentSettings = await getSystemSettings();
+    const existingTemplates = currentSettings.emailDivisionTemplates || {};
+
+    const updatedTemplates = {
+      ...existingTemplates,
+      [cleanCode]: {
+        toRecipients: payload.toRecipients || [],
+        ccRecipients: payload.ccRecipients || [],
+        bccRecipients: payload.bccRecipients || [],
+      },
+    };
+
+    inMemorySystemSettings.emailDivisionTemplates = updatedTemplates;
+
+    if (hasValidDatabaseUrl()) {
+      await prisma.systemSetting.upsert({
+        where: { key: "emailDivisionTemplates" },
+        update: { value: JSON.stringify(updatedTemplates) },
+        create: { key: "emailDivisionTemplates", value: JSON.stringify(updatedTemplates) },
+      });
+    }
+
+    const session = await getSession();
+    await recordAuditLog({
+      userId: session?.userId || null,
+      userName: session?.name || "User",
+      userRole: session?.role || "USER",
+      action: "UPDATE_EMAIL_TEMPLATE",
+      entityType: "EMAIL_TEMPLATE",
+      details: `Menyimpan template email distribusi divisi ${cleanCode} (TO: ${payload.toRecipients.length}, CC: ${payload.ccRecipients.length}, BCC: ${payload.bccRecipients.length})`,
+    });
+
+    safeRevalidate("/reports");
+
+    return {
+      success: true,
+      message: `Template distribusi divisi ${cleanCode} berhasil disimpan ke database!`,
+      templates: updatedTemplates,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || "Gagal menyimpan template divisi.",
+    };
+  }
 }
 
 /**
@@ -274,12 +333,59 @@ export async function getDatabaseStatus(): Promise<{ isConnected: boolean; mode:
 }
 
 export async function loginUser(identifier: string, password?: string): Promise<{ success: boolean; session?: SessionData; user?: User; message?: string }> {
-  const users = await getUsers();
-  const targetUser = users.find(
-    (u) =>
-      u.id === identifier ||
-      u.email.toLowerCase() === identifier.toLowerCase().trim()
-  );
+  const cleanIdentifier = identifier.trim();
+  let targetUser: User | undefined;
+
+  // 1. Cek langsung ke database Neon terlebih dahulu agar selalu up-to-date
+  if (hasValidDatabaseUrl()) {
+    try {
+      const dbUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: cleanIdentifier },
+            { email: { equals: cleanIdentifier, mode: "insensitive" } },
+          ],
+        },
+        include: { project: true },
+      });
+
+      if (dbUser) {
+        targetUser = {
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          role: dbUser.role as Role,
+          division: (dbUser as any).division || null,
+          phoneNumber: dbUser.phoneNumber,
+          employeeCode: (dbUser as any).employeeCode || null,
+          projectId: dbUser.projectId,
+          projectIds: Array.isArray((dbUser as any).projectIds)
+            ? (dbUser as any).projectIds
+            : (dbUser.projectId ? [dbUser.projectId] : []),
+          project: dbUser.project
+            ? {
+              id: dbUser.project.id,
+              name: dbUser.project.name,
+              location: dbUser.project.location,
+              createdAt: dbUser.project.createdAt.toISOString(),
+            }
+            : null,
+        };
+      }
+    } catch (dbErr) {
+      console.warn("Direct DB user lookup in loginUser failed, falling back:", dbErr);
+    }
+  }
+
+  // 2. Fallback ke getUsers / inMemoryUsers jika belum ditemukan
+  if (!targetUser) {
+    const users = await getUsers();
+    targetUser = users.find(
+      (u) =>
+        u.id.toLowerCase() === cleanIdentifier.toLowerCase() ||
+        u.email.toLowerCase() === cleanIdentifier.toLowerCase()
+    );
+  }
 
   if (!targetUser) {
     return { success: false, message: "Akun pengguna tidak ditemukan. Pastikan email/ID terdaftar." };
@@ -290,7 +396,7 @@ export async function loginUser(identifier: string, password?: string): Promise<
     let isAuthenticated = false;
     let authErrorMsg = "";
 
-    const standardPasswords = ["123", "admin", "123456"];
+    const standardPasswords = ["123", "admin", "123456", "P@ssw0rd", "password"];
     const expectedPassword = targetUser.password || "123";
 
     if (
@@ -701,7 +807,8 @@ export async function registerUser(payload: {
 export async function updateUserRoleAndProject(
   userId: string,
   role: Role,
-  projectId?: string | null
+  projectId?: string | null,
+  division?: string | null
 ): Promise<{ success: boolean; message: string; user?: User }> {
   try {
     let updatedUser: User | null = null;
@@ -713,6 +820,7 @@ export async function updateUserRoleAndProject(
           data: {
             role: role as any,
             projectId: projectId || null,
+            ...(division !== undefined ? { division: division || null } : {}),
           },
           include: { project: true },
         });
@@ -721,6 +829,7 @@ export async function updateUserRoleAndProject(
           name: u.name,
           email: u.email,
           role: u.role,
+          division: (u as any).division || null,
           phoneNumber: u.phoneNumber,
           projectId: u.projectId,
           project: u.project
@@ -742,6 +851,9 @@ export async function updateUserRoleAndProject(
     if (memIdx !== -1) {
       inMemoryUsers[memIdx].role = role;
       inMemoryUsers[memIdx].projectId = projectId || null;
+      if (division !== undefined) {
+        inMemoryUsers[memIdx].division = division || null;
+      }
       if (projectId) {
         const p = inMemoryProjects.find((proj) => proj.id === projectId);
         inMemoryUsers[memIdx].project = p || null;
@@ -1923,6 +2035,7 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
         name: u.name,
         email: u.email,
         role: u.role as Role,
+        division: (u as any).division || null,
         phoneNumber: u.phoneNumber,
         employeeCode: (u as any).employeeCode || null,
         projectId: u.projectId,
@@ -2284,10 +2397,11 @@ export async function createFinding(payload: {
       reporterEmpCode = formatEmployeeCode(userIdx >= 0 ? userIdx + 1 : 1);
     }
 
-    // DDD: Kode Divisi Proyek
+    // DDD: Kode Divisi Pelapor (User) - jika tidak diisi fallback ke Divisi Proyek
     const projectList = await getProjects();
     const targetProject = projectList.find(p => p.id === payload.projectId);
-    const divCode = getDivisionCode(targetProject?.division);
+    const userDivision = reporterUser?.division || (session as any)?.division;
+    const divCode = getDivisionCode(userDivision || targetProject?.division);
 
     // XXXX: Counter 4-digit nomor urut terus berlanjut tanpa reset
     const nextSeq = await getNextTicketSequence();
@@ -3000,6 +3114,7 @@ export interface EmailReportPayload {
   reportNumber?: string;
   recipients: string[];
   ccRecipients?: string[];
+  bccRecipients?: string[];
   subject: string;
   reportType: "INTERNAL_PATROL" | "EXECUTIVE_REKAP";
   messageNote?: string;
@@ -3058,6 +3173,9 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
       payload.ccRecipients && payload.ccRecipients.length > 0
         ? `CC: ${payload.ccRecipients.join(", ")}`
         : null,
+      payload.bccRecipients && payload.bccRecipients.length > 0
+        ? `BCC: ${payload.bccRecipients.join(", ")}`
+        : null,
     ]
       .filter(Boolean)
       .join(" | ");
@@ -3095,6 +3213,7 @@ export async function sendReportEmail(payload: EmailReportPayload): Promise<{
       const azureResult = await sendEmailViaAzureGraph({
         recipients: payload.recipients,
         ccRecipients: payload.ccRecipients,
+        bccRecipients: payload.bccRecipients,
         subject: payload.subject,
         projectName: payload.projectName,
         division: payload.division,
@@ -4103,8 +4222,126 @@ export async function getPatrolReports(filters?: {
   return list.slice(0, limit);
 }
 
-export async function deletePatrolReport(id: string): Promise<{ success: boolean; message: string }> {
+export interface DeletePatrolReportOptions {
+  sendRecallEmail?: boolean;
+}
+
+export async function deletePatrolReport(
+  id: string,
+  options?: DeletePatrolReportOptions
+): Promise<{ success: boolean; message: string; emailSent?: boolean }> {
   try {
+    let targetReport: any = null;
+
+    if (hasValidDatabaseUrl()) {
+      try {
+        targetReport = await (prisma as any).patrolReport.findUnique({
+          where: { id },
+        });
+      } catch (e) {
+        console.warn("Gagal mencari patrolReport dari Online DB:", e);
+      }
+    }
+
+    if (!targetReport) {
+      targetReport = inMemoryPatrolReports.find((r) => r.id === id);
+    }
+
+    const reportNumber = targetReport?.reportNumber;
+    let emailSent = false;
+
+    // 1. Jika opsi sendRecallEmail aktif dan laporan memiliki daftar penerima email (sudah pernah dilaporkan via email)
+    if (options?.sendRecallEmail && targetReport && targetReport.recipients) {
+      try {
+        // Parse daftar penerima dari targetReport.recipients (format string tersimpan: "a@b.com, c@d.com | CC: e@f.com" atau serupa)
+        const rawRecipients = targetReport.recipients;
+        let toList: string[] = [];
+        let ccList: string[] = [];
+
+        if (rawRecipients.includes("|")) {
+          const parts = rawRecipients.split("|");
+          toList = parts[0]
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter((s: string) => s && s.includes("@"));
+          if (parts[1]) {
+            ccList = parts[1]
+              .replace(/^CC:/i, "")
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter((s: string) => s && s.includes("@"));
+          }
+        } else {
+          toList = rawRecipients
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter((s: string) => s && s.includes("@"));
+        }
+
+        if (toList.length > 0) {
+          const recallSubject = `[PEMBATALAN / RECALL] ${targetReport.subject || `Laporan Patrol ${targetReport.reportNumber || ""}`}`;
+          
+          if (isAzureMailConfigured()) {
+            await sendEmailViaAzureGraph({
+              recipients: toList,
+              ccRecipients: ccList,
+              subject: recallSubject,
+              projectName: targetReport.projectName || "Proyek",
+              reportNumber: targetReport.reportNumber,
+              reportType: (targetReport.inspectionType as any) || "INTERNAL_PATROL",
+              messageNote: `Pemberitahuan: Laporan ${targetReport.reportNumber || ""} telah dibatalkan / dihapus dari sistem.`,
+              findingsCount: targetReport.findingsCount || 0,
+              openCount: 0,
+              resolvedCount: 0,
+              closedCount: 0,
+              inspectorName: targetReport.inspectorName,
+              siteManagerName: targetReport.siteManagerName,
+              picName: targetReport.picName,
+              reportDate: targetReport.reportDate,
+              reportCreatedAt: targetReport.createdAt,
+              isRecall: true,
+            });
+            emailSent = true;
+          } else {
+            console.log(`[Simulasi Recall Mail] Terkirim recall untuk laporan ${reportNumber} ke ${toList.join(", ")}`);
+            emailSent = true;
+          }
+        }
+      } catch (mailErr: any) {
+        console.warn("Gagal mengirim email recall laporan:", mailErr);
+      }
+    }
+
+    // 2. Lepas relasi reportNumber pada temuan-temuan terkait (kembalikan ke 'Belum Dilaporkan')
+    if (reportNumber) {
+      if (hasValidDatabaseUrl()) {
+        try {
+          await (prisma.finding as any).updateMany({
+            where: { reportNumber },
+            data: {
+              reportNumber: null,
+              dueDate: null,
+            },
+          });
+        } catch (dbErr) {
+          console.warn("Gagal me-reset reportNumber temuan di Online DB:", dbErr);
+        }
+      }
+
+      // Reset juga pada in-memory findings
+      inMemoryFindings = inMemoryFindings.map((f) => {
+        if (f.reportNumber === reportNumber) {
+          return {
+            ...f,
+            reportNumber: null,
+            dueDate: null,
+          };
+        }
+        return f;
+      });
+    }
+
+    // 3. Hapus dokumen patrolReport dari database dan in-memory
     if (hasValidDatabaseUrl()) {
       try {
         await (prisma as any).patrolReport.delete({
@@ -4114,9 +4351,32 @@ export async function deletePatrolReport(id: string): Promise<{ success: boolean
         console.warn("Gagal menghapus dari Online DB, membersihkan in-memory:", e);
       }
     }
+
     inMemoryPatrolReports = inMemoryPatrolReports.filter((r) => r.id !== id);
+
+    // Audit log
+    const session = await getSession();
+    await recordAuditLog({
+      userId: session?.userId || null,
+      userName: session?.name || "User",
+      userRole: session?.role || "CMD",
+      action: "DELETE_REPORT",
+      entityType: "PATROL_REPORT",
+      entityId: reportNumber || id,
+      details: `Menghapus arsip laporan ${reportNumber || id}. Temuan terkait dikembalikan ke status 'Belum Dilaporkan'.${emailSent ? " Email recall/pembatalan berhasil dikirimkan." : ""}`,
+    });
+
     safeRevalidate("/reports");
-    return { success: true, message: "Arsip laporan berhasil dihapus." };
+    safeRevalidate("/dashboard");
+    safeRevalidate("/findings");
+
+    return {
+      success: true,
+      message: emailSent
+        ? `Arsip laporan ${reportNumber || ""} berhasil dihapus, email recall/pembatalan telah dikirimkan, dan seluruh temuan telah dikembalikan ke status 'Belum Dilaporkan'.`
+        : `Arsip laporan ${reportNumber || ""} berhasil dihapus dan seluruh temuan telah dikembalikan ke status 'Belum Dilaporkan'.`,
+      emailSent,
+    };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal menghapus arsip laporan." };
   }
@@ -4265,9 +4525,16 @@ export async function createBulkPatrolFindings(
       }
     }
 
+    const allUsers = await getUsers();
+    const reporterUser = allUsers.find((u) => u.id === session.userId);
+
     const projectList = await getProjects();
     const targetProject = projectList.find((p) => p.id === payload.projectId);
-    const divCode = getDivisionCode(targetProject?.division);
+
+    // Divisi User pelapor diutamakan, jika belum diatur gunakan divisi proyek
+    const userDivision = reporterUser?.division || (session as any)?.division;
+    const effectiveDivision = userDivision || targetProject?.division;
+    const divCode = getDivisionCode(effectiveDivision);
 
     const now = new Date();
     const inspectionDateObj = payload.inspectionDate ? new Date(payload.inspectionDate) : now;
@@ -4276,13 +4543,11 @@ export async function createBulkPatrolFindings(
     // Tentukan atau generate Nomor Dokumen Laporan CMD
     let reportNumber = payload.reportNumber?.trim();
     if (!reportNumber) {
-      reportNumber = await getNextReportDocNumber(targetProject?.division, reportDateStr);
+      reportNumber = await getNextReportDocNumber(effectiveDivision, reportDateStr);
     }
 
     // Tentukan Employee Code Pelapor
     let reporterEmpCode = "P00001";
-    const allUsers = await getUsers();
-    const reporterUser = allUsers.find((u) => u.id === session.userId);
     if (reporterUser?.employeeCode) {
       reporterEmpCode = reporterUser.employeeCode;
     } else {

@@ -9,6 +9,7 @@ export interface SessionData {
   name: string;
   email: string;
   role: Role;
+  division?: string | null;
   phoneNumber: string;
   projectId?: string | null;
   projectIds?: string[];
@@ -60,6 +61,7 @@ export async function setSession(user: User): Promise<SessionData> {
     name: user.name,
     email: user.email,
     role: user.role,
+    division: user.division || null,
     phoneNumber: user.phoneNumber,
     projectId: user.projectId || (user.projectIds && user.projectIds.length > 0 ? user.projectIds[0] : null),
     projectIds: user.projectIds || (user.projectId ? [user.projectId] : []),

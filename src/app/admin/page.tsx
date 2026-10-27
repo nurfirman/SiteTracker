@@ -177,6 +177,7 @@ export default function AdminSettingsPage() {
   const [showRoleAssignModal, setShowRoleAssignModal] = useState(false);
   const [assignTargetUser, setAssignTargetUser] = useState<User | null>(null);
   const [assignRole, setAssignRole] = useState<Role>("PIC");
+  const [assignDivision, setAssignDivision] = useState<string>("");
   const [assignProjectId, setAssignProjectId] = useState<string>("");
   const [assignSubmitting, setAssignSubmitting] = useState(false);
 
@@ -587,6 +588,7 @@ export default function AdminSettingsPage() {
   const handleOpenAssignModal = (user: User) => {
     setAssignTargetUser(user);
     setAssignRole(user.role === "PENDING" ? "PIC" : user.role);
+    setAssignDivision(user.division || "");
     setAssignProjectId(user.projectId || (projects.length > 0 ? projects[0].id : ""));
     setShowRoleAssignModal(true);
   };
@@ -600,7 +602,8 @@ export default function AdminSettingsPage() {
       const res = await updateUserRoleAndProject(
         assignTargetUser.id,
         assignRole,
-        isGlobalRole ? null : (assignProjectId || null)
+        isGlobalRole ? null : (assignProjectId || null),
+        assignDivision.trim() || null
       );
       if (res.success) {
         showToast(res.message);
@@ -1590,13 +1593,18 @@ export default function AdminSettingsPage() {
                       <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${roleConfig.badgeClass}`}>
                         {u.role}
                       </span>
+                      {u.division && (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                          Divisi {u.division}
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleOpenAssignModal(u)}
                         className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1"
                       >
                         <Sliders size={11} />
-                        <span>Ubah Role</span>
+                        <span>Ubah Role & Divisi</span>
                       </button>
                     </div>
 
@@ -2841,6 +2849,28 @@ export default function AdminSettingsPage() {
                 </select>
                 <p className="text-[11px] text-slate-500">
                   {ROLE_LABELS[assignRole]?.description || "Role wewenang operasional"}
+                </p>
+              </div>
+
+              {/* Pilihan Divisi Pengguna (User Division) */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Divisi Pengguna (Home Division) <span className="text-violet-500">*</span>
+                </label>
+                <select
+                  value={assignDivision}
+                  onChange={(e) => setAssignDivision(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">-- Ikuti Divisi Proyek (Default) --</option>
+                  {MASTER_DIVISIONS.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.code} - {d.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  Contoh: User dengan role CMD dapat bertugas di divisi <strong>ME</strong>. Kode temuan dan nomor dokumen laporan yang dibuat user ini otomatis menggunakan kode divisi ini.
                 </p>
               </div>
 
