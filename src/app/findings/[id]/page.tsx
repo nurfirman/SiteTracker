@@ -68,6 +68,7 @@ export default function FindingDetailPage() {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionNote, setRejectionNote] = useState("");
   const [submittingPm, setSubmittingPm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadDetail = async () => {
     if (!id) return;
@@ -219,7 +220,6 @@ export default function FindingDetailPage() {
     currentUser.id === finding.reporterId || isInspector
   );
 
-  const [deleting, setDeleting] = useState(false);
   const handleDelete = async () => {
     if (!finding) return;
     const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus temuan "${finding.ticketCode}"? Tindakan ini tidak dapat dibatalkan.`);

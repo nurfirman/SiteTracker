@@ -7,7 +7,7 @@ import { useRole } from "@/components/RoleContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MultiPhotoUploader } from "@/components/MultiPhotoUploader";
 import { FindingCardGridSkeleton } from "@/components/SkeletonLoader";
-import { formatDate, formatPhotoUrls } from "@/lib/utils";
+import { formatDate, formatPhotoUrls, parsePhotoUrls } from "@/lib/utils";
 import {
   CheckSquare,
   AlertCircle,
@@ -302,7 +302,7 @@ export default function PicTasksPage() {
                     {/* Foto Temuan Awal */}
                     <div className="relative rounded-2xl overflow-hidden bg-slate-950 h-48 border border-slate-200 dark:border-slate-800">
                       <img
-                        src={task.photoFindingUrl}
+                        src={parsePhotoUrls(task.photoFindingUrl)[0] || task.photoFindingUrl}
                         alt="Foto Temuan"
                         className="w-full h-full object-cover"
                       />

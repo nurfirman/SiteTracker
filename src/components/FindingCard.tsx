@@ -4,7 +4,7 @@ import React from "react";
 import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
-import { formatDate, getSlaStatus } from "../lib/utils";
+import { formatDate, getSlaStatus, parsePhotoUrls } from "../lib/utils";
 import { MapPin, UserCheck, Calendar, Eye, ArrowRight, CheckSquare, Clock, CheckCircle2, XCircle, Trash2, FileText } from "lucide-react";
 import Link from "next/link";
 
@@ -92,7 +92,7 @@ export function FindingCard({
         {/* Thumbnail Image Comparison Preview */}
         <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-800 h-44 mt-2">
           <img
-            src={finding.photoFindingUrl}
+            src={parsePhotoUrls(finding.photoFindingUrl)[0] || finding.photoFindingUrl}
             alt="Foto Temuan"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

@@ -27,6 +27,7 @@ import {
   CheckSquare,
   Sliders,
   Phone,
+  PieChart,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -250,6 +251,341 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {/* GRAFIK PIE RINGKASAN STATUS TEMUAN (SEBELUM CARD) */}
+          <div className="p-6 sm:p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 text-xs font-extrabold rounded-lg">
+                  <PieChart size={14} />
+                  <span>Visualisasi Pie Chart KPI</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  Grafik Pie Ringkasan Status Temuan Patrol
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Diagram lingkaran (Pie Chart) berdasarkan angka-angka pada kartu status temuan di bawah ini.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 self-start sm:self-center bg-slate-50 dark:bg-slate-800/70 px-4 py-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                <Layers size={18} className="text-violet-600 dark:text-violet-400 shrink-0" />
+                <div className="text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold block">
+                    Total Temuan Patrol
+                  </span>
+                  <span className="font-black text-sm text-slate-900 dark:text-white">
+                    {totalAll} Temuan{" "}
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      ({totalAll > 0 ? Math.round((totalClosed / totalAll) * 100) : 0}% Closed)
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {(() => {
+              const pieSlices = [
+                {
+                  key: "OPEN",
+                  label: "Temuan Open (Perlu Tindakan)",
+                  shortLabel: "Open",
+                  value: totalOpen,
+                  color: "#ef4444", // red-500
+                  dotClass: "bg-red-500",
+                  borderClass: "border-red-200 dark:border-red-900/60",
+                  bgClass: "bg-red-50/70 dark:bg-red-950/30",
+                  textClass: "text-red-700 dark:text-red-400",
+                },
+                {
+                  key: "RESOLVED",
+                  label: "Menunggu Validasi (Resolved)",
+                  shortLabel: "Resolved",
+                  value: totalResolved,
+                  color: "#f59e0b", // amber-500
+                  dotClass: "bg-amber-500",
+                  borderClass: "border-amber-200 dark:border-amber-900/60",
+                  bgClass: "bg-amber-50/70 dark:bg-amber-950/30",
+                  textClass: "text-amber-700 dark:text-amber-400",
+                },
+                {
+                  key: "REJECTED",
+                  label: "Validasi Ditolak (Perlu Revisi)",
+                  shortLabel: "Revisi",
+                  value: totalRejected,
+                  color: "#f43f5e", // rose-500
+                  dotClass: "bg-rose-500",
+                  borderClass: "border-rose-200 dark:border-rose-900/60",
+                  bgClass: "bg-rose-50/70 dark:bg-rose-950/30",
+                  textClass: "text-rose-700 dark:text-rose-400",
+                },
+                {
+                  key: "CLOSED",
+                  label: "Selesai & Diverifikasi (Closed)",
+                  shortLabel: "Closed",
+                  value: totalClosed,
+                  color: "#10b981", // emerald-500
+                  dotClass: "bg-emerald-500",
+                  borderClass: "border-emerald-200 dark:border-emerald-900/60",
+                  bgClass: "bg-emerald-50/70 dark:bg-emerald-950/30",
+                  textClass: "text-emerald-700 dark:text-emerald-400",
+                },
+              ];
+
+              const pieSum = pieSlices.reduce((acc, s) => acc + s.value, 0);
+              const cx = 130;
+              const cy = 130;
+              const radius = 110;
+
+              const polarToCartesian = (centerX: number, centerY: number, r: number, angleInDegrees: number) => {
+                const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+                return {
+                  x: centerX + r * Math.cos(angleInRadians),
+                  y: centerY + r * Math.sin(angleInRadians),
+                };
+              };
+
+              const createPieSlicePath = (startAngle: number, endAngle: number) => {
+                const start = polarToCartesian(cx, cy, radius, endAngle);
+                const end = polarToCartesian(cx, cy, radius, startAngle);
+                const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+                return [
+                  "M",
+                  cx,
+                  cy,
+                  "L",
+                  start.x,
+                  start.y,
+                  "A",
+                  radius,
+                  radius,
+                  0,
+                  largeArcFlag,
+                  0,
+                  end.x,
+                  end.y,
+                  "Z",
+                ].join(" ");
+              };
+
+              let currentAngle = 0;
+              const computedSlices = pieSlices.map((slice) => {
+                const fraction = pieSum > 0 ? slice.value / pieSum : 0;
+                const sweepAngle = fraction * 360;
+                const startAngle = currentAngle;
+                const endAngle = currentAngle + sweepAngle;
+                const midAngle = startAngle + sweepAngle / 2;
+                currentAngle = endAngle;
+
+                const labelPos = polarToCartesian(cx, cy, radius * 0.62, midAngle);
+
+                return {
+                  ...slice,
+                  fraction,
+                  pct: pieSum > 0 ? Math.round(fraction * 100) : 0,
+                  startAngle,
+                  endAngle,
+                  sweepAngle,
+                  labelPos,
+                };
+              });
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                  {/* Kolom Kiri: Diagram Pie (SVG Pie Chart) */}
+                  <div className="lg:col-span-5 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6">
+                    <div className="relative flex items-center justify-center">
+                      <svg
+                        viewBox="0 0 260 260"
+                        className="w-56 h-56 sm:w-64 sm:h-64 drop-shadow-md"
+                        aria-label="Pie Chart Status Temuan"
+                      >
+                        {pieSum === 0 ? (
+                          <>
+                            <circle
+                              cx={cx}
+                              cy={cy}
+                              r={radius}
+                              fill="#e2e8f0"
+                              className="dark:fill-slate-800"
+                            />
+                            <text
+                              x={cx}
+                              y={cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="fill-slate-500 dark:fill-slate-400 text-xs font-bold"
+                            >
+                              Belum Ada Data (0)
+                            </text>
+                          </>
+                        ) : (
+                          computedSlices.map((slice) => {
+                            if (slice.value <= 0) return null;
+
+                            // Jika 1 kategori bernilai 100%, gambar circle penuh
+                            if (slice.fraction >= 0.999) {
+                              return (
+                                <g key={slice.key}>
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={radius}
+                                    fill={slice.color}
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    className="dark:stroke-slate-900 transition-opacity hover:opacity-90"
+                                  >
+                                    <title>{`${slice.label}: ${slice.value} (${slice.pct}%)`}</title>
+                                  </circle>
+                                  <text
+                                    x={cx}
+                                    y={cy - 6}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fill="#ffffff"
+                                    className="font-black text-base drop-shadow-xs pointer-events-none"
+                                  >
+                                    {slice.value}
+                                  </text>
+                                  <text
+                                    x={cx}
+                                    y={cy + 12}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fill="#ffffff"
+                                    className="font-bold text-[11px] drop-shadow-xs pointer-events-none"
+                                  >
+                                    ({slice.pct}%)
+                                  </text>
+                                </g>
+                              );
+                            }
+
+                            return (
+                              <g key={slice.key} className="group cursor-pointer">
+                                <path
+                                  d={createPieSlicePath(slice.startAngle, slice.endAngle)}
+                                  fill={slice.color}
+                                  stroke="#ffffff"
+                                  strokeWidth="2.5"
+                                  strokeLinejoin="round"
+                                  className="dark:stroke-slate-900 transition-opacity group-hover:opacity-90"
+                                >
+                                  <title>{`${slice.label}: ${slice.value} (${slice.pct}%)`}</title>
+                                </path>
+                                {slice.fraction >= 0.06 && (
+                                  <g className="pointer-events-none">
+                                    <text
+                                      x={slice.labelPos.x}
+                                      y={slice.labelPos.y - 5}
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      fill="#ffffff"
+                                      className="font-black text-xs sm:text-sm drop-shadow-xs"
+                                    >
+                                      {slice.value}
+                                    </text>
+                                    <text
+                                      x={slice.labelPos.x}
+                                      y={slice.labelPos.y + 9}
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      fill="#ffffff"
+                                      className="font-extrabold text-[10px] drop-shadow-xs"
+                                    >
+                                      {slice.pct}%
+                                    </text>
+                                  </g>
+                                )}
+                              </g>
+                            );
+                          })
+                        )}
+                      </svg>
+                    </div>
+
+                    {/* Label Ringkas di Bawah Pie */}
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+                      {computedSlices.map((s) => (
+                        <div key={s.key} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <span className={`w-3 h-3 rounded-full ${s.dotClass}`} />
+                          <span>
+                            {s.shortLabel}: <strong>{s.value}</strong> ({s.pct}%)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Kolom Kanan: Rincian Angka Berdasarkan 5 Kartu Status */}
+                  <div className="lg:col-span-7 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Rincian Angka pada Kartu Status
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        Persentase terhadap Pie
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {computedSlices.map((item) => (
+                        <div
+                          key={item.key}
+                          className={`p-4 rounded-2xl border ${item.borderClass} ${item.bgClass} flex items-center justify-between gap-3`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-3 h-3 rounded-full shrink-0 ${item.dotClass}`} />
+                              <span className={`text-xs font-black uppercase tracking-wide ${item.textClass}`}>
+                                {item.shortLabel}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {item.label}
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
+                              {item.value}
+                            </span>
+                            <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                              {item.pct}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Baris ke-5: Kartu Total Temuan Patrol */}
+                    <div className="p-4 rounded-2xl border border-violet-200 dark:border-violet-800/80 bg-violet-50/70 dark:bg-violet-950/30 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="w-3.5 h-3.5 rounded-full bg-violet-600 shrink-0" />
+                        <div>
+                          <span className="text-xs font-black uppercase tracking-wider text-violet-800 dark:text-violet-300 block">
+                            Total Temuan Patrol (Akumulasi Kartu)
+                          </span>
+                          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                            Total keseluruhan temuan sesuai filter yang aktif saat ini
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-3xl font-black text-violet-700 dark:text-violet-300 leading-none">
+                          {totalAll}
+                        </span>
+                        <span className="block text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                          Total Temuan
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           {/* SUMMARY CARDS (RINGKASAN STATUS) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Card OPEN */}

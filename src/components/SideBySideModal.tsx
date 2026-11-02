@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Finding } from "../types";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
-import { formatDate } from "../lib/utils";
+import { formatDate, parsePhotoUrls } from "../lib/utils";
 import {
   X,
   CheckCircle2,
@@ -173,7 +173,7 @@ export function SideBySideModal({
                 </div>
                 <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-950 shadow-md aspect-video">
                   <img
-                    src={finding.photoFindingUrl}
+                    src={parsePhotoUrls(finding.photoFindingUrl)[0] || finding.photoFindingUrl}
                     alt="Foto Temuan Awal"
                     className="w-full h-full object-cover"
                   />
@@ -191,7 +191,7 @@ export function SideBySideModal({
                 <div className="relative rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-950 shadow-md aspect-video">
                   {finding.photoResolutionUrl ? (
                     <img
-                      src={finding.photoResolutionUrl}
+                      src={parsePhotoUrls(finding.photoResolutionUrl)[0] || finding.photoResolutionUrl}
                       alt="Foto Hasil Perbaikan"
                       className="w-full h-full object-cover"
                     />
