@@ -16,6 +16,7 @@ export interface ProjectComboboxProps {
   showAllOption?: boolean;
   allOptionLabel?: string;
   size?: "sm" | "default";
+  projectBadgeCounts?: Record<string, { open: number; resolved: number; totalUnclosed: number }>;
 }
 
 export function ProjectCombobox({
@@ -29,6 +30,7 @@ export function ProjectCombobox({
   showAllOption = false,
   allOptionLabel = "-- Semua Proyek --",
   size = "default",
+  projectBadgeCounts,
 }: ProjectComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,7 +276,22 @@ export function ProjectCombobox({
                       )}
                     </div>
 
-                    {isSelected && <Check size={16} className="text-white shrink-0" />}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {projectBadgeCounts && projectBadgeCounts[p.id] && (
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded-lg text-[10px] font-black whitespace-nowrap",
+                            isSelected
+                              ? "bg-white/25 text-white"
+                              : "bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60"
+                          )}
+                          title={`Open: ${projectBadgeCounts[p.id].open}, Resolved: ${projectBadgeCounts[p.id].resolved}`}
+                        >
+                          {projectBadgeCounts[p.id].totalUnclosed} Belum Close
+                        </span>
+                      )}
+                      {isSelected && <Check size={16} className="text-white shrink-0" />}
+                    </div>
                   </button>
                 );
               })

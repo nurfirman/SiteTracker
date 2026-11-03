@@ -68,6 +68,7 @@ export default function ReportsPage() {
   const { currentUser } = useRole();
   const [reportType, setReportType] = useState<"INTERNAL_PATROL" | "EXECUTIVE_REKAP">("INTERNAL_PATROL");
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [allSystemFindings, setAllSystemFindings] = useState<Finding[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
@@ -75,6 +76,7 @@ export default function ReportsPage() {
   const [selectedProject, setSelectedProject] = useState<string>("ALL");
   const [selectedPic, setSelectedPic] = useState<string>("ALL");
   const [inspectionType, setInspectionType] = useState<InspectionType>("ROUTINE");
+  const [onlyUnclosedFindings, setOnlyUnclosedFindings] = useState<boolean>(true);
 
   // Period & Date Filter Mode: "DAILY" (Single inspection date) | "MONTHLY" (Month selection) | "PERIODICAL" (Date range)
   const [periodMode, setPeriodMode] = useState<"DAILY" | "MONTHLY" | "PERIODICAL">("DAILY");
@@ -150,22 +152,50 @@ export default function ReportsPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [pList, uList, mStatus, repList, sysSettings] = await Promise.all([
+        const [pList, uList, mStatus, repList, sysSettings, allFList] = await Promise.all([
           getProjects(),
           getUsers(),
           getMailServiceStatus(),
           getPatrolReports({ limit: 100 }),
           getSystemSettings(),
+          getFindings({ limit: 2000 }),
         ]);
         setProjects(pList);
         setUsers(uList);
         setMailStatus(mStatus);
         setSavedReports(repList);
+        setAllSystemFindings(allFList);
         if (sysSettings?.emailDivisionTemplates) {
           setSavedDivisionTemplates(sysSettings.emailDivisionTemplates);
         }
-        if (pList.length > 0 && selectedProject === "ALL") {
-          setSelectedProject(pList[0].id);
+
+        // Cari proyek yang memiliki temuan yang belum CLOSED (status OPEN / RESOLVED)
+        const unclosedProjectIds = new Set(
+          allFList.filter((f) => f.status !== "CLOSED").map((f) => f.projectId)
+        );
+        const activeProjectsWithUnclosed = pList.filter((p) => unclosedProjectIds.has(p.id));
+
+        if (selectedProject === "ALL") {
+          if (activeProjectsWithUnclosed.length > 0) {
+            const firstProjId = activeProjectsWithUnclosed[0].id;
+            setSelectedProject(firstProjId);
+
+            // Sesuaikan tanggal inspeksi ke tanggal temuan belum close terbaru pada proyek tersebut jika perlu
+            const projUnclosedFindings = allFList.filter(
+              (f) => f.projectId === firstProjId && f.status !== "CLOSED"
+            );
+            if (projUnclosedFindings.length > 0) {
+              const latestF = projUnclosedFindings[0];
+              const rawDate = latestF.inspectionDate || latestF.createdAt;
+              if (rawDate) {
+                const dateStr =
+                  typeof rawDate === "string"
+                    ? rawDate.split("T")[0]
+                    : new Date(rawDate).toISOString().split("T")[0];
+                if (dateStr) setReportDate(dateStr);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Gagal memuat metadata:", err);
@@ -199,8 +229,12 @@ export default function ReportsPage() {
 
         const rawList = await getFindings(filters);
 
-        // Filter berdasarkan mode tanggal inspeksi (prioritaskan data Tanggal Inspeksi):
+        // Filter berdasarkan mode tanggal inspeksi (prioritaskan data Tanggal Inspeksi) dan status belum close:
         const filteredByDate = rawList.filter((f) => {
+          if (onlyUnclosedFindings && f.status === "CLOSED") {
+            return false;
+          }
+
           let fDateStr = "";
           if (f.inspectionDate) {
             fDateStr = typeof f.inspectionDate === "string"
@@ -244,7 +278,36 @@ export default function ReportsPage() {
       }
     }
     loadData();
-  }, [selectedProject, selectedPic, periodMode, reportDate, reportMonth, startDate, endDate, recalledReportNumber]);
+  }, [selectedProject, selectedPic, periodMode, reportDate, reportMonth, startDate, endDate, recalledReportNumber, onlyUnclosedFindings]);
+
+  // Daftar proyek khusus yang memiliki temuan dan temuannya belum CLOSED (status OPEN / RESOLVED)
+  const { projectsWithUnclosedFindings, projectUnclosedCounts } = React.useMemo(() => {
+    const countsMap: Record<string, { open: number; resolved: number; totalUnclosed: number }> = {};
+
+    allSystemFindings.forEach((f) => {
+      if (f.status === "CLOSED") return;
+      const pId = f.projectId;
+      if (!pId) return;
+      if (!countsMap[pId]) {
+        countsMap[pId] = { open: 0, resolved: 0, totalUnclosed: 0 };
+      }
+      countsMap[pId].totalUnclosed += 1;
+      if (f.status === "OPEN") countsMap[pId].open += 1;
+      else if (f.status === "RESOLVED") countsMap[pId].resolved += 1;
+    });
+
+    const filteredProj = projects.filter((p) => {
+      // Tampilkan proyek jika memiliki temuan belum close, atau jika sedang dipilih lewat Recall Laporan Arsip
+      if (countsMap[p.id] && countsMap[p.id].totalUnclosed > 0) return true;
+      if (recalledReportNumber && p.id === selectedProject) return true;
+      return false;
+    });
+
+    return {
+      projectsWithUnclosedFindings: filteredProj,
+      projectUnclosedCounts: countsMap,
+    };
+  }, [allSystemFindings, projects, recalledReportNumber, selectedProject]);
 
   // Filtered Site Manager options
   const availablePics = users.filter((u) => {
@@ -1245,20 +1308,55 @@ export default function ReportsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Filter 1: Project */}
+                  {/* Filter 1: Project (Hanya Proyek dengan Temuan Belum Close) */}
                   <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Building2 size={13} className="text-violet-600 dark:text-violet-400" /> Filter Proyek
-                    </label>
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <Building2 size={13} className="text-violet-600 dark:text-violet-400" /> Filter Proyek
+                      </label>
+                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950/70 text-red-700 dark:text-red-300">
+                        {projectsWithUnclosedFindings.length} Proyek Belum Close
+                      </span>
+                    </div>
                     <ProjectCombobox
-                      projects={projects}
+                      projects={projectsWithUnclosedFindings}
+                      projectBadgeCounts={projectUnclosedCounts}
                       value={selectedProject}
                       onChange={(newProjId) => {
                         setSelectedProject(newProjId);
                         setSelectedPic("ALL");
+
+                        // Jika memilih proyek spesifik pada mode Harian, sesuaikan tanggal inspeksi otomatis ke tanggal temuan belum close proyek tersebut jika tanggal saat ini tidak memiliki temuan
+                        if (newProjId !== "ALL" && periodMode === "DAILY") {
+                          const projUnclosed = allSystemFindings.filter(
+                            (f) => f.projectId === newProjId && f.status !== "CLOSED"
+                          );
+                          if (projUnclosed.length > 0) {
+                            const hasOnCurrentDate = projUnclosed.some((f) => {
+                              const rawD = f.inspectionDate || f.createdAt;
+                              if (!rawD) return false;
+                              const dStr =
+                                typeof rawD === "string"
+                                  ? rawD.split("T")[0]
+                                  : new Date(rawD).toISOString().split("T")[0];
+                              return dStr === reportDate;
+                            });
+                            if (!hasOnCurrentDate) {
+                              const latestRaw = projUnclosed[0].inspectionDate || projUnclosed[0].createdAt;
+                              if (latestRaw) {
+                                const latestDateStr =
+                                  typeof latestRaw === "string"
+                                    ? latestRaw.split("T")[0]
+                                    : new Date(latestRaw).toISOString().split("T")[0];
+                                if (latestDateStr) setReportDate(latestDateStr);
+                              }
+                            }
+                          }
+                        }
                       }}
                       showAllOption={true}
-                      allOptionLabel="-- Semua Proyek --"
+                      allOptionLabel="-- Semua Proyek (Temuan Belum Close) --"
+                      placeholder="-- Pilih Proyek Ber-Temuan Belum Close --"
                       size="sm"
                     />
                   </div>
