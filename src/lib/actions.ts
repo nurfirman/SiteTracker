@@ -199,7 +199,8 @@ export async function getSystemSettings(): Promise<SystemSettingData> {
  */
 export async function saveEmailDivisionTemplate(payload: {
   divisionCode: string;
-  toRecipients: string[];
+  toRecipients?: string[];
+  toDivisionRecipients?: string[];
   ccRecipients: string[];
   bccRecipients: string[];
 }): Promise<{ success: boolean; message: string; templates?: Record<string, any> }> {
@@ -208,10 +209,13 @@ export async function saveEmailDivisionTemplate(payload: {
     const currentSettings = await getSystemSettings();
     const existingTemplates = currentSettings.emailDivisionTemplates || {};
 
+    const resolvedToDivision = payload.toDivisionRecipients ?? payload.toRecipients ?? [];
+
     const updatedTemplates = {
       ...existingTemplates,
       [cleanCode]: {
-        toRecipients: payload.toRecipients || [],
+        toRecipients: resolvedToDivision,
+        toDivisionRecipients: resolvedToDivision,
         ccRecipients: payload.ccRecipients || [],
         bccRecipients: payload.bccRecipients || [],
       },
@@ -223,7 +227,7 @@ export async function saveEmailDivisionTemplate(payload: {
       await prisma.systemSetting.upsert({
         where: { key: "emailDivisionTemplates" },
         update: { value: JSON.stringify(updatedTemplates) },
-        create: { key: "emailDivisionTemplates", value: JSON.stringify(updatedTemplates) },
+        create: { id: "emailDivisionTemplates", key: "emailDivisionTemplates", value: JSON.stringify(updatedTemplates) },
       });
     }
 
@@ -234,14 +238,14 @@ export async function saveEmailDivisionTemplate(payload: {
       userRole: session?.role || "USER",
       action: "UPDATE_EMAIL_TEMPLATE",
       entityType: "EMAIL_TEMPLATE",
-      details: `Menyimpan template email distribusi divisi ${cleanCode} (TO: ${payload.toRecipients.length}, CC: ${payload.ccRecipients.length}, BCC: ${payload.bccRecipients.length})`,
+      details: `Menyimpan template email distribusi divisi ${cleanCode} ke database Neon (TO Divisi: ${resolvedToDivision.length}, CC: ${payload.ccRecipients.length}, BCC: ${payload.bccRecipients.length})`,
     });
 
     safeRevalidate("/reports");
 
     return {
       success: true,
-      message: `Template distribusi divisi ${cleanCode} berhasil disimpan ke database!`,
+      message: `Template distribusi divisi ${cleanCode} (TO Divisi, CC, BCC) berhasil disimpan ke database Neon!`,
       templates: updatedTemplates,
     };
   } catch (err: any) {
@@ -275,7 +279,7 @@ export async function updateSystemSettings(
         await prisma.systemSetting.upsert({
           where: { key },
           update: { value: valStr },
-          create: { key, value: valStr },
+          create: { id: key, key, value: valStr },
         });
       }
     }
@@ -812,13 +816,21 @@ export async function updateUserRoleAndProject(
 ): Promise<{ success: boolean; message: string; user?: User }> {
   try {
     let updatedUser: User | null = null;
+    const safeRoleStr = String(role).trim().replace(/[^a-zA-Z0-9_]/g, "_");
 
     if (hasValidDatabaseUrl()) {
+      // Pastikan nilai custom role terdaftar di PostgreSQL enum "Role" jika merupakan role baru
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS '${safeRoleStr}'`);
+      } catch (enumErr) {
+        // Abaikan jika sudah ada atau tidak perlu
+      }
+
       try {
         const u = await prisma.user.update({
           where: { id: userId },
           data: {
-            role: role as any,
+            role: safeRoleStr as any,
             projectId: projectId || null,
             ...(division !== undefined ? { division: division || null } : {}),
           },
@@ -828,7 +840,7 @@ export async function updateUserRoleAndProject(
           id: u.id,
           name: u.name,
           email: u.email,
-          role: u.role,
+          role: u.role as Role,
           division: (u as any).division || null,
           phoneNumber: u.phoneNumber,
           projectId: u.projectId,
@@ -842,7 +854,57 @@ export async function updateUserRoleAndProject(
             : null,
         };
       } catch (dbErr) {
-        console.warn("Neon DB update user fallback:", dbErr);
+        // Fallback raw SQL jika Prisma Client memblokir validasi runtime enum untuk custom role baru
+        try {
+          if (division !== undefined) {
+            await prisma.$executeRawUnsafe(
+              `UPDATE "users" SET "role" = $1::"Role", "project_id" = $2, "division" = $3 WHERE "id" = $4`,
+              safeRoleStr,
+              projectId || null,
+              division || null,
+              userId
+            );
+          } else {
+            await prisma.$executeRawUnsafe(
+              `UPDATE "users" SET "role" = $1::"Role", "project_id" = $2 WHERE "id" = $3`,
+              safeRoleStr,
+              projectId || null,
+              userId
+            );
+          }
+
+          const rawRows: any[] = await prisma.$queryRawUnsafe(
+            `SELECT u.id, u.name, u.email, u.role::text as role, u.division, u.phone_number as "phoneNumber", u.project_id as "projectId",
+                    p.id as "projId", p.name as "projName", p.location as "projLocation", p.created_at as "projCreatedAt"
+             FROM "users" u
+             LEFT JOIN "projects" p ON u.project_id = p.id
+             WHERE u.id = $1
+             LIMIT 1`,
+            userId
+          );
+          if (rawRows && rawRows.length > 0) {
+            const r = rawRows[0];
+            updatedUser = {
+              id: r.id,
+              name: r.name,
+              email: r.email,
+              role: r.role as Role,
+              division: r.division || null,
+              phoneNumber: r.phoneNumber,
+              projectId: r.projectId || null,
+              project: r.projId
+                ? {
+                  id: r.projId,
+                  name: r.projName,
+                  location: r.projLocation,
+                  createdAt: r.projCreatedAt,
+                }
+                : null,
+            };
+          }
+        } catch (rawErr) {
+          console.warn("Neon DB update user raw SQL fallback error:", rawErr);
+        }
       }
     }
 
@@ -2024,33 +2086,88 @@ export async function getUsers(projectId?: string, role?: Role): Promise<User[]>
         }
       }
 
-      const dbUsers = await prisma.user.findMany({
-        where: whereClause,
-        include: { project: true },
-        orderBy: { name: "asc" },
-      });
+      try {
+        const dbUsers = await prisma.user.findMany({
+          where: whereClause,
+          include: { project: true },
+          orderBy: { name: "asc" },
+        });
 
-      return dbUsers.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        role: u.role as Role,
-        division: (u as any).division || null,
-        phoneNumber: u.phoneNumber,
-        employeeCode: (u as any).employeeCode || null,
-        projectId: u.projectId,
-        projectIds: Array.isArray((u as any).projectIds)
-          ? (u as any).projectIds
-          : (u.projectId ? [u.projectId] : []),
-        project: u.project
-          ? {
-            id: u.project.id,
-            name: u.project.name,
-            location: u.project.location,
-            createdAt: u.project.createdAt.toISOString(),
+        return dbUsers.map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role as Role,
+          division: (u as any).division || null,
+          phoneNumber: u.phoneNumber,
+          employeeCode: (u as any).employeeCode || null,
+          projectId: u.projectId,
+          projectIds: Array.isArray((u as any).projectIds)
+            ? (u as any).projectIds
+            : (u.projectId ? [u.projectId] : []),
+          project: u.project
+            ? {
+              id: u.project.id,
+              name: u.project.name,
+              location: u.project.location,
+              createdAt: u.project.createdAt.toISOString(),
+            }
+            : null,
+        }));
+      } catch (prismaFindErr) {
+        // Fallback raw SQL query jika terdapat custom role di PostgreSQL enum yang belum dikenal runtime Prisma Client
+        const rawUsers: any[] = await prisma.$queryRawUnsafe(`
+          SELECT u.id, u.name, u.email, u.role::text as role, u.division, u.phone_number as "phoneNumber",
+                 u.employee_code as "employeeCode", u.project_id as "projectId", u.project_ids as "projectIds",
+                 p.id as "projId", p.name as "projName", p.location as "projLocation", p.created_at as "projCreatedAt"
+          FROM "users" u
+          LEFT JOIN "projects" p ON u.project_id = p.id
+          ORDER BY u.name ASC
+        `);
+
+        let mappedUsers: User[] = rawUsers.map((r) => ({
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          role: r.role as Role,
+          division: r.division || null,
+          phoneNumber: r.phoneNumber,
+          employeeCode: r.employeeCode || null,
+          projectId: r.projectId || null,
+          projectIds: Array.isArray(r.projectIds)
+            ? r.projectIds
+            : (r.projectId ? [r.projectId] : []),
+          project: r.projId
+            ? {
+              id: r.projId,
+              name: r.projName,
+              location: r.projLocation,
+              createdAt: r.projCreatedAt ? new Date(r.projCreatedAt).toISOString() : new Date().toISOString(),
+            }
+            : null,
+        }));
+
+        if (role) {
+          if (role === "PIC" || role === "SM") {
+            mappedUsers = mappedUsers.filter((u) => u.role === "PIC" || u.role === "SM");
+          } else {
+            mappedUsers = mappedUsers.filter((u) => u.role === role);
           }
-          : null,
-      }));
+        }
+        if (projectId) {
+          if (role === "PIC" || role === "SM") {
+            mappedUsers = mappedUsers.filter((u) => u.projectId === projectId || u.projectIds?.includes(projectId));
+          } else {
+            mappedUsers = mappedUsers.filter(
+              (u) =>
+                u.projectId === projectId ||
+                u.projectIds?.includes(projectId) ||
+                ["PM", "GM", "BOD", "CMD", "ADMIN", "DH", "DM", "SC"].includes(u.role)
+            );
+          }
+        }
+        return mappedUsers;
+      }
     } catch (e) {
       console.warn("Online DB query failed for getUsers, using in-memory fallback:", e);
     }
@@ -4390,26 +4507,29 @@ export async function getRolePermissions(): Promise<{
   roles: string[];
 }> {
   const settings = await getSystemSettings();
-  const defaultRoles = ["CMD", "PIC", "SM", "PM", "GM", "BOD", "Advisor", "ADMIN"];
+  const defaultRoles = ["CMD", "PIC", "SM", "PM", "DH", "DM", "SC", "GM", "BOD", "Advisor", "ADMIN"];
   const customRoles = settings.customRoles || [];
-  const allRoles = Array.from(new Set([...defaultRoles, ...customRoles]));
+  const savedMatrix = settings.rbacPermissions || {};
+  const isOldInvertedFormat = "createFinding" in savedMatrix || "editFinding" in savedMatrix;
+  const savedMatrixKeys = !isOldInvertedFormat ? Object.keys(savedMatrix) : [];
+
+  const allRoles = Array.from(new Set([...defaultRoles, ...customRoles, ...savedMatrixKeys]));
 
   const defaultMatrixByRole: Record<string, Record<string, boolean>> = {
     CMD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
     PIC: { canCreateFinding: false, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
     SM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: false, canDownloadReport: true, canManageAdmin: false },
     PM: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    DH: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    DM: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
+    SC: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     GM: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     BOD: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     Advisor: { canCreateFinding: true, canResolveFinding: false, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: false },
     ADMIN: { canCreateFinding: true, canResolveFinding: true, canVerifyFinding: true, canDownloadReport: true, canManageAdmin: true },
   };
 
-  const savedMatrix = settings.rbacPermissions || {};
   const mergedMatrix: Record<string, Record<string, boolean>> = {};
-
-  // Check if savedMatrix was previously stored with inverted keys (createFinding, editFinding, etc.)
-  const isOldInvertedFormat = "createFinding" in savedMatrix || "editFinding" in savedMatrix;
 
   for (const role of allRoles) {
     const defaultPerms = defaultMatrixByRole[role] || {
@@ -4448,12 +4568,32 @@ export async function updateRolePermissions(
       return { success: false, message: "Akses ditolak: Hanya Administrator yang dapat mengubah matriks RBAC." };
     }
 
+    const defaultRoles = ["CMD", "PIC", "SM", "PM", "DH", "DM", "SC", "GM", "BOD", "Advisor", "ADMIN", "PENDING"];
+    const currentSettings = await getSystemSettings();
+    const existingCustom = currentSettings.customRoles || [];
+    const matrixDerivedCustom = Object.keys(matrix).filter((r) => !defaultRoles.includes(r));
+    const mergedCustomRoles = Array.from(
+      new Set([...existingCustom, ...matrixDerivedCustom, ...(customRoles || [])])
+    );
+
+    // Pastikan setiap custom role terdaftar pada tipe enum "Role" di database PostgreSQL Neon
+    if (hasValidDatabaseUrl() && mergedCustomRoles.length > 0) {
+      for (const cRole of mergedCustomRoles) {
+        const safeRole = String(cRole).trim().replace(/[^a-zA-Z0-9_]/g, "_");
+        if (safeRole) {
+          try {
+            await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS '${safeRole}'`);
+          } catch (enumErr) {
+            // Abaikan jika sudah terdaftar
+          }
+        }
+      }
+    }
+
     const payload: Partial<SystemSettingData> = {
       rbacPermissions: matrix,
+      customRoles: mergedCustomRoles,
     };
-    if (customRoles) {
-      payload.customRoles = customRoles;
-    }
 
     await updateSystemSettings(payload);
 
@@ -4463,11 +4603,11 @@ export async function updateRolePermissions(
       userRole: auth.user.role,
       action: "UPDATE_RBAC",
       entityType: "RBAC",
-      details: `Memperbarui matriks hak akses peran sistem`,
+      details: `Memperbarui matriks hak akses peran sistem (${Object.keys(matrix).join(", ")})`,
     });
 
     safeRevalidate("/admin");
-    return { success: true, message: "Matriks hak akses peran (RBAC) berhasil diperbarui." };
+    return { success: true, message: "Matriks hak akses peran (RBAC) dan daftar role berhasil disimpan ke database Neon." };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal memperbarui matriks RBAC." };
   }

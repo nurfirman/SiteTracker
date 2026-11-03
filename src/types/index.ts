@@ -227,6 +227,7 @@ export interface CategorySettingItem {
 
 export interface EmailDivisionTemplateConfig {
   toRecipients: string[];
+  toDivisionRecipients?: string[];
   ccRecipients: string[];
   bccRecipients: string[];
 }

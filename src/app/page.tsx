@@ -28,6 +28,7 @@ import {
   Sliders,
   Phone,
   PieChart,
+  BarChart3,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -251,19 +252,19 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* GRAFIK PIE RINGKASAN STATUS TEMUAN (SEBELUM CARD) */}
+          {/* GRAFIK PIE RINGKASAN STATUS TEMUAN & GRAFIK BAR HORIZONTAL PER PROYEK (SEBELUM CARD) */}
           <div className="p-6 sm:p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 text-xs font-extrabold rounded-lg">
                   <PieChart size={14} />
-                  <span>Visualisasi Pie Chart KPI</span>
+                  <span>Visualisasi KPI Status & Distribusi Temuan Proyek</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Grafik Pie Ringkasan Status Temuan Patrol
+                  Grafik Status Temuan
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Diagram lingkaran (Pie Chart) berdasarkan angka-angka pada kartu status temuan di bawah ini.
+                  Diagram status temuan untuk setiap proyek yang memiliki temuan.
                 </p>
               </div>
 
@@ -389,14 +390,86 @@ export default function DashboardPage() {
                 };
               });
 
+              // Hitung statistik temuan per proyek (hanya proyek yang memiliki temuan > 0)
+              const projectFindingsMap = new Map<
+                string,
+                {
+                  projectId: string;
+                  projectName: string;
+                  projectCode: string;
+                  division: string;
+                  openOnly: number;
+                  rejected: number;
+                  resolved: number;
+                  closed: number;
+                  total: number;
+                }
+              >();
+
+              findings.forEach((f) => {
+                const pId = f.projectId || "unknown";
+                const matchedProj = projects.find((p) => p.id === pId);
+                const pName = matchedProj?.name || f.project?.name || "Proyek Lainnya";
+                const pCode = matchedProj?.code || f.project?.code || "";
+                const pDiv = matchedProj?.division || f.project?.division || "";
+
+                let entry = projectFindingsMap.get(pId);
+                if (!entry) {
+                  entry = {
+                    projectId: pId,
+                    projectName: pName,
+                    projectCode: pCode,
+                    division: pDiv,
+                    openOnly: 0,
+                    rejected: 0,
+                    resolved: 0,
+                    closed: 0,
+                    total: 0,
+                  };
+                  projectFindingsMap.set(pId, entry);
+                }
+
+                entry.total += 1;
+                if (f.status === "OPEN") {
+                  if (f.rejectionNote) {
+                    entry.rejected += 1;
+                  } else {
+                    entry.openOnly += 1;
+                  }
+                } else if (f.status === "RESOLVED") {
+                  entry.resolved += 1;
+                } else if (f.status === "CLOSED") {
+                  entry.closed += 1;
+                }
+              });
+
+              const projectsWithFindings = Array.from(projectFindingsMap.values())
+                .filter((p) => p.total > 0)
+                .sort((a, b) => b.total - a.total);
+
+              const maxProjectTotal =
+                projectsWithFindings.length > 0
+                  ? Math.max(...projectsWithFindings.map((p) => p.total), 1)
+                  : 1;
+
               return (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  {/* Kolom Kiri: Diagram Pie (SVG Pie Chart) */}
-                  <div className="lg:col-span-5 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6">
-                    <div className="relative flex items-center justify-center">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                  {/* Kolom Kiri (5 Kolom): Diagram Pie (SVG Pie Chart) + Ringkasan Angka */}
+                  <div className="lg:col-span-5 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/70 pb-2.5">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <PieChart size={14} className="text-violet-600 dark:text-violet-400" />
+                        <span>Proporsi Status Temuan (Pie)</span>
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                        Total: {totalAll}
+                      </span>
+                    </div>
+
+                    <div className="relative flex items-center justify-center py-1">
                       <svg
                         viewBox="0 0 260 260"
-                        className="w-56 h-56 sm:w-64 sm:h-64 drop-shadow-md"
+                        className="w-48 h-48 sm:w-56 sm:h-56 drop-shadow-md"
                         aria-label="Pie Chart Status Temuan"
                       >
                         {pieSum === 0 ? (
@@ -504,81 +577,200 @@ export default function DashboardPage() {
                       </svg>
                     </div>
 
-                    {/* Label Ringkas di Bawah Pie */}
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
-                      {computedSlices.map((s) => (
-                        <div key={s.key} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <span className={`w-3 h-3 rounded-full ${s.dotClass}`} />
-                          <span>
-                            {s.shortLabel}: <strong>{s.value}</strong> ({s.pct}%)
-                          </span>
+                    {/* Grid Ringkas 4 Status + Total di Bawah Pie */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {computedSlices.map((item) => (
+                        <div
+                          key={item.key}
+                          className={`p-2.5 rounded-xl border ${item.borderClass} ${item.bgClass} flex items-center justify-between gap-2`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${item.dotClass}`} />
+                            <span className={`text-[11px] font-black uppercase truncate ${item.textClass}`}>
+                              {item.shortLabel}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-sm font-black text-slate-900 dark:text-white">
+                              {item.value}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 ml-1">
+                              ({item.pct}%)
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Kolom Kanan: Rincian Angka Berdasarkan 5 Kartu Status */}
-                  <div className="lg:col-span-7 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Rincian Angka pada Kartu Status
-                      </span>
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                        Persentase terhadap Pie
+                  {/* Kolom Kanan (7 Kolom): Grafik Bar Horizontal Per Proyek yang Memiliki Temuan */}
+                  <div className="lg:col-span-7 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 dark:border-slate-700/70 pb-2.5">
+                      <div>
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                          <BarChart3 size={15} className="text-violet-600 dark:text-violet-400" />
+                          <span>Grafik Bar Horizontal Temuan Per Proyek</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Menampilkan proyek yang memiliki temuan beserta komposisi statusnya
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 text-[11px] font-black self-start sm:self-auto shrink-0">
+                        <Building2 size={12} />
+                        <span>{projectsWithFindings.length} Proyek Memiliki Temuan</span>
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {computedSlices.map((item) => (
-                        <div
-                          key={item.key}
-                          className={`p-4 rounded-2xl border ${item.borderClass} ${item.bgClass} flex items-center justify-between gap-3`}
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-3 h-3 rounded-full shrink-0 ${item.dotClass}`} />
-                              <span className={`text-xs font-black uppercase tracking-wide ${item.textClass}`}>
-                                {item.shortLabel}
-                              </span>
+                    {projectsWithFindings.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center py-12 text-center space-y-2">
+                        <Building2 size={32} className="text-slate-300 dark:text-slate-600" />
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          Belum ada proyek yang memiliki temuan pada filter saat ini.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5 max-h-[340px] overflow-y-auto pr-1.5">
+                        {projectsWithFindings.map((proj, idx) => {
+                          const totalBarWidthPct = Math.max(
+                            Math.round((proj.total / maxProjectTotal) * 100),
+                            8
+                          );
+                          const openPct = proj.total > 0 ? (proj.openOnly / proj.total) * 100 : 0;
+                          const resolvedPct = proj.total > 0 ? (proj.resolved / proj.total) * 100 : 0;
+                          const rejectedPct = proj.total > 0 ? (proj.rejected / proj.total) * 100 : 0;
+                          const closedPct = proj.total > 0 ? (proj.closed / proj.total) * 100 : 0;
+                          const isSelected = selectedProject === proj.projectId;
+
+                          return (
+                            <div
+                              key={proj.projectId}
+                              onClick={() =>
+                                setSelectedProject(
+                                  selectedProject === proj.projectId ? "ALL" : proj.projectId
+                                )
+                              }
+                              title="Klik untuk memfilter temuan proyek ini"
+                              className={`p-3 rounded-xl border transition-all cursor-pointer space-y-2 ${isSelected
+                                ? "bg-violet-50/90 dark:bg-violet-950/40 border-violet-400 dark:border-violet-600 shadow-xs"
+                                : "bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-700"
+                                }`}
+                            >
+                              {/* Nama Proyek & Total Temuan */}
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                                  <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                                    #{idx + 1}
+                                  </span>
+                                  {proj.projectCode && (
+                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 shrink-0">
+                                      {proj.projectCode}
+                                    </span>
+                                  )}
+                                  {proj.division && (
+                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 shrink-0">
+                                      {proj.division}
+                                    </span>
+                                  )}
+                                  <span className="font-extrabold text-slate-900 dark:text-white truncate">
+                                    {proj.projectName}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[11px] font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                                    {proj.total} Temuan
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Horizontal Bar Track */}
+                              <div className="w-full h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5">
+                                <div
+                                  className="h-full rounded-full overflow-hidden flex transition-all duration-500"
+                                  style={{ width: `${totalBarWidthPct}%` }}
+                                >
+                                  {proj.openOnly > 0 && (
+                                    <div
+                                      style={{ width: `${openPct}%` }}
+                                      className="bg-red-500 h-full"
+                                      title={`Open: ${proj.openOnly}`}
+                                    />
+                                  )}
+                                  {proj.resolved > 0 && (
+                                    <div
+                                      style={{ width: `${resolvedPct}%` }}
+                                      className="bg-amber-500 h-full"
+                                      title={`Resolved: ${proj.resolved}`}
+                                    />
+                                  )}
+                                  {proj.rejected > 0 && (
+                                    <div
+                                      style={{ width: `${rejectedPct}%` }}
+                                      className="bg-rose-500 h-full"
+                                      title={`Revisi: ${proj.rejected}`}
+                                    />
+                                  )}
+                                  {proj.closed > 0 && (
+                                    <div
+                                      style={{ width: `${closedPct}%` }}
+                                      className="bg-emerald-500 h-full"
+                                      title={`Closed: ${proj.closed}`}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Rincian Angka Status Per Proyek */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                  <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                                    Open: <strong>{proj.openOnly + proj.rejected}</strong>
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                    Resolved: <strong>{proj.resolved}</strong>
+                                  </span>
+                                  {proj.rejected > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                                      <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                      Revisi: <strong>{proj.rejected}</strong>
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    Closed: <strong>{proj.closed}</strong>
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  {Math.round(closedPct)}% Selesai
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                              {item.label}
-                            </p>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <span className="text-2xl font-black text-slate-900 dark:text-white block leading-none">
-                              {item.value}
-                            </span>
-                            <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
-                              {item.pct}%
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Baris ke-5: Kartu Total Temuan Patrol */}
-                    <div className="p-4 rounded-2xl border border-violet-200 dark:border-violet-800/80 bg-violet-50/70 dark:bg-violet-950/30 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="w-3.5 h-3.5 rounded-full bg-violet-600 shrink-0" />
-                        <div>
-                          <span className="text-xs font-black uppercase tracking-wider text-violet-800 dark:text-violet-300 block">
-                            Total Temuan Patrol (Akumulasi Kartu)
-                          </span>
-                          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                            Total keseluruhan temuan sesuai filter yang aktif saat ini
-                          </span>
-                        </div>
+                          );
+                        })}
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-3xl font-black text-violet-700 dark:text-violet-300 leading-none">
-                          {totalAll}
+                    )}
+
+                    {/* Legend Bar Horizontal */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70 text-[11px] text-slate-500 dark:text-slate-400">
+                      <div className="flex flex-wrap items-center gap-3 font-bold">
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-red-500" /> Open
                         </span>
-                        <span className="block text-[11px] font-bold text-violet-600 dark:text-violet-400">
-                          Total Temuan
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-amber-500" /> Resolved
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-rose-500" /> Revisi
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" /> Closed
                         </span>
                       </div>
+                      <span className="text-[10px] italic">
+                        *Klik baris proyek untuk memfilter kartu & daftar temuan
+                      </span>
                     </div>
                   </div>
                 </div>

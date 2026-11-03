@@ -602,14 +602,14 @@ export default function AdminSettingsPage() {
       const res = await updateUserRoleAndProject(
         assignTargetUser.id,
         assignRole,
-        isGlobalRole ? null : (assignProjectId || null),
+        isGlobalRole ? (assignProjectId || null) : (assignProjectId || null),
         assignDivision.trim() || null
       );
       if (res.success) {
         showToast(res.message);
         setShowRoleAssignModal(false);
         setAssignTargetUser(null);
-        loadAdminData();
+        await loadAdminData();
       } else {
         showToast(res.message, "error");
       }
@@ -690,9 +690,12 @@ export default function AdminSettingsPage() {
   const handleSaveRbac = async () => {
     setSavingRbac(true);
     try {
-      const res = await updateRolePermissions(rolePermissions);
+      const customRoleList = Object.keys(rolePermissions).filter(
+        (r) => !["CMD", "PIC", "SM", "PM", "DH", "DM", "SC", "GM", "BOD", "Advisor", "ADMIN", "PENDING"].includes(r)
+      );
+      const res = await updateRolePermissions(rolePermissions, customRoleList);
       if (res.success) {
-        showToast(res.message || "Matriks hak akses (RBAC) berhasil disimpan!");
+        showToast(res.message || "Matriks hak akses (RBAC) berhasil disimpan ke database Neon!");
       } else {
         showToast(res.message || "Gagal menyimpan RBAC.", "error");
       }
@@ -703,17 +706,17 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleAddCustomRole = (e: React.FormEvent) => {
+  const handleAddCustomRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleaned = newRoleName.trim().replace(/\s+/g, "_");
+    const cleaned = newRoleName.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
     if (!cleaned) return;
     if (rolePermissions[cleaned]) {
       showToast("Role dengan nama tersebut sudah ada.", "error");
       return;
     }
 
-    setRolePermissions((prev) => ({
-      ...prev,
+    const updatedMatrix: Record<string, Record<string, boolean>> = {
+      ...rolePermissions,
       [cleaned]: {
         canCreateFinding: true,
         canResolveFinding: false,
@@ -721,10 +724,29 @@ export default function AdminSettingsPage() {
         canDownloadReport: true,
         canManageAdmin: false,
       },
-    }));
+    };
+
+    setRolePermissions(updatedMatrix);
     setNewRoleName("");
     setShowAddRoleModal(false);
-    showToast(`Role baru '${cleaned}' berhasil ditambahkan ke matriks! Jangan lupa klik 'Simpan Perubahan RBAC'.`);
+
+    // Langsung simpan role baru ke database Neon agar langsung tersedia saat ubah role user
+    setSavingRbac(true);
+    try {
+      const customRoleList = Object.keys(updatedMatrix).filter(
+        (r) => !["CMD", "PIC", "SM", "PM", "DH", "DM", "SC", "GM", "BOD", "Advisor", "ADMIN", "PENDING"].includes(r)
+      );
+      const res = await updateRolePermissions(updatedMatrix, customRoleList);
+      if (res.success) {
+        showToast(`Role baru '${cleaned}' berhasil ditambahkan dan disimpan ke database Neon!`);
+      } else {
+        showToast(res.message || `Role '${cleaned}' ditambahkan secara lokal, klik 'Simpan Perubahan RBAC'.`, "error");
+      }
+    } catch (err: any) {
+      showToast(`Role '${cleaned}' ditambahkan, namun gagal sinkron ke DB: ${err.message || ""}`, "error");
+    } finally {
+      setSavingRbac(false);
+    }
   };
 
   const PERMISSION_FEATURES = [

@@ -120,13 +120,15 @@ export default function ReportsPage() {
   const [deletingReportTarget, setDeletingReportTarget] = useState<PatrolReport | null>(null);
   const [deletingProcessing, setDeletingProcessing] = useState(false);
 
-  // Email Modal State (TO, CC, BCC & Template Divisi)
+  // Email Modal State (TO Utama Proyek, TO Divisi, CC, BCC & Template Divisi)
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailToRecipients, setEmailToRecipients] = useState<string[]>([]);
+  const [emailToDivisionRecipients, setEmailToDivisionRecipients] = useState<string[]>([]);
   const [emailCcRecipients, setEmailCcRecipients] = useState<string[]>([]);
   const [emailBccRecipients, setEmailBccRecipients] = useState<string[]>([]);
+  const [recipientSearchQuery, setRecipientSearchQuery] = useState("");
   const [customEmailInput, setCustomEmailInput] = useState("");
-  const [customEmailTarget, setCustomEmailTarget] = useState<"TO" | "CC" | "BCC">("TO");
+  const [customEmailTarget, setCustomEmailTarget] = useState<"TO_PRIMARY" | "TO_DIV" | "CC" | "BCC">("TO_DIV");
   const [selectedDivisionTemplate, setSelectedDivisionTemplate] = useState<string>("ME");
   const [savedDivisionTemplates, setSavedDivisionTemplates] = useState<Record<string, EmailDivisionTemplateConfig>>({});
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -499,81 +501,145 @@ export default function ReportsPage() {
       !activeProjectPics.some((pic) => pic.id === u.id)
   );
 
-  // Helper untuk menerapkan Template Distribusi Divisi (TO, CC, BCC)
+  // Helper mengambil default TO Penerima Utama (Site Manager / PIC) langsung dari Proyek terpilih
+  const getProjectDefaultPrimaryToList = (): string[] => {
+    const primaryList: string[] = [];
+    if (activePicObj?.email) {
+      primaryList.push(activePicObj.email);
+    }
+    if (activeProjectPics.length > 0) {
+      activeProjectPics.forEach((p) => {
+        if (p.email && !primaryList.includes(p.email)) {
+          primaryList.push(p.email);
+        }
+      });
+    }
+    // Sertakan juga PIC yang tercatat pada item temuan proyek ini jika belum masuk
+    findings.forEach((f) => {
+      if (f.pic?.email && !primaryList.includes(f.pic.email)) {
+        primaryList.push(f.pic.email);
+      }
+    });
+    return primaryList;
+  };
+
+  // Helper untuk menerapkan Template Distribusi Divisi (TO Divisi, CC, BCC) + TO Utama dari Proyek
   const applyDivisionTemplate = (targetDivCode: string) => {
     setSelectedDivisionTemplate(targetDivCode);
     const cleanDiv = targetDivCode.toUpperCase();
 
-    // 1. Cek apakah ada Template Tersimpan di Database untuk Divisi Ini
+    // 0. TO Penerima Utama (Site Manager / PIC) selalu default diambil dari Proyek aktif
+    const primaryProjectToList = getProjectDefaultPrimaryToList();
+    setEmailToRecipients(primaryProjectToList);
+
+    // 1. Cek apakah ada Template Tersimpan di Database Neon untuk Divisi Ini
     const savedCustom = savedDivisionTemplates[cleanDiv];
-    if (savedCustom && (savedCustom.toRecipients?.length > 0 || savedCustom.ccRecipients?.length > 0 || savedCustom.bccRecipients?.length > 0)) {
-      setEmailToRecipients(savedCustom.toRecipients || []);
+    const savedToDiv = savedCustom?.toDivisionRecipients || savedCustom?.toRecipients || [];
+    if (
+      savedCustom &&
+      (savedToDiv.length > 0 || savedCustom.ccRecipients?.length > 0 || savedCustom.bccRecipients?.length > 0)
+    ) {
+      // Hindari duplikasi dengan TO Utama Proyek
+      const filteredToDiv = savedToDiv.filter((em) => !primaryProjectToList.includes(em));
+      setEmailToDivisionRecipients(filteredToDiv);
       setEmailCcRecipients(savedCustom.ccRecipients || []);
       setEmailBccRecipients(savedCustom.bccRecipients || []);
-      showEmailToast(`Template divisi ${cleanDiv} (Tersimpan) diterapkan! (TO: ${savedCustom.toRecipients?.length || 0}, CC: ${savedCustom.ccRecipients?.length || 0}, BCC: ${savedCustom.bccRecipients?.length || 0})`);
+      showEmailToast(
+        `Template divisi ${cleanDiv} (Database Neon) diterapkan! (TO Proyek: ${primaryProjectToList.length}, TO Divisi: ${filteredToDiv.length}, CC: ${savedCustom.ccRecipients?.length || 0}, BCC: ${savedCustom.bccRecipients?.length || 0})`
+      );
       return;
     }
 
     // 2. Fallback: Hitung otomatis berdasarkan role & divisi user
-    // Filter user sesuai divisi (baik di profil user.division maupun assignment)
     const divUsers = users.filter((u) => {
       const uDiv = getDivisionCode(u.division);
       return uDiv === cleanDiv;
     });
 
-    const toList: string[] = [];
+    const toDivList: string[] = [];
     const ccList: string[] = [];
     const bccList: string[] = [];
 
-    // 1. TO: PIC, SM, atau Pelapor dari divisi ini (atau activePic jika cocok)
-    const toCandidates = divUsers.filter((u) => ["PIC", "SM", "CMD"].includes(u.role));
-    if (toCandidates.length > 0) {
-      toCandidates.forEach((u) => {
-        if (u.email && !toList.includes(u.email)) toList.push(u.email);
-      });
-    } else {
-      // Fallback: sertakan active PIC / SM proyek
-      if (activePicObj?.email) toList.push(activePicObj.email);
-      else if (activeProjectPics.length > 0) {
-        activeProjectPics.forEach((p) => {
-          if (p.email && !toList.includes(p.email)) toList.push(p.email);
-        });
-      }
-    }
+    // 1. TO Penerima Divisi (di luar Site Manager / PIC proyek utama, misalnya personil CMD/DH/DM/SC divisi terkait)
+    const toDivCandidates = divUsers.filter(
+      (u) => ["CMD", "DH", "DM", "SC"].includes(u.role) && !primaryProjectToList.includes(u.email)
+    );
+    toDivCandidates.forEach((u) => {
+      if (u.email && !toDivList.includes(u.email)) toDivList.push(u.email);
+    });
 
-    // 2. CC: PM, GM, DivHead, DepMan, SecMan divisi ini + BOD
+    // 2. CC: PM, GM divisi ini + BOD
     const ccCandidates = divUsers.filter((u) => ["PM", "GM"].includes(u.role));
     ccCandidates.forEach((u) => {
-      if (u.email && !ccList.includes(u.email) && !toList.includes(u.email)) ccList.push(u.email);
+      if (
+        u.email &&
+        !ccList.includes(u.email) &&
+        !primaryProjectToList.includes(u.email) &&
+        !toDivList.includes(u.email)
+      ) {
+        ccList.push(u.email);
+      }
     });
-    if (activePmUser?.email && !ccList.includes(activePmUser.email) && !toList.includes(activePmUser.email)) {
+    if (
+      activePmUser?.email &&
+      !ccList.includes(activePmUser.email) &&
+      !primaryProjectToList.includes(activePmUser.email) &&
+      !toDivList.includes(activePmUser.email)
+    ) {
       ccList.push(activePmUser.email);
     }
-    if (activeGmUser?.email && !ccList.includes(activeGmUser.email) && !toList.includes(activeGmUser.email)) {
+    if (
+      activeGmUser?.email &&
+      !ccList.includes(activeGmUser.email) &&
+      !primaryProjectToList.includes(activeGmUser.email) &&
+      !toDivList.includes(activeGmUser.email)
+    ) {
       ccList.push(activeGmUser.email);
     }
     // Sertakan BOD di CC secara otomatis pada template
     bodUsers.forEach((b) => {
-      if (b.email && !ccList.includes(b.email) && !toList.includes(b.email)) ccList.push(b.email);
+      if (
+        b.email &&
+        !ccList.includes(b.email) &&
+        !primaryProjectToList.includes(b.email) &&
+        !toDivList.includes(b.email)
+      ) {
+        ccList.push(b.email);
+      }
     });
 
     // 3. BCC: Advisor atau auditor monitoring khusus
     advisorUsers.forEach((a) => {
-      if (a.email && !bccList.includes(a.email) && !ccList.includes(a.email) && !toList.includes(a.email)) {
+      if (
+        a.email &&
+        !bccList.includes(a.email) &&
+        !ccList.includes(a.email) &&
+        !primaryProjectToList.includes(a.email) &&
+        !toDivList.includes(a.email)
+      ) {
         bccList.push(a.email);
       }
     });
 
-    setEmailToRecipients(toList);
+    setEmailToDivisionRecipients(toDivList);
     setEmailCcRecipients(ccList);
     setEmailBccRecipients(bccList);
-    showEmailToast(`Template divisi ${cleanDiv} (Default Otomatis) diterapkan! (TO: ${toList.length}, CC: ${ccList.length}, BCC: ${bccList.length})`);
+    showEmailToast(
+      `Template divisi ${cleanDiv} (Default) diterapkan! (TO Proyek: ${primaryProjectToList.length}, TO Divisi: ${toDivList.length}, CC: ${ccList.length}, BCC: ${bccList.length})`
+    );
   };
 
-  // Simpan Template Divisi Saat Ini ke Database
+  // Simpan Template Divisi Saat Ini (TO Penerima Divisi, CC Tembusan, BCC) ke Database Neon
   const handleSaveCurrentTemplate = async () => {
-    if (emailToRecipients.length === 0 && emailCcRecipients.length === 0 && emailBccRecipients.length === 0) {
-      showEmailToast("Daftar penerima kosong. Tambahkan minimal 1 penerima sebelum menyimpan template.", "error");
+    if (
+      emailToDivisionRecipients.length === 0 &&
+      emailCcRecipients.length === 0 &&
+      emailBccRecipients.length === 0
+    ) {
+      showEmailToast(
+        "Daftar template divisi kosong. Tambahkan minimal 1 penerima pada TO Penerima Divisi, CC, atau BCC sebelum menyimpan template.",
+        "error"
+      );
       return;
     }
 
@@ -581,20 +647,23 @@ export default function ReportsPage() {
     try {
       const res = await saveEmailDivisionTemplate({
         divisionCode: selectedDivisionTemplate,
-        toRecipients: emailToRecipients,
+        toDivisionRecipients: emailToDivisionRecipients,
+        toRecipients: emailToDivisionRecipients,
         ccRecipients: emailCcRecipients,
         bccRecipients: emailBccRecipients,
       });
 
       if (res.success && res.templates) {
         setSavedDivisionTemplates(res.templates);
-        showEmailToast(`Template penerima divisi ${selectedDivisionTemplate} berhasil disimpan ke Database!`);
+        showEmailToast(
+          `Template divisi ${selectedDivisionTemplate} (TO Divisi: ${emailToDivisionRecipients.length}, CC: ${emailCcRecipients.length}, BCC: ${emailBccRecipients.length}) berhasil disimpan ke Database Neon!`
+        );
       } else {
-        showEmailToast("Gagal menyimpan template divisi.", "error");
+        showEmailToast(res.message || "Gagal menyimpan template divisi.", "error");
       }
     } catch (err: any) {
       console.error("Gagal simpan template divisi:", err);
-      showEmailToast("Terjadi kesalahan saat menyimpan template.", "error");
+      showEmailToast("Terjadi kesalahan saat menyimpan template ke database Neon.", "error");
     } finally {
       setSavingTemplate(false);
     }
@@ -605,6 +674,7 @@ export default function ReportsPage() {
       ? `${activeProjectObj.name}${activeProjectObj.division ? ` (${activeProjectObj.division})` : ""}`
       : "Seluruh Proyek";
     setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol K3 & Mutu - ${projName} (${reportDate})`);
+    setRecipientSearchQuery("");
 
     // Tentukan divisi aktif dari proyek atau user yang sedang login
     const targetDiv = getDivisionCode(activeProjectObj?.division || currentUser?.division || "ME");
@@ -616,8 +686,12 @@ export default function ReportsPage() {
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailToRecipients.length === 0) {
-      showEmailToast("Pilih minimal satu penerima utama (TO).", "error");
+    const combinedToRecipients = Array.from(
+      new Set([...emailToRecipients, ...emailToDivisionRecipients])
+    );
+
+    if (combinedToRecipients.length === 0) {
+      showEmailToast("Pilih minimal satu penerima TO (TO Penerima Utama atau TO Penerima Divisi).", "error");
       return;
     }
 
@@ -632,7 +706,7 @@ export default function ReportsPage() {
         projectName: activeProjectObj ? activeProjectObj.name : "Seluruh Proyek",
         division: activeProjectObj?.division || selectedDivisionTemplate,
         reportNumber: resolvedReportNumber,
-        recipients: emailToRecipients,
+        recipients: combinedToRecipients,
         ccRecipients: emailCcRecipients.length > 0 ? emailCcRecipients : undefined,
         bccRecipients: emailBccRecipients.length > 0 ? emailBccRecipients : undefined,
         subject: emailSubject,
@@ -829,7 +903,20 @@ export default function ReportsPage() {
       setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
     } else {
       setEmailToRecipients([...emailToRecipients, email]);
-      // Pastikan email tidak ganda di CC/BCC
+      // Pastikan email tidak ganda di TO Divisi / CC / BCC
+      setEmailToDivisionRecipients(emailToDivisionRecipients.filter((e) => e !== email));
+      setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
+      setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
+    }
+  };
+
+  const toggleToDivisionRecipient = (email: string) => {
+    if (emailToDivisionRecipients.includes(email)) {
+      setEmailToDivisionRecipients(emailToDivisionRecipients.filter((e) => e !== email));
+    } else {
+      setEmailToDivisionRecipients([...emailToDivisionRecipients, email]);
+      // Pastikan email tidak ganda di TO Utama / CC / BCC
+      setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
       setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
       setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
     }
@@ -840,8 +927,9 @@ export default function ReportsPage() {
       setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
     } else {
       setEmailCcRecipients([...emailCcRecipients, email]);
-      // Pastikan email tidak ganda di TO/BCC
+      // Pastikan email tidak ganda di TO Utama / TO Divisi / BCC
       setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+      setEmailToDivisionRecipients(emailToDivisionRecipients.filter((e) => e !== email));
       setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
     }
   };
@@ -851,14 +939,16 @@ export default function ReportsPage() {
       setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
     } else {
       setEmailBccRecipients([...emailBccRecipients, email]);
-      // Pastikan email tidak ganda di TO/CC
+      // Pastikan email tidak ganda di TO Utama / TO Divisi / CC
       setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+      setEmailToDivisionRecipients(emailToDivisionRecipients.filter((e) => e !== email));
       setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
     }
   };
 
-  const removeRecipient = (type: "TO" | "CC" | "BCC", email: string) => {
-    if (type === "TO") setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+  const removeRecipient = (type: "TO_PRIMARY" | "TO_DIV" | "CC" | "BCC", email: string) => {
+    if (type === "TO_PRIMARY") setEmailToRecipients(emailToRecipients.filter((e) => e !== email));
+    else if (type === "TO_DIV") setEmailToDivisionRecipients(emailToDivisionRecipients.filter((e) => e !== email));
     else if (type === "CC") setEmailCcRecipients(emailCcRecipients.filter((e) => e !== email));
     else if (type === "BCC") setEmailBccRecipients(emailBccRecipients.filter((e) => e !== email));
   };
@@ -866,8 +956,12 @@ export default function ReportsPage() {
   const handleAddCustomEmail = () => {
     const cleanEmail = customEmailInput.trim().toLowerCase();
     if (cleanEmail && cleanEmail.includes("@")) {
-      if (customEmailTarget === "TO") {
+      if (customEmailTarget === "TO_PRIMARY") {
         if (!emailToRecipients.includes(cleanEmail)) setEmailToRecipients([...emailToRecipients, cleanEmail]);
+      } else if (customEmailTarget === "TO_DIV") {
+        if (!emailToDivisionRecipients.includes(cleanEmail)) {
+          setEmailToDivisionRecipients([...emailToDivisionRecipients, cleanEmail]);
+        }
       } else if (customEmailTarget === "CC") {
         if (!emailCcRecipients.includes(cleanEmail)) setEmailCcRecipients([...emailCcRecipients, cleanEmail]);
       } else if (customEmailTarget === "BCC") {
@@ -2097,96 +2191,144 @@ export default function ReportsPage() {
               </span>
             </div>
 
-            {/* Template Divisi Selector & Navigation Tabs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 shrink-0">
-              {/* Template Divisi Quick Selector */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Template Divisi:
-                </span>
-                <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  {MASTER_DIVISIONS.map((d) => {
-                    const isCustomSaved = Boolean(savedDivisionTemplates[d.code]);
-                    return (
-                      <button
-                        key={d.code}
-                        type="button"
-                        onClick={() => applyDivisionTemplate(d.code)}
-                        className={`relative px-2.5 py-1 rounded-lg text-xs font-black transition-all ${selectedDivisionTemplate === d.code
-                          ? "bg-violet-600 text-white shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                          }`}
-                        title={`${d.name}${isCustomSaved ? " (Tersimpan Kustom)" : ""}`}
-                      >
-                        {d.code}
-                        {isCustomSaved && (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-                        )}
-                      </button>
-                    );
-                  })}
+            {/* Template Divisi Selector & Database Neon Persistence Card */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2.5 shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                      Template Pengiriman Email Divisi (Database Neon)
+                    </span>
+                    {savedDivisionTemplates[selectedDivisionTemplate] ? (
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] font-black">
+                        ✓ Tersimpan di DB Neon
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
+                        Default Otomatis
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Yang disimpan pada Template Divisi di Database Neon adalah: <strong>TO Penerima Divisi</strong>, <strong>CC (Tembusan)</strong>, dan <strong>BCC</strong>. Sedangkan <strong>TO Penerima Utama (SM/PIC)</strong> otomatis diambil dari Proyek.
+                  </p>
                 </div>
 
-                {/* Tombol Simpan Template Divisi Terpilih */}
+                {/* Tabs: Form Editor vs Preview Penerima */}
+                <div className="inline-flex rounded-xl p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => setEmailModalTab("CONFIG")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "CONFIG"
+                      ? "bg-violet-600 text-white shadow-xs font-black"
+                      : "text-slate-600 dark:text-slate-400"
+                      }`}
+                  >
+                    <Users size={13} />
+                    <span>Editor Penerima</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailModalTab("PREVIEW")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "PREVIEW"
+                      ? "bg-violet-600 text-white shadow-xs font-black"
+                      : "text-slate-600 dark:text-slate-400"
+                      }`}
+                  >
+                    <Eye size={13} />
+                    <span>
+                      Preview ({emailToRecipients.length + emailToDivisionRecipients.length + emailCcRecipients.length + emailBccRecipients.length})
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/70 dark:border-slate-700/70">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase mr-1">
+                    Pilih Divisi:
+                  </span>
+                  <div className="inline-flex rounded-xl p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    {MASTER_DIVISIONS.map((d) => {
+                      const isCustomSaved = Boolean(savedDivisionTemplates[d.code]);
+                      return (
+                        <button
+                          key={d.code}
+                          type="button"
+                          onClick={() => applyDivisionTemplate(d.code)}
+                          className={`relative px-2.5 py-1 rounded-lg text-xs font-black transition-all ${selectedDivisionTemplate === d.code
+                            ? "bg-violet-600 text-white shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                            }`}
+                          title={`${d.name}${isCustomSaved ? " (Tersimpan di Database Neon)" : ""}`}
+                        >
+                          {d.code}
+                          {isCustomSaved && (
+                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Tombol Simpan Template Divisi Terpilih ke Database Neon */}
                 <button
                   type="button"
                   onClick={handleSaveCurrentTemplate}
                   disabled={savingTemplate}
-                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
-                  title={`Simpan konfigurasi TO, CC, BCC saat ini sebagai template permanen untuk divisi ${selectedDivisionTemplate}`}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5"
+                  title={`Simpan TO Penerima Divisi (${emailToDivisionRecipients.length}), CC (${emailCcRecipients.length}), dan BCC (${emailBccRecipients.length}) ke Database Neon untuk divisi ${selectedDivisionTemplate}`}
                 >
                   <Save size={13} className={savingTemplate ? "animate-spin" : ""} />
-                  <span>{savingTemplate ? "Menyimpan..." : `Simpan Template ${selectedDivisionTemplate}`}</span>
-                </button>
-              </div>
-
-              {/* Tabs: Form Editor vs Preview Penerima */}
-              <div className="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setEmailModalTab("CONFIG")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "CONFIG"
-                    ? "bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-400 shadow-xs font-black"
-                    : "text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  <Users size={13} />
-                  <span>Editor TO/CC/BCC</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailModalTab("PREVIEW")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${emailModalTab === "PREVIEW"
-                    ? "bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-400 shadow-xs font-black"
-                    : "text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  <Eye size={13} />
-                  <span>Preview ({emailToRecipients.length + emailCcRecipients.length + emailBccRecipients.length})</span>
+                  <span>
+                    {savingTemplate
+                      ? "Menyimpan ke DB Neon..."
+                      : `Simpan Template ${selectedDivisionTemplate} ke DB Neon`}
+                  </span>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSendEmail} className="space-y-4 overflow-y-auto flex-1 pr-1">
+            <form onSubmit={handleSendEmail} className="space-y-3.5 overflow-y-auto flex-1 pr-1">
               {emailModalTab === "CONFIG" ? (
                 <>
-                  {/* SECTION 1: PENERIMA UTAMA (TO) */}
+                  {/* SECTION 1A: TO PENERIMA UTAMA (SITE MANAGER / PIC PROYEK - DEFAULT DARI PROYEK) */}
                   <div className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white font-mono font-black text-[10px]">
-                          TO
+                          TO UTAMA
                         </span>
-                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                          Penerima Utama (Action By / SM / PIC Lapangan)
+                        <div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                            To Penerima Utama (Site Manager / PIC Proyek)
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Otomatis diambil dari Site Manager / PIC proyek terpilih ({activeProjectObj ? activeProjectObj.name : "Semua Proyek"})
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const defaults = getProjectDefaultPrimaryToList();
+                            setEmailToRecipients(defaults);
+                            showEmailToast(`TO Penerima Utama disinkronkan dari proyek (${defaults.length} SM/PIC).`);
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[10px] font-bold transition-all"
+                          title="Ambil ulang email Site Manager / PIC dari proyek aktif"
+                        >
+                          ↻ Ambil dari Proyek
+                        </button>
+                        <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                          {emailToRecipients.length} Orang
                         </span>
                       </div>
-                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                        {emailToRecipients.length} Orang
-                      </span>
                     </div>
 
-                    {/* Chips TO Terpilih */}
+                    {/* Chips TO Utama Terpilih */}
                     {emailToRecipients.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {emailToRecipients.map((em) => {
@@ -2196,14 +2338,14 @@ export default function ReportsPage() {
                               key={em}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
                             >
-                              <span className="truncate max-w-[200px]">
+                              <span className="truncate max-w-[220px]">
                                 {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
                               </span>
                               <button
                                 type="button"
-                                onClick={() => removeRecipient("TO", em)}
+                                onClick={() => removeRecipient("TO_PRIMARY", em)}
                                 className="text-slate-400 hover:text-red-600 font-bold ml-0.5"
-                                title="Hapus dari TO"
+                                title="Hapus dari TO Penerima Utama"
                               >
                                 &times;
                               </button>
@@ -2212,8 +2354,61 @@ export default function ReportsPage() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-red-500 font-semibold italic">
-                        Wajib memilih minimal 1 penerima utama (TO).
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
+                        Belum ada Site Manager / PIC pada proyek ini. Pilih personil di bawah dengan tombol <strong>+ TO Utama</strong> atau gunakan <strong>+ TO Divisi</strong>.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* SECTION 1B: TO PENERIMA DIVISI (DI LUAR SITE MANAGER / PIC - DISIMPAN DI TEMPLATE NEON) */}
+                  <div className="p-3.5 bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/40 rounded-2xl space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-teal-600 text-white font-mono font-black text-[10px]">
+                          TO DIVISI
+                        </span>
+                        <div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                            To Penerima Divisi (Di Luar Site Manager / PIC Proyek)
+                          </span>
+                          <span className="text-[10px] text-teal-700 dark:text-teal-400 font-semibold">
+                            ✓ Tersimpan di Template Divisi {selectedDivisionTemplate} (Database Neon)
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400">
+                        {emailToDivisionRecipients.length} Orang
+                      </span>
+                    </div>
+
+                    {/* Chips TO Divisi Terpilih */}
+                    {emailToDivisionRecipients.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {emailToDivisionRecipients.map((em) => {
+                          const matchedUser = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
+                            >
+                              <span className="truncate max-w-[220px]">
+                                {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeRecipient("TO_DIV", em)}
+                                className="text-slate-400 hover:text-red-600 font-bold ml-0.5"
+                                title="Hapus dari TO Penerima Divisi"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Belum ada TO Penerima Divisi tambahan di luar Site Manager/PIC. Klik <strong>+ TO Divisi</strong> pada daftar personil di bawah untuk menambahkan.
                       </p>
                     )}
                   </div>
@@ -2225,9 +2420,14 @@ export default function ReportsPage() {
                         <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white font-mono font-black text-[10px]">
                           CC
                         </span>
-                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                          Tembusan (PM, GM, SecMan & Dewan Direksi / BOD)
-                        </span>
+                        <div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                            Tembusan (PM, GM, DH, DM, SC & Dewan Direksi / BOD)
+                          </span>
+                          <span className="text-[10px] text-blue-700 dark:text-blue-400 font-semibold">
+                            ✓ Tersimpan di Template Divisi {selectedDivisionTemplate} (Database Neon)
+                          </span>
+                        </div>
                       </div>
                       <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
                         {emailCcRecipients.length} Orang
@@ -2244,7 +2444,7 @@ export default function ReportsPage() {
                               key={em}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
                             >
-                              <span className="truncate max-w-[200px]">
+                              <span className="truncate max-w-[220px]">
                                 {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
                               </span>
                               <button
@@ -2273,9 +2473,14 @@ export default function ReportsPage() {
                         <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white font-mono font-black text-[10px]">
                           BCC
                         </span>
-                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
-                          Blind Carbon Copy (Advisor & Monitoring Internal)
-                        </span>
+                        <div>
+                          <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                            Blind Carbon Copy (Advisor & Monitoring Internal)
+                          </span>
+                          <span className="text-[10px] text-purple-700 dark:text-purple-400 font-semibold">
+                            ✓ Tersimpan di Template Divisi {selectedDivisionTemplate} (Database Neon)
+                          </span>
+                        </div>
                       </div>
                       <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400">
                         {emailBccRecipients.length} Orang
@@ -2292,7 +2497,7 @@ export default function ReportsPage() {
                               key={em}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs"
                             >
-                              <span className="truncate max-w-[200px]">
+                              <span className="truncate max-w-[220px]">
                                 {matchedUser ? `${matchedUser.name} (${matchedUser.role})` : em}
                               </span>
                               <button
@@ -2314,25 +2519,74 @@ export default function ReportsPage() {
                     )}
                   </div>
 
-                  {/* QUICK PICKER DARI DAFTAR USER SISTEM */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
-                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                      + Tambah Personil Terdaftar ke (TO, CC, atau BCC):
-                    </span>
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {users
-                        .filter((u) => u.email && u.role !== "PENDING")
-                        .map((u) => {
-                          const inTo = emailToRecipients.includes(u.email);
+                  {/* QUICK PICKER & PENCARIAN DARI DAFTAR USER TERDAFTAR */}
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                        + Cari & Tambah Personil Terdaftar ke (TO Utama, TO Divisi, CC, atau BCC):
+                      </span>
+                    </div>
+
+                    {/* Input Pencarian Email / Nama Personil Terdaftar */}
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={recipientSearchQuery}
+                        onChange={(e) => setRecipientSearchQuery(e.target.value)}
+                        placeholder="Ketik nama personil, alamat email, role (SM/PM/GM), atau divisi untuk mencari..."
+                        className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                      />
+                      {recipientSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setRecipientSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold"
+                          title="Bersihkan pencarian"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-slate-700/50">
+                      {(() => {
+                        const q = recipientSearchQuery.trim().toLowerCase();
+                        const filteredRegisteredUsers = users.filter((u) => {
+                          if (!u.email || u.role === "PENDING") return false;
+                          if (!q) return true;
+                          const uDiv = u.division ? getDivisionCode(u.division).toLowerCase() : "";
+                          return (
+                            u.name.toLowerCase().includes(q) ||
+                            u.email.toLowerCase().includes(q) ||
+                            u.role.toLowerCase().includes(q) ||
+                            uDiv.includes(q)
+                          );
+                        });
+
+                        if (filteredRegisteredUsers.length === 0) {
+                          return (
+                            <p className="py-4 text-center text-xs text-slate-400 italic">
+                              Tidak ditemukan personil terdaftar dengan kata kunci &ldquo;{recipientSearchQuery}&rdquo;.
+                            </p>
+                          );
+                        }
+
+                        return filteredRegisteredUsers.map((u) => {
+                          const inToPrimary = emailToRecipients.includes(u.email);
+                          const inToDiv = emailToDivisionRecipients.includes(u.email);
                           const inCc = emailCcRecipients.includes(u.email);
                           const inBcc = emailBccRecipients.includes(u.email);
                           const uDiv = u.division ? getDivisionCode(u.division) : null;
 
                           return (
-                            <div key={u.id} className="pt-1.5 flex items-center justify-between gap-2 text-xs">
+                            <div key={u.id} className="pt-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs">
                               <div className="truncate min-w-0">
                                 <span className="font-extrabold text-slate-900 dark:text-white mr-1.5 truncate">
                                   {u.name}
+                                </span>
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 mr-1">
+                                  {u.role}
                                 </span>
                                 {uDiv && (
                                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mr-1.5">
@@ -2347,12 +2601,24 @@ export default function ReportsPage() {
                                 <button
                                   type="button"
                                   onClick={() => toggleToRecipient(u.email)}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inTo
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inToPrimary
                                     ? "bg-amber-500 text-white shadow-xs font-black"
                                     : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-100"
                                     }`}
+                                  title="Tambahkan ke TO Penerima Utama (Site Manager / PIC Proyek)"
                                 >
-                                  {inTo ? "✓ TO" : "+ TO"}
+                                  {inToPrimary ? "✓ TO Utama" : "+ TO Utama"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleToDivisionRecipient(u.email)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${inToDiv
+                                    ? "bg-teal-600 text-white shadow-xs font-black"
+                                    : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-teal-100"
+                                    }`}
+                                  title="Tambahkan ke TO Penerima Divisi (Tersimpan di Template Divisi)"
+                                >
+                                  {inToDiv ? "✓ TO Divisi" : "+ TO Divisi"}
                                 </button>
                                 <button
                                   type="button"
@@ -2377,7 +2643,8 @@ export default function ReportsPage() {
                               </div>
                             </div>
                           );
-                        })}
+                        });
+                      })()}
                     </div>
 
                     {/* Input Email Eksternal Manual */}
@@ -2387,7 +2654,8 @@ export default function ReportsPage() {
                         onChange={(e) => setCustomEmailTarget(e.target.value as any)}
                         className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-200 shrink-0"
                       >
-                        <option value="TO">Ke TO</option>
+                        <option value="TO_DIV">Ke TO Divisi</option>
+                        <option value="TO_PRIMARY">Ke TO Utama</option>
                         <option value="CC">Ke CC</option>
                         <option value="BCC">Ke BCC</option>
                       </select>
@@ -2417,22 +2685,22 @@ export default function ReportsPage() {
                       <span>Preview Distribusi Penerima Email</span>
                     </span>
                     <span className="text-xs font-extrabold text-violet-600 dark:text-violet-400">
-                      Total: {emailToRecipients.length + emailCcRecipients.length + emailBccRecipients.length} Alamat
+                      Total: {emailToRecipients.length + emailToDivisionRecipients.length + emailCcRecipients.length + emailBccRecipients.length} Alamat
                     </span>
                   </div>
 
-                  {/* Preview TO */}
+                  {/* Preview TO Utama */}
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-amber-500 text-white font-mono font-black text-[10px]">
-                        TO ({emailToRecipients.length})
+                        TO UTAMA ({emailToRecipients.length})
                       </span>
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Penerima Langsung:
+                        Site Manager / PIC Proyek (Default Proyek):
                       </span>
                     </div>
                     {emailToRecipients.length === 0 ? (
-                      <p className="text-xs text-red-500 font-semibold italic pl-6">- Belum ada penerima TO</p>
+                      <p className="text-xs text-slate-400 italic pl-6">- Tidak ada TO Utama Proyek</p>
                     ) : (
                       <ul className="pl-6 space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc">
                         {emailToRecipients.map((em) => {
@@ -2442,6 +2710,34 @@ export default function ReportsPage() {
                               <strong className="text-slate-900 dark:text-white">{u?.name || em}</strong>{" "}
                               <span className="text-slate-400 font-mono text-[11px]">({em})</span>
                               {u?.role && <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400 font-bold">[{u.role}]</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Preview TO Divisi */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-teal-600 text-white font-mono font-black text-[10px]">
+                        TO DIVISI ({emailToDivisionRecipients.length})
+                      </span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Penerima Divisi (Tersimpan di Template Divisi):
+                      </span>
+                    </div>
+                    {emailToDivisionRecipients.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic pl-6">- Tidak ada TO Penerima Divisi</p>
+                    ) : (
+                      <ul className="pl-6 space-y-1 text-xs text-slate-700 dark:text-slate-300 list-disc">
+                        {emailToDivisionRecipients.map((em) => {
+                          const u = users.find((usr) => usr.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <li key={em}>
+                              <strong className="text-slate-900 dark:text-white">{u?.name || em}</strong>{" "}
+                              <span className="text-slate-400 font-mono text-[11px]">({em})</span>
+                              {u?.role && <span className="ml-1 text-[10px] text-teal-600 dark:text-teal-400 font-bold">[{u.role}]</span>}
                             </li>
                           );
                         })}
@@ -2561,7 +2857,7 @@ export default function ReportsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={sendingEmail || emailToRecipients.length === 0}
+                  disabled={sendingEmail || (emailToRecipients.length === 0 && emailToDivisionRecipients.length === 0)}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50"
                 >
                   <Send size={14} />
@@ -2873,11 +3169,10 @@ export default function ReportsPage() {
                                 <button
                                   type="button"
                                   onClick={() => initiateDeleteReport(rep)}
-                                  className={`p-1.5 rounded-lg transition-all ${
-                                    hasEmailed
-                                      ? "text-amber-500 hover:text-red-600 hover:bg-amber-50 dark:hover:bg-red-950/50"
-                                      : "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
-                                  }`}
+                                  className={`p-1.5 rounded-lg transition-all ${hasEmailed
+                                    ? "text-amber-500 hover:text-red-600 hover:bg-amber-50 dark:hover:bg-red-950/50"
+                                    : "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                    }`}
                                   title={
                                     hasEmailed
                                       ? "Hapus arsip laporan ini (Terkirim via Email - Opsi Recall tersedia)"
