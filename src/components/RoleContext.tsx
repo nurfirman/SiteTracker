@@ -7,40 +7,107 @@ import { getUsers, loginUser, getCurrentUserSession } from "../lib/actions";
 
 interface RoleContextType {
   currentUser: User;
-  setCurrentUser: (user: User) => void;
+  setCurrentUser: (user: User, skipServerLogin?: boolean) => void;
   availableUsers: User[];
   setRoleByEnum: (role: Role) => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
-export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [availableUsers, setAvailableUsers] = useState<User[]>(MOCK_USERS);
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USERS[0]);
+const LOADING_PLACEHOLDER_USER: User = {
+  id: "loading-session",
+  name: "Memuat Akun...",
+  email: "",
+  role: "CMD",
+  phoneNumber: "-",
+  projectId: null,
+};
 
-  // Load from session or localStorage on mount
+export function RoleProvider({
+  children,
+  initialSessionUser,
+}: {
+  children: React.ReactNode;
+  initialSessionUser?: User | null;
+}) {
+  const [availableUsers, setAvailableUsers] = useState<User[]>(MOCK_USERS);
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    if (initialSessionUser && initialSessionUser.id) {
+      return initialSessionUser;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const cachedProfile = localStorage.getItem("sitetracker_active_user_profile");
+        if (cachedProfile) {
+          const parsed = JSON.parse(cachedProfile);
+          if (parsed && parsed.id && parsed.name) {
+            return parsed;
+          }
+        }
+      } catch {
+        // Abaikan jika gagal parse cache
+      }
+    }
+    return LOADING_PLACEHOLDER_USER;
+  });
+
+  // Sinkronisasi jika initialSessionUser dari server berubah
+  useEffect(() => {
+    if (initialSessionUser && initialSessionUser.id) {
+      setCurrentUser((prev) => {
+        if (prev.id === "loading-session" || prev.id !== initialSessionUser.id) {
+          return initialSessionUser;
+        }
+        return prev;
+      });
+    }
+  }, [initialSessionUser]);
+
+  // Load full user metadata (project, division, employeeCode) from DB on mount
   useEffect(() => {
     async function syncSession() {
       try {
-        const uList: User[] = await getUsers();
+        const [session, uList] = await Promise.all([
+          getCurrentUserSession(),
+          getUsers(),
+        ]);
+
         if (uList && uList.length > 0) {
           setAvailableUsers(uList);
         }
 
-        const session = await getCurrentUserSession();
         if (session) {
-          const found = (uList || []).find((u: User) => u.id === session.userId) || MOCK_USERS.find((u) => u.id === session.userId);
+          const found =
+            (uList || []).find(
+              (u: User) =>
+                u.id === session.userId ||
+                (session.email && u.email.toLowerCase() === session.email.toLowerCase())
+            ) ||
+            MOCK_USERS.find((u) => u.id === session.userId) || {
+              id: session.userId,
+              name: session.name,
+              email: session.email,
+              role: session.role,
+              phoneNumber: "-",
+              projectId: null,
+            };
+
           if (found) {
             setCurrentUser(found);
             localStorage.setItem("sitetracker_active_user_id", found.id);
+            localStorage.setItem("sitetracker_active_user_profile", JSON.stringify(found));
             return;
           }
         }
+
         const savedUserId = localStorage.getItem("sitetracker_active_user_id");
         if (savedUserId) {
-          const found = (uList || []).find((u: User) => u.id === savedUserId) || MOCK_USERS.find((u) => u.id === savedUserId);
+          const found =
+            (uList || []).find((u: User) => u.id === savedUserId) ||
+            MOCK_USERS.find((u) => u.id === savedUserId);
           if (found) {
             setCurrentUser(found);
+            localStorage.setItem("sitetracker_active_user_profile", JSON.stringify(found));
           }
         }
       } catch (err) {
@@ -50,11 +117,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     syncSession();
   }, []);
 
-  const handleSetCurrentUser = (user: User) => {
+  const handleSetCurrentUser = (user: User, skipServerLogin: boolean = false) => {
     if (!user || !user.id) return;
     setCurrentUser(user);
     localStorage.setItem("sitetracker_active_user_id", user.id);
-    loginUser(user.id).catch((e) => console.warn("Failed to set session cookie:", e));
+    localStorage.setItem("sitetracker_active_user_profile", JSON.stringify(user));
+    if (!skipServerLogin) {
+      loginUser(user.id).catch((e) => console.warn("Failed to set session cookie:", e));
+    }
   };
 
   const setRoleByEnum = (role: Role) => {

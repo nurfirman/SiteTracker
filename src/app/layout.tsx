@@ -4,6 +4,8 @@ import "./globals.css";
 import { RoleProvider } from "@/components/RoleContext";
 import { ThemeProvider } from "@/components/ThemeContext";
 import { AppLayoutShell } from "@/components/AppLayoutShell";
+import { getCurrentUserSession } from "@/lib/actions";
+import { User } from "@/types";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -57,11 +59,23 @@ const themeScript = `
   })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await getCurrentUserSession();
+  const initialSessionUser: User | null = session
+    ? {
+        id: session.userId,
+        name: session.name,
+        email: session.email,
+        role: session.role,
+        phoneNumber: "-",
+        projectId: null,
+      }
+    : null;
+
   return (
     <html lang="id" className={`${inter.variable}`} suppressHydrationWarning>
       <head>
@@ -69,7 +83,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased selection:bg-violet-600 selection:text-white transition-colors duration-150">
         <ThemeProvider>
-          <RoleProvider>
+          <RoleProvider initialSessionUser={initialSessionUser}>
             <AppLayoutShell>{children}</AppLayoutShell>
           </RoleProvider>
         </ThemeProvider>

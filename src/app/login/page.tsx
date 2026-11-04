@@ -112,7 +112,7 @@ export default function LoginPage() {
             project: null,
           };
         if (targetUser) {
-          setCurrentUser(targetUser);
+          setCurrentUser(targetUser, true);
         }
         window.location.href = "/";
       } else {

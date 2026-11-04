@@ -103,6 +103,7 @@ export function Header() {
     try {
       await logoutUser();
       localStorage.removeItem("sitetracker_active_user_id");
+      localStorage.removeItem("sitetracker_active_user_profile");
       router.push("/login");
       router.refresh();
     } catch (e) {
