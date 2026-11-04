@@ -736,7 +736,8 @@ export default function ReportsPage() {
     const projName = activeProjectObj
       ? `${activeProjectObj.name}${activeProjectObj.division ? ` (${activeProjectObj.division})` : ""}`
       : "Seluruh Proyek";
-    setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol K3 & Mutu - ${projName} (${reportDate})`);
+    setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol - ${projName} (${reportDate})`);
+    // setEmailSubject(`[${resolvedReportNumber}] Laporan Patrol K3 & Mutu - ${projName} (${reportDate})`);
     setRecipientSearchQuery("");
 
     // Tentukan divisi aktif dari proyek atau user yang sedang login
