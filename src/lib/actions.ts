@@ -16,7 +16,7 @@ import {
 } from "./azureMail";
 import { signUpWithNeonAuth, signInWithNeonAuth, getNeonAuthServiceStatus, isNeonAuthConfigured } from "./neonAuth";
 import { updateNeonAuthAccountPassword, verifyPasswordScrypt } from "./authPassword";
-import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "../constants/divisions";
+import { MASTER_DIVISIONS, DivisionConfig, getDivisionCode, formatReportDocNumber } from "../constants/divisions";
 
 function safeRevalidate(path: string) {
   try {
@@ -1710,12 +1710,14 @@ export async function createOrUpdatePicUser(payload: {
   email: string;
   phoneNumber: string;
   projectId: string;
+  division?: string | null;
   password?: string;
 }): Promise<{ success: boolean; user?: User; message?: string }> {
   try {
     const cleanName = sanitizeText(payload.name);
     const cleanEmail = sanitizeText(payload.email).toLowerCase();
     const cleanPhone = sanitizeText(payload.phoneNumber);
+    const cleanDivision = payload.division ? sanitizeText(payload.division).trim().toUpperCase() : null;
 
     if (!cleanName || cleanName.length < 2) {
       return { success: false, message: "Nama Site Manager minimal 2 karakter." };
@@ -1739,6 +1741,7 @@ export async function createOrUpdatePicUser(payload: {
           email: cleanEmail,
           phoneNumber: cleanPhone,
           projectId: payload.projectId,
+          ...(payload.division !== undefined ? { division: cleanDivision } : {}),
           project: project,
         };
       }
@@ -1768,6 +1771,7 @@ export async function createOrUpdatePicUser(payload: {
               projectId: existingByEmail.projectId || payload.projectId,
               projectIds: updatedProjectIds,
               role: existingByEmail.role === "PENDING" ? "PIC" : existingByEmail.role,
+              ...(cleanDivision ? { division: cleanDivision } : {}),
             },
           });
 
@@ -1776,6 +1780,7 @@ export async function createOrUpdatePicUser(payload: {
             inMemoryUsers[memIdx].name = cleanName;
             inMemoryUsers[memIdx].phoneNumber = cleanPhone;
             inMemoryUsers[memIdx].projectIds = updatedProjectIds;
+            if (cleanDivision) inMemoryUsers[memIdx].division = cleanDivision;
             if (!inMemoryUsers[memIdx].projectId) inMemoryUsers[memIdx].projectId = payload.projectId;
           }
 
@@ -1790,6 +1795,7 @@ export async function createOrUpdatePicUser(payload: {
               name: updated.name,
               email: updated.email,
               role: updated.role as Role,
+              division: (updated as any).division || cleanDivision || null,
               phoneNumber: updated.phoneNumber,
               projectId: updated.projectId,
               projectIds: updated.projectIds,
@@ -1808,6 +1814,7 @@ export async function createOrUpdatePicUser(payload: {
       name: cleanName,
       email: cleanEmail,
       role: "PIC",
+      division: cleanDivision,
       phoneNumber: cleanPhone,
       password: payload.password || "123",
       projectId: payload.projectId,
@@ -1823,6 +1830,7 @@ export async function createOrUpdatePicUser(payload: {
             name: newPic.name,
             email: newPic.email,
             role: "PIC",
+            division: cleanDivision,
             phoneNumber: newPic.phoneNumber,
             projectId: newPic.projectId,
             projectIds: [payload.projectId],
@@ -1861,13 +1869,15 @@ export async function createOrUpdatePicUser(payload: {
  */
 export async function assignExistingUserToProject(
   userId: string,
-  projectId: string
+  projectId: string,
+  division?: string | null
 ): Promise<{ success: boolean; message: string; user?: User }> {
   try {
     if (!userId || !projectId) {
       return { success: false, message: "Pilih user dan proyek penugasan terlebih dahulu." };
     }
 
+    const cleanDivision = division ? sanitizeText(division).trim().toUpperCase() : undefined;
     let updatedUser: User | null = null;
 
     if (hasValidDatabaseUrl()) {
@@ -1882,11 +1892,7 @@ export async function assignExistingUserToProject(
         ? (dbUser as any).projectIds
         : (dbUser.projectId ? [dbUser.projectId] : []);
 
-      if (currentIds.includes(projectId)) {
-        return { success: true, message: `User '${dbUser.name}' sudah ditugaskan ke proyek ini.` };
-      }
-
-      const newIds = [...currentIds, projectId];
+      const newIds = currentIds.includes(projectId) ? currentIds : [...currentIds, projectId];
 
       const updated = await prisma.user.update({
         where: { id: userId },
@@ -1894,6 +1900,7 @@ export async function assignExistingUserToProject(
           projectId: dbUser.projectId || projectId,
           projectIds: newIds,
           role: dbUser.role === "PENDING" ? "PIC" : dbUser.role,
+          ...(cleanDivision !== undefined ? { division: cleanDivision || null } : {}),
         },
       });
 
@@ -1902,6 +1909,7 @@ export async function assignExistingUserToProject(
         name: updated.name,
         email: updated.email,
         role: updated.role as Role,
+        division: (updated as any).division || null,
         phoneNumber: updated.phoneNumber,
         employeeCode: updated.employeeCode || null,
         projectId: updated.projectId,
@@ -1918,6 +1926,7 @@ export async function assignExistingUserToProject(
       }
       if (!memUser.projectId) memUser.projectId = projectId;
       if (memUser.role === "PENDING") memUser.role = "PIC";
+      if (cleanDivision !== undefined) memUser.division = cleanDivision || null;
       if (!updatedUser) updatedUser = memUser;
     }
 
@@ -3666,6 +3675,466 @@ export async function deleteCategory(key: string): Promise<{ success: boolean; m
     };
   } catch (err: any) {
     return { success: false, message: err.message || "Gagal menghapus kategori." };
+  }
+}
+
+// ============================================================================
+// MASTER DIVISI CRUD & PENUGASAN PROYEK / USER
+// ============================================================================
+
+let inMemoryDivisions: DivisionConfig[] = [...MASTER_DIVISIONS];
+
+async function saveDivisionSettingsList(divisions: DivisionConfig[]): Promise<void> {
+  inMemoryDivisions = divisions;
+  if (hasValidDatabaseUrl()) {
+    try {
+      await prisma.systemSetting.upsert({
+        where: { key: "division_settings" },
+        update: { value: JSON.stringify(divisions) },
+        create: { id: "division_settings", key: "division_settings", value: JSON.stringify(divisions) },
+      });
+    } catch (e) {
+      console.warn("Gagal menyimpan division_settings ke database:", e);
+    }
+  }
+}
+
+/**
+ * Mengambil daftar Master Divisi (dari DB system_settings atau default MASTER_DIVISIONS)
+ */
+export async function getDivisionSettings(): Promise<DivisionConfig[]> {
+  if (hasValidDatabaseUrl()) {
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: "division_settings" },
+      });
+      if (setting && setting.value) {
+        const parsed = JSON.parse(setting.value);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          inMemoryDivisions = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Online DB query failed for getDivisionSettings:", e);
+    }
+  }
+  return inMemoryDivisions;
+}
+
+/**
+ * Menambahkan Divisi Baru serta mengaplikasikan langsung ke Proyek, User, dan Template Email Laporan
+ */
+export async function createDivision(payload: {
+  code: string;
+  name: string;
+  description?: string;
+  color?: string;
+  projectIds?: string[];
+  userIds?: string[];
+  emailTemplate?: {
+    toDivisionRecipients: string[];
+    ccRecipients: string[];
+    bccRecipients: string[];
+  };
+}): Promise<{ success: boolean; message: string; division?: DivisionConfig; divisions?: DivisionConfig[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang menambah divisi." };
+    }
+
+    const cleanCode = sanitizeText(payload.code?.trim() || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, "")
+      .slice(0, 12);
+    const cleanName = sanitizeText(payload.name?.trim() || "");
+    const cleanDesc = sanitizeText(payload.description?.trim() || "");
+
+    if (!cleanCode || cleanCode.length < 2) {
+      return { success: false, message: "Kode Divisi minimal 2 karakter huruf/angka (contoh: CMD, ME, INFRA)." };
+    }
+    if (!cleanName || cleanName.length < 2) {
+      return { success: false, message: "Nama Divisi minimal 2 karakter." };
+    }
+
+    const currentDivs = await getDivisionSettings();
+    if (currentDivs.some((d) => d.code.toUpperCase() === cleanCode)) {
+      return { success: false, message: `Kode Divisi "${cleanCode}" sudah terdaftar. Gunakan kode lain.` };
+    }
+
+    const newDiv: DivisionConfig = {
+      code: cleanCode,
+      name: cleanName,
+      description: cleanDesc || `Divisi operasional ${cleanName}.`,
+      color: payload.color || "from-violet-600 to-indigo-700",
+      isCustom: true,
+    };
+
+    const nextDivs = [...currentDivs, newDiv];
+    await saveDivisionSettingsList(nextDivs);
+
+    // Aplikasikan ke Proyek terpilih jika ada
+    if (payload.projectIds && payload.projectIds.length > 0) {
+      if (hasValidDatabaseUrl()) {
+        try {
+          await prisma.project.updateMany({
+            where: { id: { in: payload.projectIds } },
+            data: { division: cleanCode },
+          });
+        } catch (e) {
+          console.warn("DB update projects division on createDivision:", e);
+        }
+      }
+      inMemoryProjects.forEach((p) => {
+        if (payload.projectIds!.includes(p.id)) {
+          p.division = cleanCode;
+        }
+      });
+    }
+
+    // Aplikasikan ke User terpilih jika ada
+    if (payload.userIds && payload.userIds.length > 0) {
+      if (hasValidDatabaseUrl()) {
+        try {
+          await prisma.user.updateMany({
+            where: { id: { in: payload.userIds } },
+            data: { division: cleanCode },
+          });
+        } catch (e) {
+          console.warn("DB update users division on createDivision:", e);
+        }
+      }
+      inMemoryUsers.forEach((u) => {
+        if (payload.userIds!.includes(u.id)) {
+          u.division = cleanCode;
+        }
+      });
+    }
+
+    // Simpan konfigurasi Template Email Laporan untuk Divisi ini jika disertakan
+    if (payload.emailTemplate) {
+      await saveEmailDivisionTemplate({
+        divisionCode: cleanCode,
+        toDivisionRecipients: payload.emailTemplate.toDivisionRecipients || [],
+        toRecipients: payload.emailTemplate.toDivisionRecipients || [],
+        ccRecipients: payload.emailTemplate.ccRecipients || [],
+        bccRecipients: payload.emailTemplate.bccRecipients || [],
+      });
+    }
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "CREATE_DIVISION",
+      entityType: "SYSTEM_SETTING",
+      entityId: cleanCode,
+      details: `Menambahkan divisi baru [${cleanCode}] ${cleanName} (${payload.projectIds?.length || 0} proyek, ${payload.userIds?.length || 0} user)`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/reports");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/");
+
+    return {
+      success: true,
+      message: `Divisi [${cleanCode}] "${cleanName}" beserta template email berhasil ditambahkan!`,
+      division: newDiv,
+      divisions: nextDivs,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menambahkan divisi baru." };
+  }
+}
+
+/**
+ * Memperbarui data Divisi (termasuk perubahan kode/nama/deskripsi, penugasan Proyek & User, serta Template Email Laporan)
+ */
+export async function updateDivision(
+  originalCode: string,
+  payload: {
+    code?: string;
+    name?: string;
+    description?: string;
+    color?: string;
+    projectIds?: string[];
+    userIds?: string[];
+    emailTemplate?: {
+      toDivisionRecipients: string[];
+      ccRecipients: string[];
+      bccRecipients: string[];
+    };
+  }
+): Promise<{ success: boolean; message: string; divisions?: DivisionConfig[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang mengubah divisi." };
+    }
+
+    const cleanOrig = originalCode.trim().toUpperCase();
+    const currentDivs = await getDivisionSettings();
+    const targetIdx = currentDivs.findIndex((d) => d.code.toUpperCase() === cleanOrig);
+    if (targetIdx === -1) {
+      return { success: false, message: `Divisi "${cleanOrig}" tidak ditemukan.` };
+    }
+
+    const newCode = payload.code
+      ? sanitizeText(payload.code.trim()).toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 12)
+      : currentDivs[targetIdx].code;
+
+    if (!newCode || newCode.length < 2) {
+      return { success: false, message: "Kode Divisi minimal 2 karakter." };
+    }
+
+    if (
+      newCode !== cleanOrig &&
+      currentDivs.some((d, idx) => idx !== targetIdx && d.code.toUpperCase() === newCode)
+    ) {
+      return { success: false, message: `Kode Divisi "${newCode}" sudah digunakan oleh divisi lain.` };
+    }
+
+    const updatedDiv: DivisionConfig = {
+      ...currentDivs[targetIdx],
+      code: newCode,
+      name: payload.name?.trim() ? sanitizeText(payload.name.trim()) : currentDivs[targetIdx].name,
+      description:
+        payload.description !== undefined
+          ? sanitizeText(payload.description.trim())
+          : currentDivs[targetIdx].description,
+      color: payload.color || currentDivs[targetIdx].color || "from-violet-600 to-indigo-700",
+    };
+
+    const nextDivs = [...currentDivs];
+    nextDivs[targetIdx] = updatedDiv;
+    await saveDivisionSettingsList(nextDivs);
+
+    // Jika kode berubah (dan tidak ada daftar eksplisit projectIds/userIds), migrasikan otomatis kode lama ke kode baru
+    if (newCode !== cleanOrig) {
+      if (hasValidDatabaseUrl()) {
+        try {
+          await prisma.project.updateMany({
+            where: { division: { equals: cleanOrig, mode: "insensitive" } },
+            data: { division: newCode },
+          });
+          await prisma.user.updateMany({
+            where: { division: { equals: cleanOrig, mode: "insensitive" } },
+            data: { division: newCode },
+          });
+        } catch (e) {
+          console.warn("DB migrate division code fallback:", e);
+        }
+      }
+      inMemoryProjects.forEach((p) => {
+        if (p.division && getDivisionCode(p.division, currentDivs) === cleanOrig) {
+          p.division = newCode;
+        }
+      });
+      inMemoryUsers.forEach((u) => {
+        if (u.division && getDivisionCode(u.division, currentDivs) === cleanOrig) {
+          u.division = newCode;
+        }
+      });
+    }
+
+    // Sinkronisasi penugasan Proyek ke Divisi ini jika projectIds dikirimkan dari form
+    if (payload.projectIds !== undefined) {
+      const targetProjSet = new Set(payload.projectIds);
+      const allProjs = await getProjects();
+      const toUnassignIds = allProjs
+        .filter(
+          (p) =>
+            p.division &&
+            (getDivisionCode(p.division, nextDivs) === newCode ||
+              getDivisionCode(p.division, currentDivs) === cleanOrig) &&
+            !targetProjSet.has(p.id)
+        )
+        .map((p) => p.id);
+
+      if (hasValidDatabaseUrl()) {
+        try {
+          if (toUnassignIds.length > 0) {
+            await prisma.project.updateMany({
+              where: { id: { in: toUnassignIds } },
+              data: { division: null },
+            });
+          }
+          if (payload.projectIds.length > 0) {
+            await prisma.project.updateMany({
+              where: { id: { in: payload.projectIds } },
+              data: { division: newCode },
+            });
+          }
+        } catch (e) {
+          console.warn("DB sync division projects error:", e);
+        }
+      }
+
+      inMemoryProjects.forEach((p) => {
+        if (toUnassignIds.includes(p.id)) p.division = null;
+        if (targetProjSet.has(p.id)) p.division = newCode;
+      });
+    }
+
+    // Sinkronisasi penugasan User ke Divisi ini jika userIds dikirimkan dari form
+    if (payload.userIds !== undefined) {
+      const targetUserSet = new Set(payload.userIds);
+      const allUsrs = await getUsers();
+      const toUnassignUserIds = allUsrs
+        .filter(
+          (u) =>
+            u.division &&
+            (getDivisionCode(u.division, nextDivs) === newCode ||
+              getDivisionCode(u.division, currentDivs) === cleanOrig) &&
+            !targetUserSet.has(u.id)
+        )
+        .map((u) => u.id);
+
+      if (hasValidDatabaseUrl()) {
+        try {
+          if (toUnassignUserIds.length > 0) {
+            await prisma.user.updateMany({
+              where: { id: { in: toUnassignUserIds } },
+              data: { division: null },
+            });
+          }
+          if (payload.userIds.length > 0) {
+            await prisma.user.updateMany({
+              where: { id: { in: payload.userIds } },
+              data: { division: newCode },
+            });
+          }
+        } catch (e) {
+          console.warn("DB sync division users error:", e);
+        }
+      }
+
+      inMemoryUsers.forEach((u) => {
+        if (toUnassignUserIds.includes(u.id)) u.division = null;
+        if (targetUserSet.has(u.id)) u.division = newCode;
+      });
+    }
+
+    // Sinkronisasi Template Email Laporan untuk Divisi ini jika disertakan
+    if (payload.emailTemplate) {
+      if (newCode !== cleanOrig) {
+        const currentSettings = await getSystemSettings();
+        const existingTemplates = { ...(currentSettings.emailDivisionTemplates || {}) };
+        delete existingTemplates[cleanOrig];
+        inMemorySystemSettings.emailDivisionTemplates = existingTemplates;
+      }
+      await saveEmailDivisionTemplate({
+        divisionCode: newCode,
+        toDivisionRecipients: payload.emailTemplate.toDivisionRecipients || [],
+        toRecipients: payload.emailTemplate.toDivisionRecipients || [],
+        ccRecipients: payload.emailTemplate.ccRecipients || [],
+        bccRecipients: payload.emailTemplate.bccRecipients || [],
+      });
+    }
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "UPDATE_DIVISION",
+      entityType: "SYSTEM_SETTING",
+      entityId: newCode,
+      details: `Memperbarui divisi [${newCode}] ${updatedDiv.name}${payload.projectIds ? ` (${payload.projectIds.length} proyek)` : ""}${payload.userIds ? ` (${payload.userIds.length} user)` : ""}`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/reports");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/");
+
+    return {
+      success: true,
+      message: `Divisi [${newCode}] "${updatedDiv.name}" beserta template email berhasil diperbarui!`,
+      divisions: nextDivs,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal memperbarui divisi." };
+  }
+}
+
+/**
+ * Menghapus Divisi dan melepaskan afiliasi pada Proyek & User terkait
+ */
+export async function deleteDivision(code: string): Promise<{ success: boolean; message: string; divisions?: DivisionConfig[] }> {
+  try {
+    const auth = await requireAuth(["ADMIN", "BOD"]);
+    if (!auth.authorized || !auth.user) {
+      return { success: false, message: "Akses ditolak: Hanya Administrator yang berwenang menghapus divisi." };
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+    const currentDivs = await getDivisionSettings();
+    const target = currentDivs.find((d) => d.code.toUpperCase() === cleanCode);
+    if (!target) {
+      return { success: false, message: `Divisi "${cleanCode}" tidak ditemukan.` };
+    }
+
+    if (currentDivs.length <= 1) {
+      return { success: false, message: "Minimal harus ada 1 divisi aktif di dalam sistem." };
+    }
+
+    const nextDivs = currentDivs.filter((d) => d.code.toUpperCase() !== cleanCode);
+    await saveDivisionSettingsList(nextDivs);
+
+    // Lepaskan divisi dari Proyek dan User yang menggunakan kode divisi ini
+    if (hasValidDatabaseUrl()) {
+      try {
+        await prisma.project.updateMany({
+          where: { division: { equals: cleanCode, mode: "insensitive" } },
+          data: { division: null },
+        });
+        await prisma.user.updateMany({
+          where: { division: { equals: cleanCode, mode: "insensitive" } },
+          data: { division: null },
+        });
+      } catch (e) {
+        console.warn("DB clear division on deleteDivision fallback:", e);
+      }
+    }
+
+    inMemoryProjects.forEach((p) => {
+      if (p.division && p.division.trim().toUpperCase() === cleanCode) {
+        p.division = null;
+      }
+    });
+    inMemoryUsers.forEach((u) => {
+      if (u.division && u.division.trim().toUpperCase() === cleanCode) {
+        u.division = null;
+      }
+    });
+
+    await recordAuditLog({
+      userId: auth.user.userId,
+      userName: auth.user.name,
+      userRole: auth.user.role,
+      action: "DELETE_DIVISION",
+      entityType: "SYSTEM_SETTING",
+      entityId: cleanCode,
+      details: `Menghapus divisi [${cleanCode}] "${target.name}"`,
+    });
+
+    safeRevalidate("/admin");
+    safeRevalidate("/projects");
+    safeRevalidate("/reports");
+    safeRevalidate("/findings/bulk");
+    safeRevalidate("/");
+
+    return {
+      success: true,
+      message: `Divisi [${cleanCode}] "${target.name}" berhasil dihapus.`,
+      divisions: nextDivs,
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Gagal menghapus divisi." };
   }
 }
 

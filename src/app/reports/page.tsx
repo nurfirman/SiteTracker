@@ -16,9 +16,10 @@ import {
   getNextReportDocNumber,
   getSystemSettings,
   saveEmailDivisionTemplate,
+  getDivisionSettings,
 } from "@/lib/actions";
 import { EmailDivisionTemplateConfig } from "@/types";
-import { MASTER_DIVISIONS, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
+import { MASTER_DIVISIONS, DivisionConfig, getDivisionCode, formatReportDocNumber } from "@/constants/divisions";
 import { formatDate, getSlaStatus, exportFindingsToCsv, parsePhotoUrls, addBusinessDays } from "@/lib/utils";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
 import {
@@ -71,6 +72,7 @@ export default function ReportsPage() {
   const [allSystemFindings, setAllSystemFindings] = useState<Finding[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [divisionsList, setDivisionsList] = useState<DivisionConfig[]>(MASTER_DIVISIONS);
 
   // Filters
   const [selectedProject, setSelectedProject] = useState<string>("ALL");
@@ -152,16 +154,18 @@ export default function ReportsPage() {
   useEffect(() => {
     async function loadMeta() {
       try {
-        const [pList, uList, mStatus, repList, sysSettings, allFList] = await Promise.all([
+        const [pList, uList, mStatus, repList, sysSettings, allFList, divList] = await Promise.all([
           getProjects(),
           getUsers(),
           getMailServiceStatus(),
           getPatrolReports({ limit: 100 }),
           getSystemSettings(),
           getFindings({ limit: 2000 }),
+          getDivisionSettings(),
         ]);
         setProjects(pList);
         setUsers(uList);
+        if (Array.isArray(divList) && divList.length > 0) setDivisionsList(divList);
         setMailStatus(mStatus);
         setSavedReports(repList);
         setAllSystemFindings(allFList);
@@ -613,10 +617,14 @@ export default function ReportsPage() {
       return;
     }
 
-    // 2. Fallback: Hitung otomatis berdasarkan role & divisi user
+    // 2. Fallback: Hitung otomatis berdasarkan role & divisi user + atasan proyek divisi terkait
     const divUsers = users.filter((u) => {
-      const uDiv = getDivisionCode(u.division);
+      const uDiv = getDivisionCode(u.division, divisionsList);
       return uDiv === cleanDiv;
+    });
+    const divProjects = projects.filter((p) => {
+      const pDiv = getDivisionCode(p.division, divisionsList);
+      return pDiv === cleanDiv;
     });
 
     const toDivList: string[] = [];
@@ -631,7 +639,22 @@ export default function ReportsPage() {
       if (u.email && !toDivList.includes(u.email)) toDivList.push(u.email);
     });
 
-    // 2. CC: PM, GM divisi ini + BOD
+    // Sertakan juga atasan struktural (DH/DM/SC) yang ditugaskan pada proyek di divisi ini
+    divProjects.forEach((p: any) => {
+      [p.pmId, p.dmId, p.scId].forEach((uid) => {
+        if (!uid) return;
+        const supUser = users.find((u) => u.id === uid);
+        if (
+          supUser?.email &&
+          !primaryProjectToList.includes(supUser.email) &&
+          !toDivList.includes(supUser.email)
+        ) {
+          toDivList.push(supUser.email);
+        }
+      });
+    });
+
+    // 2. CC: PM, GM divisi ini + GM proyek divisi ini + BOD
     const ccCandidates = divUsers.filter((u) => ["PM", "GM"].includes(u.role));
     ccCandidates.forEach((u) => {
       if (
@@ -641,6 +664,18 @@ export default function ReportsPage() {
         !toDivList.includes(u.email)
       ) {
         ccList.push(u.email);
+      }
+    });
+    divProjects.forEach((p: any) => {
+      if (!p.gmId) return;
+      const gmUser = users.find((u) => u.id === p.gmId);
+      if (
+        gmUser?.email &&
+        !ccList.includes(gmUser.email) &&
+        !primaryProjectToList.includes(gmUser.email) &&
+        !toDivList.includes(gmUser.email)
+      ) {
+        ccList.push(gmUser.email);
       }
     });
     if (
@@ -741,7 +776,10 @@ export default function ReportsPage() {
     setRecipientSearchQuery("");
 
     // Tentukan divisi aktif dari proyek atau user yang sedang login
-    const targetDiv = getDivisionCode(activeProjectObj?.division || currentUser?.division || "ME");
+    const targetDiv = getDivisionCode(
+      activeProjectObj?.division || currentUser?.division || "ME",
+      divisionsList
+    );
     applyDivisionTemplate(targetDiv);
 
     setEmailModalTab("CONFIG");
@@ -2347,8 +2385,8 @@ export default function ReportsPage() {
                   <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase mr-1">
                     Pilih Divisi:
                   </span>
-                  <div className="inline-flex rounded-xl p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                    {MASTER_DIVISIONS.map((d) => {
+                  <div className="inline-flex rounded-xl p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex-wrap gap-0.5">
+                    {divisionsList.map((d) => {
                       const isCustomSaved = Boolean(savedDivisionTemplates[d.code]);
                       return (
                         <button

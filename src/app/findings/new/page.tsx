@@ -185,8 +185,8 @@ export default function NewFindingPage() {
         </div>
       ) : (
         /* Main Form Card */
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-          <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-900 to-violet-950 text-white border-b border-slate-800 space-y-2">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl relative">
+          <div className="p-6 sm:p-8 rounded-t-3xl bg-gradient-to-r from-slate-900 to-violet-950 text-white border-b border-slate-800 space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-600 text-white text-xs font-black rounded-lg uppercase tracking-wider">
               <HardHat size={16} /> Formulir Input Temuan Patrol CMD
             </div>

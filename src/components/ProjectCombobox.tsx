@@ -75,7 +75,7 @@ export function ProjectCombobox({
   const isSm = size === "sm";
 
   return (
-    <div ref={dropdownRef} className={cn("relative w-full", className)}>
+    <div ref={dropdownRef} className={cn("relative w-full", isOpen && "z-50", className)}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -143,7 +143,7 @@ export function ProjectCombobox({
 
       {/* Popover / Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-80 flex flex-col min-w-[280px]">
+        <div className="absolute z-[100] left-0 right-0 mt-2 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-[440px] flex flex-col min-w-[300px]">
           {/* Search Box Header */}
           <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80">
             <div className="relative">
@@ -185,7 +185,7 @@ export function ProjectCombobox({
           </div>
 
           {/* List of Projects */}
-          <div className="overflow-y-auto p-1.5 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 max-h-60">
+          <div className="overflow-y-auto p-1.5 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[360px]">
             {/* Opsi Semua Proyek (Global) jika diizinkan */}
             {showAllOption && (!searchQuery.trim() || "semua proyek all global".includes(searchQuery.toLowerCase().trim())) && (
               <button
@@ -228,7 +228,9 @@ export function ProjectCombobox({
 
             {filteredProjects.length === 0 && (!showAllOption || searchQuery.trim()) ? (
               <div className="p-4 text-center text-xs text-slate-400 font-medium">
-                Tidak ada proyek yang sesuai dengan pencarian "{searchQuery}"
+                {searchQuery.trim()
+                  ? `Tidak ada proyek yang sesuai dengan pencarian "${searchQuery}"`
+                  : "Belum ada daftar proyek yang tersedia."}
               </div>
             ) : (
               filteredProjects.map((p) => {

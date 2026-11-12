@@ -407,8 +407,8 @@ export default function BulkPatrolPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* MASTER SECTION (HEADER LAPORAN) */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm relative z-20">
+            <div className="bg-slate-900 text-white px-6 py-4 rounded-t-3xl flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <FileText className="w-5 h-5 text-violet-400" />
                 <h2 className="font-extrabold text-base tracking-tight">

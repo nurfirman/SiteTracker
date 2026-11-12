@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRole } from "@/components/RoleContext";
-import { User, Role, ROLE_LABELS, Project, Category, Finding, AuditLogEntry } from "@/types";
+import { User, Role, ROLE_LABELS, Project, Category, Finding, AuditLogEntry, EmailDivisionTemplateConfig } from "@/types";
 import {
   getUsers,
   getProjects,
@@ -29,8 +29,12 @@ import {
   updateSystemSettings,
   getRolePermissions,
   updateRolePermissions,
+  getDivisionSettings,
+  createDivision,
+  updateDivision,
+  deleteDivision,
 } from "@/lib/actions";
-import { MASTER_DIVISIONS, getDivisionCode } from "@/constants/divisions";
+import { MASTER_DIVISIONS, DivisionConfig, getDivisionCode } from "@/constants/divisions";
 import {
   Sliders,
   ShieldCheck,
@@ -93,6 +97,7 @@ export default function AdminSettingsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [divisions, setDivisions] = useState<DivisionConfig[]>(MASTER_DIVISIONS);
   const [dbStatus, setDbStatus] = useState<{ isConnected: boolean; mode: string }>({
     isConnected: false,
     mode: "Loading...",
@@ -163,6 +168,7 @@ export default function AdminSettingsPage() {
   const [newPicPhone, setNewPicPhone] = useState("");
   const [newPicPassword, setNewPicPassword] = useState("123");
   const [newPicProjectId, setNewPicProjectId] = useState("");
+  const [newPicDivision, setNewPicDivision] = useState("");
   const [picSubmitting, setPicSubmitting] = useState(false);
 
   // CSV Import State
@@ -184,6 +190,23 @@ export default function AdminSettingsPage() {
   // Toast message
   const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Division Add / Edit Modal States
+  const [emailDivisionTemplates, setEmailDivisionTemplates] = useState<Record<string, EmailDivisionTemplateConfig>>({});
+  const [showDivisionModal, setShowDivisionModal] = useState(false);
+  const [divisionModalMode, setDivisionModalMode] = useState<"ADD" | "EDIT">("ADD");
+  const [editingDivisionOrigCode, setEditingDivisionOrigCode] = useState("");
+  const [divFormCode, setDivFormCode] = useState("");
+  const [divFormName, setDivFormName] = useState("");
+  const [divFormDesc, setDivFormDesc] = useState("");
+  const [divFormProjectIds, setDivFormProjectIds] = useState<string[]>([]);
+  const [divFormUserIds, setDivFormUserIds] = useState<string[]>([]);
+  const [divFormToEmails, setDivFormToEmails] = useState<string[]>([]);
+  const [divFormCcEmails, setDivFormCcEmails] = useState<string[]>([]);
+  const [divFormBccEmails, setDivFormBccEmails] = useState<string[]>([]);
+  const [divCustomEmailInput, setDivCustomEmailInput] = useState("");
+  const [divCustomEmailTarget, setDivCustomEmailTarget] = useState<"TO_DIV" | "CC" | "BCC">("TO_DIV");
+  const [divisionSubmitting, setDivisionSubmitting] = useState(false);
+
   // Category Add / Edit Modal States
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalMode, setCategoryModalMode] = useState<"ADD" | "EDIT">("ADD");
@@ -204,7 +227,7 @@ export default function AdminSettingsPage() {
 
   const loadAdminData = async () => {
     try {
-      const [uList, pList, fList, status, catList, settings, perms, logs] = await Promise.all([
+      const [uList, pList, fList, status, catList, settings, perms, logs, divList] = await Promise.all([
         getUsers(),
         getProjects(),
         getFindings(),
@@ -213,13 +236,16 @@ export default function AdminSettingsPage() {
         getSystemSettings(),
         getRolePermissions(),
         getAuditLogs({ limit: 100 }),
+        getDivisionSettings(),
       ]);
       setUsers(uList);
       setProjects(pList);
       setFindings(fList);
       setDbStatus(status);
       setCategories(catList);
+      if (Array.isArray(divList) && divList.length > 0) setDivisions(divList);
       if (settings?.reportLogoUrl) setReportLogoUrl(settings.reportLogoUrl);
+      if (settings?.emailDivisionTemplates) setEmailDivisionTemplates(settings.emailDivisionTemplates);
       if (perms?.matrix) setRolePermissions(perms.matrix);
       if (logs) setAuditLogs(logs);
       if (pList.length > 0 && !newPicProjectId) {
@@ -390,12 +416,14 @@ export default function AdminSettingsPage() {
         phoneNumber: newPicPhone,
         projectId: newPicProjectId,
         password: newPicPassword,
+        division: newPicDivision.trim() || undefined,
       });
       if (res.success) {
         showToast(res.message || "Site Manager baru berhasil ditugaskan!");
         setNewPicName("");
         setNewPicEmail("");
         setNewPicPhone("");
+        setNewPicDivision("");
         setShowAddPicModal(false);
         loadAdminData();
       } else {
@@ -420,10 +448,15 @@ export default function AdminSettingsPage() {
     }
     setPicSubmitting(true);
     try {
-      const res = await assignExistingUserToProject(selectedExistingUserId, newPicProjectId);
+      const res = await assignExistingUserToProject(
+        selectedExistingUserId,
+        newPicProjectId,
+        newPicDivision.trim() || undefined
+      );
       if (res.success) {
         showToast(res.message);
         setSelectedExistingUserId("");
+        setNewPicDivision("");
         setShowAddPicModal(false);
         loadAdminData();
       } else {
@@ -448,6 +481,272 @@ export default function AdminSettingsPage() {
       }
     } catch (err: any) {
       showToast(err.message || "Gagal melepaskan Site Manager dari proyek.", "error");
+    }
+  };
+
+  // Helper untuk menentukan default posisi penerima email berdasarkan jabatan (role) user
+  const getDefaultEmailBucketForRole = (role: string): "TO_DIV" | "CC" | "BCC" | "NONE" => {
+    if (["CMD", "DH", "DM", "SC"].includes(role)) return "TO_DIV";
+    if (["GM", "PM", "BOD"].includes(role)) return "CC";
+    if (["Advisor"].includes(role)) return "BCC";
+    return "NONE";
+  };
+
+  // Hitung daftar TO Divisi, CC, dan BCC otomatis berdasarkan user di divisi tersebut + atasan proyek divisi + BOD/Advisor
+  const computeAutoDivisionEmailLists = (targetUserIds: string[], targetProjectIds: string[]) => {
+    const toSet = new Set<string>();
+    const ccSet = new Set<string>();
+    const bccSet = new Set<string>();
+
+    const selectedUsers = users.filter((u) => targetUserIds.includes(u.id));
+    selectedUsers.forEach((u) => {
+      if (!u.email) return;
+      const bucket = getDefaultEmailBucketForRole(u.role);
+      if (bucket === "TO_DIV") toSet.add(u.email);
+      else if (bucket === "CC") ccSet.add(u.email);
+      else if (bucket === "BCC") bccSet.add(u.email);
+    });
+
+    // Sertakan juga atasan yang tertaut pada proyek-proyek divisi ini (DH/DM/SC -> TO_DIV, GM -> CC)
+    const divProjects = projects.filter((p) => targetProjectIds.includes(p.id));
+    divProjects.forEach((p) => {
+      const dh = users.find((u) => u.id === p.pmId);
+      const dm = users.find((u) => u.id === (p as any).dmId);
+      const sc = users.find((u) => u.id === (p as any).scId);
+      const gm = users.find((u) => u.id === p.gmId);
+      if (dh?.email) toSet.add(dh.email);
+      if (dm?.email) toSet.add(dm.email);
+      if (sc?.email) toSet.add(sc.email);
+      if (gm?.email && !toSet.has(gm.email)) ccSet.add(gm.email);
+    });
+
+    // Sertakan BOD di CC dan Advisor di BCC secara default
+    users
+      .filter((u) => u.role === "BOD" && u.email)
+      .forEach((b) => {
+        if (!toSet.has(b.email)) ccSet.add(b.email);
+      });
+    users
+      .filter((u) => u.role === "Advisor" && u.email)
+      .forEach((a) => {
+        if (!toSet.has(a.email) && !ccSet.has(a.email)) bccSet.add(a.email);
+      });
+
+    return {
+      toList: Array.from(toSet),
+      ccList: Array.from(ccSet),
+      bccList: Array.from(bccSet),
+    };
+  };
+
+  const getUserEmailBucketInModal = (email?: string): "TO_DIV" | "CC" | "BCC" | "NONE" => {
+    if (!email) return "NONE";
+    if (divFormToEmails.includes(email)) return "TO_DIV";
+    if (divFormCcEmails.includes(email)) return "CC";
+    if (divFormBccEmails.includes(email)) return "BCC";
+    return "NONE";
+  };
+
+  const setUserEmailBucketInModal = (email: string, target: "TO_DIV" | "CC" | "BCC" | "NONE") => {
+    if (!email) return;
+    setDivFormToEmails((prev) => {
+      const cleaned = prev.filter((e) => e !== email);
+      return target === "TO_DIV" ? [...cleaned, email] : cleaned;
+    });
+    setDivFormCcEmails((prev) => {
+      const cleaned = prev.filter((e) => e !== email);
+      return target === "CC" ? [...cleaned, email] : cleaned;
+    });
+    setDivFormBccEmails((prev) => {
+      const cleaned = prev.filter((e) => e !== email);
+      return target === "BCC" ? [...cleaned, email] : cleaned;
+    });
+  };
+
+  const handleAutoSetDivisionEmails = () => {
+    const { toList, ccList, bccList } = computeAutoDivisionEmailLists(divFormUserIds, divFormProjectIds);
+    setDivFormToEmails(toList);
+    setDivFormCcEmails(ccList);
+    setDivFormBccEmails(bccList);
+    showToast(
+      `Susunan email otomatis diatur sesuai jabatan atasan divisi (TO Divisi: ${toList.length}, CC: ${ccList.length}, BCC: ${bccList.length}).`
+    );
+  };
+
+  const handleAddCustomDivisionEmail = () => {
+    const clean = divCustomEmailInput.trim().toLowerCase();
+    if (!clean || !clean.includes("@")) {
+      showToast("Masukkan alamat email yang valid.", "error");
+      return;
+    }
+    setUserEmailBucketInModal(clean, divCustomEmailTarget);
+    setDivCustomEmailInput("");
+  };
+
+  // Division CRUD Modal Handlers
+  const openAddDivisionModal = () => {
+    setDivisionModalMode("ADD");
+    setEditingDivisionOrigCode("");
+    setDivFormCode("");
+    setDivFormName("");
+    setDivFormDesc("");
+    setDivFormProjectIds([]);
+    setDivFormUserIds([]);
+    const autoDefaults = computeAutoDivisionEmailLists([], []);
+    setDivFormToEmails(autoDefaults.toList);
+    setDivFormCcEmails(autoDefaults.ccList);
+    setDivFormBccEmails(autoDefaults.bccList);
+    setDivCustomEmailInput("");
+    setShowDivisionModal(true);
+  };
+
+  const openEditDivisionModal = (div: DivisionConfig) => {
+    setDivisionModalMode("EDIT");
+    setEditingDivisionOrigCode(div.code);
+    setDivFormCode(div.code);
+    setDivFormName(div.name);
+    setDivFormDesc(div.description);
+    const matchingProjIds = projects
+      .filter((p) => Boolean(p.division && getDivisionCode(p.division, divisions) === div.code))
+      .map((p) => p.id);
+    const matchingUserIds = users
+      .filter((u) => Boolean(u.division && getDivisionCode(u.division, divisions) === div.code))
+      .map((u) => u.id);
+    setDivFormProjectIds(matchingProjIds);
+    setDivFormUserIds(matchingUserIds);
+
+    const savedTpl = emailDivisionTemplates[div.code.toUpperCase()];
+    const savedTo = savedTpl?.toDivisionRecipients || savedTpl?.toRecipients || [];
+    const savedCc = savedTpl?.ccRecipients || [];
+    const savedBcc = savedTpl?.bccRecipients || [];
+
+    if (savedTpl && (savedTo.length > 0 || savedCc.length > 0 || savedBcc.length > 0)) {
+      setDivFormToEmails(savedTo);
+      setDivFormCcEmails(savedCc);
+      setDivFormBccEmails(savedBcc);
+    } else {
+      const autoDefaults = computeAutoDivisionEmailLists(matchingUserIds, matchingProjIds);
+      setDivFormToEmails(autoDefaults.toList);
+      setDivFormCcEmails(autoDefaults.ccList);
+      setDivFormBccEmails(autoDefaults.bccList);
+    }
+    setDivCustomEmailInput("");
+    setShowDivisionModal(true);
+  };
+
+  const toggleDivProjectSelection = (projId: string) => {
+    setDivFormProjectIds((prev) =>
+      prev.includes(projId) ? prev.filter((id) => id !== projId) : [...prev, projId]
+    );
+  };
+
+  const toggleDivUserSelection = (uId: string) => {
+    const targetUser = users.find((u) => u.id === uId);
+    const isCurrentlySelected = divFormUserIds.includes(uId);
+    setDivFormUserIds((prev) =>
+      prev.includes(uId) ? prev.filter((id) => id !== uId) : [...prev, uId]
+    );
+
+    if (targetUser?.email) {
+      if (!isCurrentlySelected) {
+        // Saat user dicentang masuk ke divisi, otomatis masukkan ke TO/CC/BCC sesuai jabatannya jika belum ada
+        const curBucket = getUserEmailBucketInModal(targetUser.email);
+        if (curBucket === "NONE") {
+          const defaultBucket = getDefaultEmailBucketForRole(targetUser.role);
+          if (defaultBucket !== "NONE") {
+            setUserEmailBucketInModal(targetUser.email, defaultBucket);
+          }
+        }
+      } else {
+        // Saat user dilepas dari divisi (kecuali BOD/Advisor global), lepaskan dari daftar email divisi
+        if (!["BOD", "Advisor"].includes(targetUser.role)) {
+          setUserEmailBucketInModal(targetUser.email, "NONE");
+        }
+      }
+    }
+  };
+
+  const handleSaveDivision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanedCode = divFormCode
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^A-Z0-9_-]/g, "");
+    if (!cleanedCode || cleanedCode.length < 2) {
+      showToast("Kode Divisi wajib diisi (minimal 2 karakter, contoh: CMD, ME, INFRA).", "error");
+      return;
+    }
+    if (!divFormName.trim()) {
+      showToast("Nama lengkap divisi wajib diisi.", "error");
+      return;
+    }
+
+    setDivisionSubmitting(true);
+    try {
+      const emailTemplatePayload = {
+        toDivisionRecipients: divFormToEmails,
+        ccRecipients: divFormCcEmails,
+        bccRecipients: divFormBccEmails,
+      };
+
+      if (divisionModalMode === "ADD") {
+        const res = await createDivision({
+          code: cleanedCode,
+          name: divFormName.trim(),
+          description: divFormDesc.trim(),
+          projectIds: divFormProjectIds,
+          userIds: divFormUserIds,
+          emailTemplate: emailTemplatePayload,
+        });
+        if (res.success) {
+          showToast(res.message);
+          setShowDivisionModal(false);
+          await loadAdminData();
+        } else {
+          showToast(res.message, "error");
+        }
+      } else {
+        const res = await updateDivision(editingDivisionOrigCode, {
+          code: cleanedCode,
+          name: divFormName.trim(),
+          description: divFormDesc.trim(),
+          projectIds: divFormProjectIds,
+          userIds: divFormUserIds,
+          emailTemplate: emailTemplatePayload,
+        });
+        if (res.success) {
+          showToast(res.message);
+          setShowDivisionModal(false);
+          await loadAdminData();
+        } else {
+          showToast(res.message, "error");
+        }
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal menyimpan divisi.", "error");
+    } finally {
+      setDivisionSubmitting(false);
+    }
+  };
+
+  const handleDeleteDivision = async (code: string, name: string) => {
+    if (
+      !confirm(
+        `Apakah Anda yakin ingin menghapus Divisi [${code}] "${name}"?\n\nProyek dan User yang terafiliasi dengan divisi ini akan dilepaskan dari kode divisi [${code}].`
+      )
+    )
+      return;
+    try {
+      const res = await deleteDivision(code);
+      if (res.success) {
+        showToast(res.message);
+        await loadAdminData();
+      } else {
+        showToast(res.message, "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Gagal menghapus divisi.", "error");
     }
   };
 
@@ -863,7 +1162,7 @@ export default function AdminSettingsPage() {
             }`}
         >
           <Layers size={18} />
-          <span>Kode Divisi ({MASTER_DIVISIONS.length})</span>
+          <span>Kode Divisi ({divisions.length})</span>
         </button>
 
         <button
@@ -1159,16 +1458,24 @@ export default function AdminSettingsPage() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                 <span>Daftar Master Divisi & Standardisasi Dokumen</span>
                 <span className="px-2.5 py-0.5 text-xs font-mono font-black bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 rounded-lg border border-violet-300 dark:border-violet-800">
                   DIV-YY-XXX
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Setiap proyek terafiliasi dengan divisi di bawah ini. Format penomoran laporan otomatis mengadopsi kode divisi, 2 digit tahun, dan 3 digit nomor urut tahunan.
+                Kelola master divisi (Tambah, Edit, Hapus) serta aplikasikan langsung ke Proyek Konstruksi maupun User / Personil.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={openAddDivisionModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-500 active:scale-95 text-white font-black text-xs shadow-md shadow-violet-500/25 transition-all self-start sm:self-auto"
+            >
+              <Plus size={16} />
+              <span>+ Tambah Divisi Baru</span>
+            </button>
           </div>
 
           {/* Quick Info Box */}
@@ -1178,18 +1485,23 @@ export default function AdminSettingsPage() {
               <span>Ketentuan Penomoran Laporan Patrol Resmi:</span>
             </div>
             <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-mono">
-              <strong>DIV-YY-XXX</strong> &rarr; <span className="text-violet-600 dark:text-violet-400 font-bold">DIV</span>: Kode Divisi (CMD, ME, SQCD, PLAN, JOIN, BM) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">YY</span>: 2 Digit Tahun Tanggal Laporan (e.g. 26) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">XXX</span>: 3 Digit Nomor Urut Tahunan (001, 002, dst, reset setiap pergantian tahun).
+              <strong>DIV-YY-XXX</strong> &rarr; <span className="text-violet-600 dark:text-violet-400 font-bold">DIV</span>: Kode Divisi ({divisions.map((d) => d.code).join(", ")}) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">YY</span>: 2 Digit Tahun Tanggal Laporan (e.g. 26) &bull; <span className="text-violet-600 dark:text-violet-400 font-bold">XXX</span>: 3 Digit Nomor Urut Tahunan (001, 002, dst, reset setiap pergantian tahun).
             </p>
           </div>
 
           {/* Division Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {MASTER_DIVISIONS.map((div, idx) => {
-              const assignedProjects = projects.filter((p) => getDivisionCode(p.division) === div.code);
+            {divisions.map((div, idx) => {
+              const assignedProjects = projects.filter(
+                (p) => Boolean(p.division && getDivisionCode(p.division, divisions) === div.code)
+              );
+              const assignedUsers = users.filter(
+                (u) => Boolean(u.division && getDivisionCode(u.division, divisions) === div.code)
+              );
               return (
                 <div
                   key={div.code}
-                  className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between space-y-4 hover:border-violet-500/50 transition-all"
+                  className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col justify-between space-y-4 hover:border-violet-500/50 transition-all group"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -1201,13 +1513,32 @@ export default function AdminSettingsPage() {
                           <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-md">
                             No. {idx + 1}
                           </span>
+                          <span className="text-[10px] font-mono font-black px-2 py-0.5 bg-violet-50 dark:bg-violet-950/80 text-violet-600 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded-md">
+                            {div.code}-26-001
+                          </span>
                         </div>
                         <h3 className="font-black text-base text-slate-900 dark:text-white mt-2">
                           {div.name}
                         </h3>
                       </div>
-                      <div className="p-2.5 bg-violet-50 dark:bg-violet-950 text-violet-600 rounded-xl shrink-0 font-mono font-black text-xs">
-                        {div.code}-26-001
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openEditDivisionModal(div)}
+                          title={`Edit divisi ${div.name} & kelola afiliasi proyek/user`}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-violet-100 dark:bg-slate-800 dark:hover:bg-violet-900/50 text-slate-600 hover:text-violet-600 dark:text-slate-400 dark:hover:text-violet-400 transition-colors"
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDivision(div.code, div.name)}
+                          title={`Hapus divisi ${div.name}`}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-red-100 dark:bg-slate-800 dark:hover:bg-red-900/50 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
                     </div>
 
@@ -1215,26 +1546,133 @@ export default function AdminSettingsPage() {
                       {div.description}
                     </p>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                      <div className="flex items-center justify-between text-slate-500 mb-1.5 font-bold">
-                        <span>Proyek Terafiliasi:</span>
+                    {/* Proyek Terafiliasi */}
+                    <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-slate-500 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <Building2 size={13} className="text-violet-500" />
+                          <span>Proyek Terafiliasi:</span>
+                        </span>
                         <span className="text-violet-600 dark:text-violet-400">{assignedProjects.length} Proyek</span>
                       </div>
                       {assignedProjects.length === 0 ? (
                         <p className="text-[11px] text-slate-400 italic">Belum ada proyek dengan divisi ini</p>
                       ) : (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                           {assignedProjects.map((p) => (
                             <span
                               key={p.id}
-                              className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded"
+                              className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-md"
                             >
-                              {p.name}
+                              {p.code ? `[${p.code}] ` : ""}{p.name}
                             </span>
                           ))}
                         </div>
                       )}
                     </div>
+
+                    {/* User Terafiliasi */}
+                    <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-slate-500 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <Users size={13} className="text-sky-500" />
+                          <span>User / Personil Terafiliasi:</span>
+                        </span>
+                        <span className="text-sky-600 dark:text-sky-400">{assignedUsers.length} User</span>
+                      </div>
+                      {assignedUsers.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic">Belum ada user dengan home division ini</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                          {assignedUsers.map((u) => (
+                            <span
+                              key={u.id}
+                              className="text-[10px] font-semibold px-2 py-0.5 bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800/80 rounded-md"
+                            >
+                              {u.name} <span className="opacity-70 font-mono">[{u.role}]</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Template Email Laporan Divisi (TO Divisi, CC, BCC) */}
+                    {(() => {
+                      const savedTpl = emailDivisionTemplates[div.code.toUpperCase()];
+                      const hasSavedTpl = Boolean(
+                        savedTpl &&
+                          ((savedTpl.toDivisionRecipients && savedTpl.toDivisionRecipients.length > 0) ||
+                            (savedTpl.toRecipients && savedTpl.toRecipients.length > 0) ||
+                            (savedTpl.ccRecipients && savedTpl.ccRecipients.length > 0) ||
+                            (savedTpl.bccRecipients && savedTpl.bccRecipients.length > 0))
+                      );
+                      const autoTpl = computeAutoDivisionEmailLists(
+                        assignedUsers.map((u) => u.id),
+                        assignedProjects.map((p) => p.id)
+                      );
+                      const effTo = hasSavedTpl
+                        ? savedTpl.toDivisionRecipients || savedTpl.toRecipients || []
+                        : autoTpl.toList;
+                      const effCc = hasSavedTpl ? savedTpl.ccRecipients || [] : autoTpl.ccList;
+                      const effBcc = hasSavedTpl ? savedTpl.bccRecipients || [] : autoTpl.bccList;
+
+                      return (
+                        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-slate-500 font-bold">
+                            <span className="flex items-center gap-1.5">
+                              <Mail size={13} className="text-emerald-500" />
+                              <span>Template Email Laporan:</span>
+                            </span>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-md font-black ${
+                                hasSavedTpl
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300"
+                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                              }`}
+                            >
+                              {hasSavedTpl ? "Tersimpan (Custom)" : "Default Jabatan"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                            <div className="p-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/40 border border-violet-200/70 dark:border-violet-800/60">
+                              <span className="font-black text-violet-700 dark:text-violet-300 block">
+                                TO Divisi ({effTo.length})
+                              </span>
+                              <span className="text-slate-500 dark:text-slate-400 truncate block" title={effTo.join(", ")}>
+                                {effTo.length > 0 ? effTo.join(", ") : "-"}
+                              </span>
+                            </div>
+                            <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-800/60">
+                              <span className="font-black text-amber-700 dark:text-amber-300 block">
+                                CC ({effCc.length})
+                              </span>
+                              <span className="text-slate-500 dark:text-slate-400 truncate block" title={effCc.join(", ")}>
+                                {effCc.length > 0 ? effCc.join(", ") : "-"}
+                              </span>
+                            </div>
+                            <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                              <span className="font-black text-slate-700 dark:text-slate-300 block">
+                                BCC ({effBcc.length})
+                              </span>
+                              <span className="text-slate-500 dark:text-slate-400 truncate block" title={effBcc.join(", ")}>
+                                {effBcc.length > 0 ? effBcc.join(", ") : "-"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditDivisionModal(div)}
+                      className="flex-1 py-2 px-3 bg-slate-100 hover:bg-violet-600 hover:text-white dark:bg-slate-800 dark:hover:bg-violet-600 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Edit3 size={13} />
+                      <span>Edit Divisi, Proyek, User & Email</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -2160,7 +2598,7 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="">-- Pilih Kode Divisi Resmi --</option>
-                  {MASTER_DIVISIONS.map((div) => (
+                  {divisions.map((div) => (
                     <option key={div.code} value={div.code}>
                       [{div.code}] {div.name}
                     </option>
@@ -2312,7 +2750,7 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="">-- Belum Ditentukan / Tidak Ada Divisi --</option>
-                  {MASTER_DIVISIONS.map((div) => (
+                  {divisions.map((div) => (
                     <option key={div.code} value={div.code}>
                       [{div.code}] {div.name}
                     </option>
@@ -2501,7 +2939,12 @@ export default function AdminSettingsPage() {
                   </label>
                   <select
                     value={selectedExistingUserId}
-                    onChange={(e) => setSelectedExistingUserId(e.target.value)}
+                    onChange={(e) => {
+                      const uid = e.target.value;
+                      setSelectedExistingUserId(uid);
+                      const found = users.find((u) => u.id === uid);
+                      if (found?.division) setNewPicDivision(found.division);
+                    }}
                     required
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                   >
@@ -2515,11 +2958,29 @@ export default function AdminSettingsPage() {
                           (u.projectIds && u.projectIds.includes(newPicProjectId));
                         return (
                           <option key={u.id} value={u.id}>
-                            {u.name} ({u.email}) — [{u.role}]
+                            {u.name} ({u.email}) — [{u.role}]{u.division ? ` • Div: ${u.division}` : ""}
                             {isAlreadyAssigned ? " ✓ (Sudah di proyek ini)" : ""}
                           </option>
                         );
                       })}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Divisi Pengguna (Opsional)
+                  </label>
+                  <select
+                    value={newPicDivision}
+                    onChange={(e) => setNewPicDivision(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- Tetap / Ikuti Divisi Proyek --</option>
+                    {divisions.map((div) => (
+                      <option key={div.code} value={div.code}>
+                        [{div.code}] {div.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -2646,17 +3107,37 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Password Akun
-                  </label>
-                  <input
-                    type="text"
-                    value={newPicPassword}
-                    onChange={(e) => setNewPicPassword(e.target.value)}
-                    placeholder="Default: 123"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Divisi Pengguna (Opsional)
+                    </label>
+                    <select
+                      value={newPicDivision}
+                      onChange={(e) => setNewPicDivision(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                    >
+                      <option value="">-- Ikuti Divisi Proyek --</option>
+                      {divisions.map((div) => (
+                        <option key={div.code} value={div.code}>
+                          [{div.code}] {div.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Password Akun
+                    </label>
+                    <input
+                      type="text"
+                      value={newPicPassword}
+                      onChange={(e) => setNewPicPassword(e.target.value)}
+                      placeholder="Default: 123"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-2.5 pt-3">
@@ -2885,7 +3366,7 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
                 >
                   <option value="">-- Ikuti Divisi Proyek (Default) --</option>
-                  {MASTER_DIVISIONS.map((d) => (
+                  {divisions.map((d) => (
                     <option key={d.code} value={d.code}>
                       {d.code} - {d.name}
                     </option>
@@ -3358,6 +3839,436 @@ export default function AdminSettingsPage() {
                 >
                   {categorySubmitting && <RefreshCw size={14} className="animate-spin" />}
                   <span>{categoryModalMode === "ADD" ? "Simpan Kategori Baru" : "Simpan Perubahan"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TAMBAH / EDIT DIVISI & AFILIASI PROYEK + USER + TEMPLATE EMAIL */}
+      {showDivisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 max-w-3xl w-full shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 rounded-2xl">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    {divisionModalMode === "ADD"
+                      ? "Tambah Master Divisi Baru & Template Email"
+                      : `Edit Divisi [${editingDivisionOrigCode}] & Template Email Laporan`}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Konfigurasi kode divisi, afiliasi Proyek & User, serta daftar default penerima Email Laporan (TO Divisi, CC, BCC).
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDivisionModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDivision} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Kode Divisi */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Kode Divisi <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={divFormCode}
+                    onChange={(e) =>
+                      setDivFormCode(
+                        e.target.value
+                          .toUpperCase()
+                          .replace(/\s+/g, "_")
+                          .replace(/[^A-Z0-9_-]/g, "")
+                      )
+                    }
+                    placeholder="Contoh: CMD, ME, INFRA"
+                    maxLength={12}
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-mono font-black text-violet-600 dark:text-violet-400 uppercase focus:outline-none focus:border-violet-500"
+                  />
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Format laporan: <strong>{divFormCode || "DIV"}-26-001</strong>
+                  </p>
+                </div>
+
+                {/* Nama Lengkap Divisi */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Nama Lengkap Divisi <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={divFormName}
+                    onChange={(e) => setDivFormName(e.target.value)}
+                    placeholder="Contoh: Infrastructure & Civil Engineering Division"
+                    required
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+              </div>
+
+              {/* Deskripsi Divisi */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Deskripsi Tugas / Ruang Lingkup Divisi
+                </label>
+                <textarea
+                  value={divFormDesc}
+                  onChange={(e) => setDivFormDesc(e.target.value)}
+                  rows={2}
+                  placeholder="Tuliskan deskripsi tugas dan cakupan operasional divisi ini..."
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500 resize-none"
+                />
+              </div>
+
+              {/* Aplikasikan ke Proyek & User */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {/* Checklist Proyek */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Building2 size={14} className="text-violet-600" />
+                      <span>Aplikasikan ke Proyek ({divFormProjectIds.length})</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (divFormProjectIds.length === projects.length) {
+                          setDivFormProjectIds([]);
+                        } else {
+                          setDivFormProjectIds(projects.map((p) => p.id));
+                        }
+                      }}
+                      className="text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:underline"
+                    >
+                      {divFormProjectIds.length === projects.length ? "Reset Pilihan" : "Pilih Semua"}
+                    </button>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl max-h-52 overflow-y-auto space-y-1.5">
+                    {projects.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic p-2 text-center">Belum ada proyek terdaftar</p>
+                    ) : (
+                      projects.map((p) => {
+                        const checked = divFormProjectIds.includes(p.id);
+                        const currentDiv = p.division ? getDivisionCode(p.division, divisions) : null;
+                        return (
+                          <label
+                            key={p.id}
+                            className={`flex items-start gap-2.5 p-2 rounded-xl border text-xs cursor-pointer transition-all ${checked
+                                ? "bg-violet-50 dark:bg-violet-950/50 border-violet-300 dark:border-violet-700 text-violet-900 dark:text-violet-200"
+                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-violet-300"
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleDivProjectSelection(p.id)}
+                              className="mt-0.5 accent-violet-600 rounded"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold truncate">
+                                {p.code ? `[${p.code}] ` : ""}{p.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500 truncate">
+                                {p.location} {currentDiv ? `• Divisi saat ini: ${currentDiv}` : "• Tanpa divisi"}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Checklist User + Posisi Email Default */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Users size={14} className="text-sky-600" />
+                      <span>Aplikasikan ke User & Posisi Email ({divFormUserIds.length})</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (divFormUserIds.length === users.length) {
+                          setDivFormUserIds([]);
+                        } else {
+                          setDivFormUserIds(users.map((u) => u.id));
+                        }
+                      }}
+                      className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                    >
+                      {divFormUserIds.length === users.length ? "Reset Pilihan" : "Pilih Semua"}
+                    </button>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl max-h-52 overflow-y-auto space-y-1.5">
+                    {users.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic p-2 text-center">Belum ada user terdaftar</p>
+                    ) : (
+                      users.map((u) => {
+                        const checked = divFormUserIds.includes(u.id);
+                        const currentDiv = u.division ? getDivisionCode(u.division, divisions) : null;
+                        const emailBucket = getUserEmailBucketInModal(u.email);
+                        return (
+                          <div
+                            key={u.id}
+                            className={`flex items-center justify-between gap-2 p-2 rounded-xl border text-xs transition-all ${checked
+                                ? "bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 text-sky-900 dark:text-sky-200"
+                                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-sky-300"
+                              }`}
+                          >
+                            <label className="flex items-start gap-2 min-w-0 flex-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleDivUserSelection(u.id)}
+                                className="mt-0.5 accent-sky-600 rounded"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold truncate">
+                                  {u.name} <span className="font-mono text-[10px] opacity-75">[{u.role}]</span>
+                                </p>
+                                <p className="text-[10px] text-slate-500 truncate">
+                                  {u.email} {currentDiv ? `• Div: ${currentDiv}` : "• Default proyek"}
+                                </p>
+                              </div>
+                            </label>
+
+                            {/* Selector Posisi Email Laporan untuk User Ini */}
+                            <select
+                              value={emailBucket}
+                              onChange={(e) =>
+                                setUserEmailBucketInModal(
+                                  u.email,
+                                  e.target.value as "TO_DIV" | "CC" | "BCC" | "NONE"
+                                )
+                              }
+                              title="Atur posisi default user ini pada template kirim email laporan divisi"
+                              className={`px-2 py-1 rounded-lg text-[10px] font-black border shrink-0 focus:outline-none ${
+                                emailBucket === "TO_DIV"
+                                  ? "bg-violet-600 text-white border-violet-600"
+                                  : emailBucket === "CC"
+                                  ? "bg-amber-500 text-white border-amber-500"
+                                  : emailBucket === "BCC"
+                                  ? "bg-slate-700 text-white border-slate-700"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+                              }`}
+                            >
+                              <option value="NONE">- Non-Email -</option>
+                              <option value="TO_DIV">TO Divisi</option>
+                              <option value="CC">CC</option>
+                              <option value="BCC">BCC</option>
+                            </select>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION: TEMPLATE DISTRIBUSI EMAIL LAPORAN DIVISI (TO DIVISI, CC, BCC) */}
+              <div className="p-4 bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/30 dark:from-slate-800/70 dark:via-violet-950/20 dark:to-slate-900 border border-violet-200 dark:border-violet-800/70 rounded-2xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Mail size={15} className="text-violet-600 dark:text-violet-400" />
+                      <span>
+                        Template Default Penerima Email Laporan Divisi [{divFormCode || "DIV"}]
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Saat memilih divisi <strong>{divFormCode || "ini"}</strong> di halaman Kirim Laporan, daftar <strong>TO Divisi</strong>, <strong>CC</strong>, dan <strong>BCC</strong> di bawah ini akan otomatis terisi.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoSetDivisionEmails}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-100 hover:bg-violet-600 text-violet-700 hover:text-white dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-600 dark:hover:text-white rounded-xl text-[11px] font-black border border-violet-300 dark:border-violet-700 transition-all shrink-0 self-start sm:self-auto"
+                    title="Isi otomatis: CMD/SC/DM/DH -> TO Divisi, GM/BOD -> CC, Advisor -> BCC"
+                  >
+                    <Sparkles size={13} />
+                    <span>Auto-Set Sesuai Jabatan Atasan</span>
+                  </button>
+                </div>
+
+                {/* 3 Bucket Cards: TO Divisi, CC, BCC */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* TO Divisi */}
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-violet-200 dark:border-violet-800/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-violet-700 dark:text-violet-300">
+                        1. TO Divisi ({divFormToEmails.length})
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">SC / DM / DH / CMD</span>
+                    </div>
+                    {divFormToEmails.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">Belum ada penerima TO Divisi</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                        {divFormToEmails.map((em) => {
+                          const uObj = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-50 dark:bg-violet-950/80 text-violet-800 dark:text-violet-200 border border-violet-200 dark:border-violet-800 rounded-md text-[10px] font-semibold"
+                            >
+                              <span className="truncate max-w-[140px]">
+                                {uObj ? `${uObj.name} [${uObj.role}]` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setUserEmailBucketInModal(em, "NONE")}
+                                className="text-violet-400 hover:text-red-500 font-bold ml-0.5"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CC (Tembusan) */}
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-amber-700 dark:text-amber-300">
+                        2. CC Tembusan ({divFormCcEmails.length})
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">GM Divisi / BOD</span>
+                    </div>
+                    {divFormCcEmails.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">Belum ada penerima CC</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                        {divFormCcEmails.map((em) => {
+                          const uObj = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-md text-[10px] font-semibold"
+                            >
+                              <span className="truncate max-w-[140px]">
+                                {uObj ? `${uObj.name} [${uObj.role}]` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setUserEmailBucketInModal(em, "NONE")}
+                                className="text-amber-400 hover:text-red-500 font-bold ml-0.5"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BCC */}
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">
+                        3. BCC ({divFormBccEmails.length})
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">Advisor / Auditor</span>
+                    </div>
+                    {divFormBccEmails.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 italic">Belum ada penerima BCC</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                        {divFormBccEmails.map((em) => {
+                          const uObj = users.find((u) => u.email.toLowerCase() === em.toLowerCase());
+                          return (
+                            <span
+                              key={em}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-md text-[10px] font-semibold"
+                            >
+                              <span className="truncate max-w-[140px]">
+                                {uObj ? `${uObj.name} [${uObj.role}]` : em}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setUserEmailBucketInModal(em, "NONE")}
+                                className="text-slate-400 hover:text-red-500 font-bold ml-0.5"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tambah Email Manual / Eksternal ke Template Divisi */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <select
+                    value={divCustomEmailTarget}
+                    onChange={(e) => setDivCustomEmailTarget(e.target.value as "TO_DIV" | "CC" | "BCC")}
+                    className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="TO_DIV">Tambah ke: TO Divisi</option>
+                    <option value="CC">Tambah ke: CC</option>
+                    <option value="BCC">Tambah ke: BCC</option>
+                  </select>
+                  <input
+                    type="email"
+                    value={divCustomEmailInput}
+                    onChange={(e) => setDivCustomEmailInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomDivisionEmail();
+                      }
+                    }}
+                    placeholder="Ketik email tambahan / milis divisi (misal: me-team@perusahaan.com)..."
+                    className="flex-1 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomDivisionEmail}
+                    className="px-4 py-2 bg-slate-900 hover:bg-violet-600 dark:bg-slate-800 dark:hover:bg-violet-600 text-white font-bold text-xs rounded-xl transition-all shrink-0"
+                  >
+                    + Tambah Email
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowDivisionModal(false)}
+                  disabled={divisionSubmitting}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={divisionSubmitting || !divFormCode.trim() || !divFormName.trim()}
+                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-black text-xs rounded-xl shadow-md shadow-violet-500/25 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {divisionSubmitting && <RefreshCw size={14} className="animate-spin" />}
+                  <span>
+                    {divisionModalMode === "ADD"
+                      ? "Simpan Divisi & Template Email"
+                      : "Simpan Perubahan Divisi & Email"}
+                  </span>
                 </button>
               </div>
             </form>

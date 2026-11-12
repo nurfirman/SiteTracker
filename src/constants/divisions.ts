@@ -3,6 +3,7 @@ export interface DivisionConfig {
   name: string;
   description?: string;
   color?: string;
+  isCustom?: boolean;
 }
 
 export const MASTER_DIVISIONS: DivisionConfig[] = [
@@ -45,32 +46,54 @@ export const MASTER_DIVISIONS: DivisionConfig[] = [
 ];
 
 /**
- * Normalisasi string input divisi (baik berupa kode "CMD" maupun nama lengkap atau legacy string)
- * menjadi kode divisi standar ("CMD", "ME", "SQCD", "PLAN", "JOIN", "BM").
- * Default fallback adalah "CMD".
+ * Normalisasi string input divisi (baik berupa kode "CMD" maupun nama lengkap atau kode divisi kustom)
+ * menjadi kode divisi standar. Default fallback adalah "CMD".
  */
-export function getDivisionCode(rawDivision?: string | null): string {
+export function getDivisionCode(
+  rawDivision?: string | null,
+  divisionsList: DivisionConfig[] = MASTER_DIVISIONS
+): string {
   if (!rawDivision || !rawDivision.trim()) return "CMD";
   const clean = rawDivision.trim().toUpperCase();
 
-  // 1. Cek kecocokan kode langsung
-  const matchByCode = MASTER_DIVISIONS.find((d) => d.code === clean);
-  if (matchByCode) return matchByCode.code;
+  const allDivisions =
+    divisionsList && divisionsList.length > 0 ? divisionsList : MASTER_DIVISIONS;
 
-  // 2. Cek apakah awalan mengandung kode (e.g. "CMD - Construction..." atau "ME (Mechanical)")
-  for (const div of MASTER_DIVISIONS) {
+  // 1. Cek kecocokan kode langsung pada daftar divisi aktif maupun master
+  const matchByCode =
+    allDivisions.find((d) => d.code.toUpperCase() === clean) ||
+    MASTER_DIVISIONS.find((d) => d.code.toUpperCase() === clean);
+  if (matchByCode) return matchByCode.code.toUpperCase();
+
+  // 2. Cek apakah awalan mengandung kode (e.g. "CMD - Construction..." atau "[ME] Mechanical")
+  const bracketMatch = clean.match(/^\[([A-Z0-9_-]{2,12})\]/);
+  if (bracketMatch) return bracketMatch[1];
+
+  for (const div of allDivisions) {
+    const c = div.code.toUpperCase();
     if (
-      clean.startsWith(div.code + " ") ||
-      clean.startsWith(div.code + "-") ||
-      clean.startsWith(div.code + "/") ||
-      clean.startsWith(div.code + ":") ||
-      clean.startsWith(div.code + "(")
+      clean.startsWith(c + " ") ||
+      clean.startsWith(c + "-") ||
+      clean.startsWith(c + "/") ||
+      clean.startsWith(c + ":") ||
+      clean.startsWith(c + "(")
     ) {
-      return div.code;
+      return c;
     }
   }
 
-  // 3. Cek kecocokan substring nama divisi
+  // 3. Cek kecocokan nama divisi pada daftar divisi aktif
+  const matchByName = allDivisions.find(
+    (d) => d.name && d.name.trim().toUpperCase() === clean
+  );
+  if (matchByName) return matchByName.code.toUpperCase();
+
+  // 4. Jika input sudah berupa kode pendek valid (2-12 karakter huruf/angka tanpa spasi, misal divisi baru hasil CRUD)
+  if (/^[A-Z0-9_-]{2,12}$/.test(clean)) {
+    return clean;
+  }
+
+  // 5. Cek kecocokan substring nama divisi standar
   if (clean.includes("MECHANICAL") || clean.includes("ELEKTRONIK") || clean.includes("LISTRIK")) return "ME";
   if (clean.includes("SAFETY") || clean.includes("QUALITY") || clean.includes("MUTU") || clean.includes("K3")) return "SQCD";
   if (clean.includes("PLANT") || clean.includes("PABRIK") || clean.includes("BATCHING")) return "PLAN";
@@ -93,7 +116,7 @@ export function formatReportDocNumber(
   sequenceNumber: number = 1
 ): string {
   const code = getDivisionCode(divisionCode);
-  
+
   let yearTwoDigits = "26";
   if (typeof date === "string" && date.trim()) {
     const parts = date.split("-");
