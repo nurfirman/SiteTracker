@@ -605,7 +605,7 @@ export default function AdminSettingsPage() {
     setEditingDivisionOrigCode(div.code);
     setDivFormCode(div.code);
     setDivFormName(div.name);
-    setDivFormDesc(div.description);
+    setDivFormDesc(div.description || "");
     const matchingProjIds = projects
       .filter((p) => Boolean(p.division && getDivisionCode(p.division, divisions) === div.code))
       .map((p) => p.id);
